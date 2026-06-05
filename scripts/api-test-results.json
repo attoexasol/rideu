@@ -1,0 +1,378 @@
+﻿{
+  "timestamp": "2026-06-04T18:29:20.816Z",
+  "baseUrl": "http://localhost:3000",
+  "total": 37,
+  "passed": 36,
+  "failed": 1,
+  "passRate": "97%",
+  "avgLatencyMs": 18,
+  "testData": {
+    "superAdmin": "info@coronadolivery.com",
+    "admin": "louisxsheid@gmail.com",
+    "driver": {
+      "id": "f1f18b68-0c21-412d-a752-79ad4b2f6a24",
+      "name": "Ibrahim Golis"
+    }
+  },
+  "results": [
+    {
+      "method": "GET",
+      "path": "/",
+      "category": "System",
+      "auth": "none",
+      "status": 200,
+      "pass": true,
+      "latencyMs": 30
+    },
+    {
+      "method": "GET",
+      "path": "/health",
+      "category": "System",
+      "auth": "none",
+      "status": 200,
+      "pass": true,
+      "latencyMs": 43
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/me",
+      "category": "Auth",
+      "auth": "none",
+      "status": 401,
+      "pass": true,
+      "latencyMs": 2,
+      "note": "Should reject unauthenticated",
+      "errorCode": "AUTH_FAILED"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/login",
+      "category": "Auth",
+      "auth": "none",
+      "status": 400,
+      "pass": true,
+      "latencyMs": 14,
+      "note": "Missing auth0Token",
+      "errorCode": "VALIDATION_ERROR"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/refresh",
+      "category": "Auth",
+      "auth": "none",
+      "status": 400,
+      "pass": true,
+      "latencyMs": 2,
+      "note": "Missing refreshToken",
+      "errorCode": "VALIDATION_ERROR"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/refresh",
+      "category": "Auth",
+      "auth": "none",
+      "status": 401,
+      "pass": true,
+      "latencyMs": 2,
+      "note": "Invalid refresh token",
+      "errorCode": "AUTH_FAILED"
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/me",
+      "category": "Auth",
+      "auth": "super_admin",
+      "status": 200,
+      "pass": true,
+      "latencyMs": 8
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/validate-session",
+      "category": "Auth",
+      "auth": "super_admin",
+      "status": 200,
+      "pass": true,
+      "latencyMs": 8
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/logout",
+      "category": "Auth",
+      "auth": "super_admin",
+      "status": 200,
+      "pass": true,
+      "latencyMs": 4
+    },
+    {
+      "method": "GET",
+      "path": "/api/drivers",
+      "category": "Drivers",
+      "auth": "none",
+      "status": 401,
+      "pass": true,
+      "latencyMs": 1,
+      "errorCode": "AUTH_FAILED"
+    },
+    {
+      "method": "GET",
+      "path": "/api/drivers",
+      "category": "Drivers",
+      "auth": "driver",
+      "status": 403,
+      "pass": true,
+      "latencyMs": 2,
+      "note": "Driver cannot list all",
+      "errorCode": "UNAUTHORIZED"
+    },
+    {
+      "method": "GET",
+      "path": "/api/drivers",
+      "category": "Drivers",
+      "auth": "super_admin",
+      "status": 200,
+      "pass": true,
+      "latencyMs": 11
+    },
+    {
+      "method": "GET",
+      "path": "/api/drivers/f1f18b68-0c21-412d-a752-79ad4b2f6a24",
+      "category": "Drivers",
+      "auth": "super_admin",
+      "status": 200,
+      "pass": true,
+      "latencyMs": 8
+    },
+    {
+      "method": "GET",
+      "path": "/api/drivers/me",
+      "category": "Drivers",
+      "auth": "driver",
+      "status": 200,
+      "pass": true,
+      "latencyMs": 4
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/drivers/f1f18b68-0c21-412d-a752-79ad4b2f6a24/status",
+      "category": "Drivers",
+      "auth": "driver",
+      "status": 200,
+      "pass": true,
+      "latencyMs": 14
+    },
+    {
+      "method": "POST",
+      "path": "/api/drivers",
+      "category": "Drivers",
+      "auth": "driver",
+      "status": 403,
+      "pass": true,
+      "latencyMs": 1,
+      "errorCode": "UNAUTHORIZED"
+    },
+    {
+      "method": "POST",
+      "path": "/api/drivers",
+      "category": "Drivers",
+      "auth": "super_admin",
+      "status": 400,
+      "pass": true,
+      "latencyMs": 2,
+      "note": "Validation error",
+      "errorCode": "VALIDATION_ERROR"
+    },
+    {
+      "method": "GET",
+      "path": "/api/locations/active",
+      "category": "Locations",
+      "auth": "super_admin",
+      "status": 200,
+      "pass": true,
+      "latencyMs": 264
+    },
+    {
+      "method": "GET",
+      "path": "/api/locations/f1f18b68-0c21-412d-a752-79ad4b2f6a24",
+      "category": "Locations",
+      "auth": "super_admin",
+      "status": 200,
+      "pass": true,
+      "latencyMs": 9
+    },
+    {
+      "method": "GET",
+      "path": "/api/locations/f1f18b68-0c21-412d-a752-79ad4b2f6a24/today",
+      "category": "Locations",
+      "auth": "super_admin",
+      "status": 200,
+      "pass": true,
+      "latencyMs": 14
+    },
+    {
+      "method": "POST",
+      "path": "/api/locations",
+      "category": "Locations",
+      "auth": "super_admin",
+      "status": 403,
+      "pass": true,
+      "latencyMs": 6,
+      "note": "Admin cannot submit location",
+      "errorCode": "UNAUTHORIZED"
+    },
+    {
+      "method": "POST",
+      "path": "/api/locations",
+      "category": "Locations",
+      "auth": "driver",
+      "status": 201,
+      "pass": true,
+      "latencyMs": 42
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/locations/cleanup",
+      "category": "Locations",
+      "auth": "driver",
+      "status": 403,
+      "pass": true,
+      "latencyMs": 2,
+      "errorCode": "UNAUTHORIZED"
+    },
+    {
+      "method": "GET",
+      "path": "/api/trips/me",
+      "category": "Trips",
+      "auth": "driver",
+      "status": 200,
+      "pass": true,
+      "latencyMs": 11
+    },
+    {
+      "method": "GET",
+      "path": "/api/trips/f1f18b68-0c21-412d-a752-79ad4b2f6a24",
+      "category": "Trips",
+      "auth": "super_admin",
+      "status": 200,
+      "pass": true,
+      "latencyMs": 12
+    },
+    {
+      "method": "POST",
+      "path": "/api/trips",
+      "category": "Trips",
+      "auth": "driver",
+      "status": 201,
+      "pass": true,
+      "latencyMs": 17
+    },
+    {
+      "method": "GET",
+      "path": "/api/reports/fleet",
+      "category": "Reports",
+      "auth": "super_admin",
+      "status": 200,
+      "pass": true,
+      "latencyMs": 66
+    },
+    {
+      "method": "GET",
+      "path": "/api/reports/driver/f1f18b68-0c21-412d-a752-79ad4b2f6a24",
+      "category": "Reports",
+      "auth": "super_admin",
+      "status": 200,
+      "pass": true,
+      "latencyMs": 8
+    },
+    {
+      "method": "GET",
+      "path": "/api/reports/export",
+      "category": "Reports",
+      "auth": "super_admin",
+      "status": 200,
+      "pass": true,
+      "latencyMs": 4
+    },
+    {
+      "method": "GET",
+      "path": "/api/reports/export",
+      "category": "Reports",
+      "auth": "driver",
+      "status": 403,
+      "pass": true,
+      "latencyMs": 2,
+      "errorCode": "UNAUTHORIZED"
+    },
+    {
+      "method": "GET",
+      "path": "/api/reports/export",
+      "category": "Reports",
+      "auth": "super_admin",
+      "status": 200,
+      "pass": false,
+      "latencyMs": 7,
+      "note": "PDF not implemented"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/users",
+      "category": "Admin",
+      "auth": "super_admin",
+      "status": 200,
+      "pass": true,
+      "latencyMs": 10
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/users",
+      "category": "Admin",
+      "auth": "driver",
+      "status": 403,
+      "pass": true,
+      "latencyMs": 2,
+      "errorCode": "UNAUTHORIZED"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/users",
+      "category": "Admin",
+      "auth": "admin",
+      "status": 400,
+      "pass": true,
+      "latencyMs": 2,
+      "note": "Validation",
+      "errorCode": "ERROR"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/admin/users/8ef163ab-8231-4fd8-80bf-a62a3a9f5f16/role",
+      "category": "Admin",
+      "auth": "admin",
+      "status": 403,
+      "pass": true,
+      "latencyMs": 2,
+      "note": "Only super_admin",
+      "errorCode": "UNAUTHORIZED"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/admin/users/8ef163ab-8231-4fd8-80bf-a62a3a9f5f16/role",
+      "category": "Admin",
+      "auth": "super_admin",
+      "status": 200,
+      "pass": true,
+      "latencyMs": 13,
+      "note": "Role change rules"
+    },
+    {
+      "method": "GET",
+      "path": "/api/nonexistent",
+      "category": "System",
+      "auth": "none",
+      "status": 404,
+      "pass": true,
+      "latencyMs": 1,
+      "errorCode": "NOT_FOUND"
+    }
+  ]
+}

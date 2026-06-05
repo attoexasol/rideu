@@ -1,0 +1,34 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1760352538799,
+      "tag": "0000_redundant_deathbird",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1760612251147,
+      "tag": "0001_flawless_preak",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1760956076377,
+      "tag": "0002_friendly_ultimatum",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1760956479113,
+      "tag": "0003_steep_lorna_dane",
+      "breakpoints": true
+    }
+  ]
+}
