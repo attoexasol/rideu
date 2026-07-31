@@ -15,6 +15,14 @@ import { db } from '../../db/connection';
 import { drivers, adminUsers } from '../../db/schema';
 import { eq, and, ilike, or, sql } from 'drizzle-orm';
 import { asyncHandler } from '../../middleware/error-handler';
+import { logAndNormalizeCabIdentifier } from '../../middleware/normalizeCabIdentifier';
+import {
+  isCabFieldType,
+  normalizeCabIdentifierInput,
+  resolveCabFieldsForInsert,
+} from '../../utils/cabIdentifier';
+import { generateUniqueDriverQrCode } from '../../services/driverQrCode.service';
+import { ensureDriverVehicleQrCode } from '../../services/vehicleQrCode.service';
 
 const router = express.Router();
 
@@ -36,7 +44,7 @@ router.get(
 
     // Get role filter and search query
     const roleFilter = req.query.role as string | undefined;
-    const search = (req.query.search as string || '').trim();
+    const search = ((req.query.search as string) || '').trim();
     const searchPattern = search ? `%${search}%` : null;
 
     let allUsers: any[] = [];
@@ -52,14 +60,16 @@ router.get(
       : undefined;
 
     // Helper: build admin role filter condition
-    const adminRoleCondition = roleFilter === 'admin' || roleFilter === 'super_admin'
-      ? eq(adminUsers.role, roleFilter)
-      : undefined;
+    const adminRoleCondition =
+      roleFilter === 'admin' || roleFilter === 'super_admin'
+        ? eq(adminUsers.role, roleFilter)
+        : undefined;
 
     // Combine admin conditions (search + role)
-    const adminWhereCondition = adminRoleCondition && adminSearchCondition
-      ? and(adminRoleCondition, adminSearchCondition)
-      : adminRoleCondition || adminSearchCondition || undefined;
+    const adminWhereCondition =
+      adminRoleCondition && adminSearchCondition
+        ? and(adminRoleCondition, adminSearchCondition)
+        : adminRoleCondition || adminSearchCondition || undefined;
 
     const mapDriver = (d: any) => ({
       id: d.id,
@@ -71,6 +81,8 @@ router.get(
       status: d.status,
       cabName: d.cabName,
       cabNumber: d.cabNumber,
+      cabLicence: d.cabLicence,
+      qrCode: d.qrCode,
       vehicleMake: d.vehicleMake,
       vehicleModel: d.vehicleModel,
       vehicleYear: d.vehicleYear,
@@ -100,7 +112,10 @@ router.get(
 
     const countDrivers = () =>
       driverSearchCondition
-        ? db.select({ count: sql<number>`count(*)` }).from(drivers).where(driverSearchCondition)
+        ? db
+            .select({ count: sql<number>`count(*)` })
+            .from(drivers)
+            .where(driverSearchCondition)
         : db.select({ count: sql<number>`count(*)` }).from(drivers);
 
     // Helper to query admins with optional search + role filter
@@ -111,12 +126,19 @@ router.get(
 
     const countAdmins = () =>
       adminWhereCondition
-        ? db.select({ count: sql<number>`count(*)` }).from(adminUsers).where(adminWhereCondition)
+        ? db
+            .select({ count: sql<number>`count(*)` })
+            .from(adminUsers)
+            .where(adminWhereCondition)
         : db.select({ count: sql<number>`count(*)` }).from(adminUsers);
 
     // Debug logging
-    console.log(`[GET /admin/users] role=${roleFilter}, search=${search}, page=${page}, limit=${limit}`);
-    console.log(`[GET /admin/users] includeDrivers=${includeDrivers}, includeAdmins=${includeAdmins}`);
+    console.log(
+      `[GET /admin/users] role=${roleFilter}, search=${search}, page=${page}, limit=${limit}`
+    );
+    console.log(
+      `[GET /admin/users] includeDrivers=${includeDrivers}, includeAdmins=${includeAdmins}`
+    );
 
     // Get counts first (needed for correct cross-table pagination)
     let driverTotal = 0;
@@ -187,10 +209,60 @@ router.post(
   '/',
   verifyJWT,
   extractUserInfo,
-  requireAdmin, // Changed to allow both admins and super admins
+  requireAdmin,
+  logAndNormalizeCabIdentifier,
   asyncHandler(async (req: Request, res: Response) => {
-    const { email, password, role, name, phone, cabName, cabNumber, vehicleMake, vehicleModel, vehicleYear, vehicleColor } = req.body;
-    const userRole = (req as any).user?.role; // Get the requesting user's role
+    console.log('REQUEST BODY (admin create):', req.body);
+
+    const {
+      email,
+      password,
+      role,
+      name,
+      phone,
+      cabName,
+      vehicleMake,
+      vehicleModel,
+      vehicleYear,
+      vehicleColor,
+    } = req.body;
+    const userRole = (req as any).user?.role;
+
+    const cabNormalized = normalizeCabIdentifierInput(req.body);
+
+    // Validate cab identifier when any cab-related field was sent
+    const hasCabPayload = Boolean(
+      req.body.cabFieldType ||
+        req.body.cabValue !== undefined ||
+        req.body.cabLicence ||
+        req.body.cab_licence ||
+        req.body.cabNumber ||
+        req.body.cab_number ||
+        req.body.fieldType ||
+        req.body.value
+    );
+
+    if (hasCabPayload) {
+      if (!cabNormalized.cabFieldType || !cabNormalized.cabValue) {
+        return res.status(400).json({
+          status: 'error',
+          message:
+            'Invalid cab identifier. Use cabFieldType + cabValue, or cabLicence, or cabNumber.',
+        });
+      }
+      if (!isCabFieldType(cabNormalized.cabFieldType)) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'cabFieldType must be cab_number or cab_licence',
+        });
+      }
+      if (cabNormalized.cabValue.length > 100) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'Cab value must be 100 characters or less',
+        });
+      }
+    }
 
     // Validate required fields
     if (!email || !password || !role || !name) {
@@ -212,7 +284,8 @@ router.post(
     if (userRole === 'admin' && role !== 'driver') {
       return res.status(403).json({
         status: 'error',
-        message: 'Admins can only create driver accounts. Contact a super admin to create admin accounts.',
+        message:
+          'Admins can only create driver accounts. Contact a super admin to create admin accounts.',
       });
     }
 
@@ -248,7 +321,8 @@ router.post(
 
           return res.status(500).json({
             status: 'error',
-            message: 'Auth0 Management API is not configured. Please contact your administrator to set up AUTH0_MANAGEMENT_CLIENT_ID and AUTH0_MANAGEMENT_CLIENT_SECRET.',
+            message:
+              'Auth0 Management API is not configured. Please contact your administrator to set up AUTH0_MANAGEMENT_CLIENT_ID and AUTH0_MANAGEMENT_CLIENT_SECRET.',
           });
         }
 
@@ -264,23 +338,44 @@ router.post(
       let dbUser: any;
 
       if (role === 'driver') {
-        // Create in drivers table
+        const { cabNumber: resolvedCabNumber, cabLicence } = resolveCabFieldsForInsert(req.body);
+
+        const insertValues = {
+          auth0Id: auth0UserId,
+          email,
+          name,
+          phone: phone || '',
+          status: 'offline' as const,
+          cabName: cabName || null,
+          cabNumber: resolvedCabNumber,
+          cabLicence,
+          vehicleMake: vehicleMake || null,
+          vehicleModel: vehicleModel || null,
+          vehicleYear: vehicleYear || null,
+          vehicleColor: vehicleColor || null,
+        };
+
+        console.log('INSERT cab fields (admin):', {
+          cabFieldType: cabNormalized.cabFieldType,
+          cabValue: cabNormalized.cabValue,
+          cabNumber: insertValues.cabNumber,
+          cabLicence: insertValues.cabLicence,
+        });
+
+        const qrCode = await generateUniqueDriverQrCode();
+
         const [newDriver] = await db
           .insert(drivers)
-          .values({
-            auth0Id: auth0UserId,
-            email,
-            name,
-            phone: phone || '',
-            status: 'offline',
-            cabName: cabName || null,
-            cabNumber: cabNumber || null,
-            vehicleMake: vehicleMake || null,
-            vehicleModel: vehicleModel || null,
-            vehicleYear: vehicleYear || null,
-            vehicleColor: vehicleColor || null,
-          })
+          .values({ ...insertValues, qrCode })
           .returning();
+
+        await ensureDriverVehicleQrCode(newDriver.id);
+
+        console.log('✅ Driver created (admin):', newDriver.id, {
+          cabNumber: newDriver.cabNumber,
+          cabLicence: newDriver.cabLicence,
+          qrCode: newDriver.qrCode,
+        });
 
         dbUser = {
           id: newDriver.id,
@@ -325,8 +420,12 @@ router.post(
       let userMessage = rawMessage;
       let statusCode = 500;
 
-      if (rawMessage.includes('PasswordStrengthError') || rawMessage.includes('Password is too weak')) {
-        userMessage = 'Password is too weak. It must be at least 8 characters and contain at least 3 of: lowercase letters, uppercase letters, numbers, and special characters (e.g. !@#$%).';
+      if (
+        rawMessage.includes('PasswordStrengthError') ||
+        rawMessage.includes('Password is too weak')
+      ) {
+        userMessage =
+          'Password is too weak. It must be at least 8 characters and contain at least 3 of: lowercase letters, uppercase letters, numbers, and special characters (e.g. !@#$%).';
         statusCode = 400;
       } else if (rawMessage.includes('The user already exists')) {
         userMessage = 'A user with this email address already exists.';
@@ -344,7 +443,8 @@ router.post(
         userMessage = 'This password has been used recently. Please choose a different password.';
         statusCode = 400;
       } else if (rawMessage.includes('invalid_signup')) {
-        userMessage = 'Could not create the account. Please check the email and password and try again.';
+        userMessage =
+          'Could not create the account. Please check the email and password and try again.';
         statusCode = 400;
       }
 

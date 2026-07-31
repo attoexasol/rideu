@@ -150,8 +150,7 @@ minHeadingDelta = 15 // degrees
     let lastKeptPoint = points[0];
     for (let i = 1; i < points.length - 1; i++) {
         const point = points[i];
-        const timeDelta = (new Date(point.timestamp).getTime() -
-            new Date(lastKeptPoint.timestamp).getTime()) / 1000;
+        const timeDelta = (new Date(point.timestamp).getTime() - new Date(lastKeptPoint.timestamp).getTime()) / 1000;
         // Check if this point is significant
         let isSignificant = false;
         // Time-based filtering

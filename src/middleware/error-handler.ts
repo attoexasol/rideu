@@ -32,7 +32,7 @@ export const errorHandler = (
   console.error('Error occurred:', {
     message: err.message,
     stack: err.stack,
-    url: req.url,
+    path: req.path,
     method: req.method,
   });
 
@@ -44,36 +44,22 @@ export const errorHandler = (
 
   // JWT authentication errors (from express-jwt)
   if (err.name === 'UnauthorizedError') {
-    sendError(
-      res,
-      'AUTH_FAILED',
-      'Invalid or expired token',
-      401,
-      err.message
-    );
+    sendError(res, 'AUTH_FAILED', 'Invalid or expired token', 401, err.message);
     return;
   }
 
   // Rate limit errors
   if (err.message && err.message.includes('Too many requests')) {
-    sendError(
-      res,
-      'RATE_LIMIT_EXCEEDED',
-      'Too many requests, please try again later',
-      429
-    );
+    sendError(res, 'RATE_LIMIT_EXCEEDED', 'Too many requests, please try again later', 429);
     return;
   }
 
   // Database errors
-  if (err.message && (err.message.includes('duplicate key') || err.message.includes('unique constraint'))) {
-    sendError(
-      res,
-      'DUPLICATE_ERROR',
-      'Resource already exists',
-      409,
-      err.message
-    );
+  if (
+    err.message &&
+    (err.message.includes('duplicate key') || err.message.includes('unique constraint'))
+  ) {
+    sendError(res, 'DUPLICATE_ERROR', 'Resource already exists', 409, err.message);
     return;
   }
 
@@ -83,9 +69,8 @@ export const errorHandler = (
   const message = err.message || 'Internal server error';
 
   // Don't expose internal errors in production
-  const details = process.env.NODE_ENV === 'production'
-    ? undefined
-    : { stack: err.stack, ...err.details };
+  const details =
+    process.env.NODE_ENV === 'production' ? undefined : { stack: err.stack, ...err.details };
 
   sendError(res, errorCode, message, statusCode, details);
 };
@@ -93,16 +78,8 @@ export const errorHandler = (
 /**
  * 404 handler for undefined routes
  */
-export const notFoundHandler = (
-  req: Request,
-  res: Response
-): void => {
-  sendError(
-    res,
-    'NOT_FOUND',
-    `Route ${req.method} ${req.path} not found`,
-    404
-  );
+export const notFoundHandler = (req: Request, res: Response): void => {
+  sendError(res, 'NOT_FOUND', `Route ${req.method} ${req.path} not found`, 404);
 };
 
 /**

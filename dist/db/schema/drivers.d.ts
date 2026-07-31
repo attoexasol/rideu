@@ -195,6 +195,25 @@ export declare const drivers: import("drizzle-orm/pg-core").PgTableWithColumns<{
         }, {}, {
             length: 100;
         }>;
+        cabLicence: import("drizzle-orm/pg-core").PgColumn<{
+            name: "cab_licence";
+            tableName: "drivers";
+            dataType: "string";
+            columnType: "PgVarchar";
+            data: string;
+            driverParam: string;
+            notNull: false;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {
+            length: 100;
+        }>;
         vehicleMake: import("drizzle-orm/pg-core").PgColumn<{
             name: "vehicle_make";
             tableName: "drivers";
@@ -270,6 +289,44 @@ export declare const drivers: import("drizzle-orm/pg-core").PgTableWithColumns<{
             generated: undefined;
         }, {}, {
             length: 50;
+        }>;
+        qrCode: import("drizzle-orm/pg-core").PgColumn<{
+            name: "qr_code";
+            tableName: "drivers";
+            dataType: "string";
+            columnType: "PgVarchar";
+            data: string;
+            driverParam: string;
+            notNull: false;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {
+            length: 255;
+        }>;
+        vehicleQrCode: import("drizzle-orm/pg-core").PgColumn<{
+            name: "vehicle_qr_code";
+            tableName: "drivers";
+            dataType: "string";
+            columnType: "PgVarchar";
+            data: string;
+            driverParam: string;
+            notNull: false;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {
+            length: 255;
         }>;
         lastSeen: import("drizzle-orm/pg-core").PgColumn<{
             name: "last_seen";

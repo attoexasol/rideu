@@ -59,7 +59,7 @@ export interface AuthenticatePayload {
  */
 export interface AuthenticatedResponse {
   userId: string;
-  userType: 'driver' | 'admin';
+  userType: 'driver' | 'admin' | 'customer';
   role: string;
   rooms: string[];
 }
@@ -96,7 +96,7 @@ export interface ErrorPayload {
 export interface SocketData {
   userId: string;
   auth0Id: string;
-  userType: 'driver' | 'admin';
+  userType: 'driver' | 'admin' | 'customer';
   role: string;
   email: string;
   name: string;
@@ -109,7 +109,7 @@ export interface SocketData {
 export interface ConnectionState {
   socketId: string;
   userId: string;
-  userType: 'driver' | 'admin';
+  userType: 'driver' | 'admin' | 'customer';
   connectedAt: Date;
   lastHeartbeat: Date;
 }

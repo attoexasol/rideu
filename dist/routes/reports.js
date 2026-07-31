@@ -112,9 +112,7 @@ router.get('/driver/:id', auth_1.requireAuth, auth_1.extractUserInfo, rbac_1.req
         }
     });
     // Calculate average speed
-    const avgSpeed = tripStats.totalDistance && totalHours > 0
-        ? Number(tripStats.totalDistance) / totalHours
-        : 0;
+    const avgSpeed = tripStats.totalDistance && totalHours > 0 ? Number(tripStats.totalDistance) / totalHours : 0;
     return (0, response_1.sendSuccess)(res, {
         driverId: driver.id,
         driverName: driver.name,

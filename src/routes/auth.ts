@@ -12,8 +12,10 @@ import { requireAuth, extractUserInfo, AuthenticatedRequest } from '../middlewar
 import { validate, loginSchema, refreshTokenSchema } from '../validators';
 import { sendSuccess, sendError } from '../utils/response';
 import { asyncHandler } from '../middleware/error-handler';
+import { authRateLimiter } from '../middleware/rate-limiters';
 import { driverUtils, adminUtils, sessionUtils } from '../db/utils';
 import jwt from 'jsonwebtoken';
+import { verifyAuth0Token, isAuth0Configured } from '../utils/jwt-verifier';
 
 const router = express.Router();
 
@@ -26,6 +28,7 @@ const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
  */
 router.post(
   '/login',
+  authRateLimiter,
   validate(loginSchema),
   asyncHandler(async (req: express.Request, res: express.Response) => {
     const { auth0Token, deviceId, deviceInfo } = req.body;
@@ -35,9 +38,13 @@ router.post(
     // The Auth0 token should already be verified by the client
 
     try {
-      // Decode the Auth0 token (without verification for now)
-      // In production, you should verify this with Auth0's public keys
-      const decoded = jwt.decode(auth0Token) as any;
+      // Verify Auth0 RS256 token via JWKS when configured
+      let decoded: any;
+      if (isAuth0Configured()) {
+        decoded = await verifyAuth0Token(auth0Token);
+      } else {
+        decoded = jwt.decode(auth0Token) as any;
+      }
 
       if (!decoded || !decoded.sub) {
         return sendError(res, 'AUTH_FAILED', 'Invalid Auth0 token', 401);
@@ -50,11 +57,15 @@ router.post(
 
       // Check if user is a driver or admin
       let user: any = null;
-      let userType: 'driver' | 'admin' = 'driver';
+      let userType: 'driver' | 'admin' | 'customer' = 'driver';
 
       if (role === 'driver') {
         user = await driverUtils.findByAuth0Id(auth0Id);
         userType = 'driver';
+      } else if (role === 'customer') {
+        const { findCustomerByAuth0Id } = await import('../repositories/customer.repository');
+        user = await findCustomerByAuth0Id(auth0Id);
+        userType = 'customer';
       } else if (role === 'admin' || role === 'super_admin') {
         user = await adminUtils.findByAuth0Id(auth0Id);
         userType = 'admin';
@@ -151,6 +162,7 @@ router.post(
  */
 router.post(
   '/refresh',
+  authRateLimiter,
   validate(refreshTokenSchema),
   asyncHandler(async (req: express.Request, res: express.Response) => {
     const { refreshToken } = req.body;
@@ -277,7 +289,9 @@ router.get(
 
         // Check if this session matches the driver's active session
         if (driver.activeSessionId !== tokenSessionId) {
-          console.log(`[Auth] Session mismatch for driver ${driver.id}: token has ${tokenSessionId}, active is ${driver.activeSessionId}`);
+          console.log(
+            `[Auth] Session mismatch for driver ${driver.id}: token has ${tokenSessionId}, active is ${driver.activeSessionId}`
+          );
           return sendSuccess(res, {
             valid: false,
             reason: 'Session invalidated - logged in from another device',

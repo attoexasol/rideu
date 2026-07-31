@@ -17,7 +17,7 @@ const errorHandler = (err, req, res, _next) => {
     console.error('Error occurred:', {
         message: err.message,
         stack: err.stack,
-        url: req.url,
+        path: req.path,
         method: req.method,
     });
     // Zod validation errors
@@ -36,7 +36,8 @@ const errorHandler = (err, req, res, _next) => {
         return;
     }
     // Database errors
-    if (err.message && (err.message.includes('duplicate key') || err.message.includes('unique constraint'))) {
+    if (err.message &&
+        (err.message.includes('duplicate key') || err.message.includes('unique constraint'))) {
         (0, response_1.sendError)(res, 'DUPLICATE_ERROR', 'Resource already exists', 409, err.message);
         return;
     }
@@ -45,9 +46,7 @@ const errorHandler = (err, req, res, _next) => {
     const errorCode = err.code || 'SERVER_ERROR';
     const message = err.message || 'Internal server error';
     // Don't expose internal errors in production
-    const details = process.env.NODE_ENV === 'production'
-        ? undefined
-        : { stack: err.stack, ...err.details };
+    const details = process.env.NODE_ENV === 'production' ? undefined : { stack: err.stack, ...err.details };
     (0, response_1.sendError)(res, errorCode, message, statusCode, details);
 };
 exports.errorHandler = errorHandler;

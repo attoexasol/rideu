@@ -9,13 +9,10 @@
 import express from 'express';
 import { requireAuth, extractUserInfo } from '../middleware/auth';
 import { requireAdmin, requireDriver } from '../middleware/rbac';
-import {
-  validate,
-  submitLocationSchema,
-  getLocationsQuerySchema,
-} from '../validators';
+import { validate, submitLocationSchema, getLocationsQuerySchema } from '../validators';
 import { sendSuccess, sendError, sendNotFound } from '../utils/response';
 import { asyncHandler } from '../middleware/error-handler';
+import { driverLocationRateLimit } from '../middleware/rate-limiters';
 import { db } from '../db/connection';
 import { locations } from '../db/schema/locations';
 import { drivers } from '../db/schema/drivers';
@@ -23,7 +20,17 @@ import { driverUtils, locationUtils } from '../db/utils';
 import { eq, lte } from 'drizzle-orm';
 import { realtimeCache, redisPub, PubSubChannels } from '../config/redis';
 import { snapToRoadsBatch } from '../services/mapboxMatching';
-import { detectSessions, filterSignificantPoints, calculateSessionDistance } from '../utils/sessions';
+import { findActiveBookingByDriver } from '../repositories/booking.repository';
+import { emitDriverLocationToCustomer } from '../services/bookingNotify.service';
+import { dispatchConfig } from '../config/dispatch';
+import { isLocationFresh } from '../services/driverAvailability.service';
+import { qrDutyRequired } from '../config/duty';
+import { shouldAllowGpsOnlineTransition } from '../services/duty.service';
+import {
+  detectSessions,
+  filterSignificantPoints,
+  calculateSessionDistance,
+} from '../utils/sessions';
 
 const router = express.Router();
 const MAPBOX_ACCESS_TOKEN = process.env.MAPBOX_ACCESS_TOKEN || '';
@@ -83,10 +90,15 @@ router.post(
   requireAuth,
   extractUserInfo,
   requireDriver, // Includes device tracking automatically
+  driverLocationRateLimit,
   validate(submitLocationSchema),
   asyncHandler(async (req: express.Request, res: express.Response) => {
-    const { latitude, longitude, accuracy, speed, heading, timestamp } = req.body;
+    const { latitude, longitude, accuracy, speed, heading, timestamp, bookingId } = req.body;
     const user = (req as any).user;
+
+    if (!isLocationFresh(timestamp, dispatchConfig.driverLocationStaleSeconds + 30)) {
+      return sendError(res, 'LOCATION_STALE', 'Location timestamp is too old', 400);
+    }
 
     // Get driver from database
     const driver = await driverUtils.findByAuth0Id(user.auth0Id);
@@ -103,14 +115,14 @@ router.post(
     if (lastLocation) {
       // Calculate distance from last saved location using Haversine formula
       const R = 6371e3; // Earth's radius in meters
-      const φ1 = parseFloat(lastLocation.latitude) * Math.PI / 180;
-      const φ2 = latitude * Math.PI / 180;
-      const Δφ = (latitude - parseFloat(lastLocation.latitude)) * Math.PI / 180;
-      const Δλ = (longitude - parseFloat(lastLocation.longitude)) * Math.PI / 180;
+      const φ1 = (parseFloat(lastLocation.latitude) * Math.PI) / 180;
+      const φ2 = (latitude * Math.PI) / 180;
+      const Δφ = ((latitude - parseFloat(lastLocation.latitude)) * Math.PI) / 180;
+      const Δλ = ((longitude - parseFloat(lastLocation.longitude)) * Math.PI) / 180;
 
-      const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-                Math.cos(φ1) * Math.cos(φ2) *
-                Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+      const a =
+        Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+        Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
       const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
       distanceFromLast = R * c; // Distance in meters
@@ -135,13 +147,30 @@ router.post(
         })
         .returning();
 
-      console.log(`💾 Location saved to database (distance: ${distanceFromLast.toFixed(1)}m from last)`);
+      console.log(
+        `💾 Location saved to database (distance: ${distanceFromLast.toFixed(1)}m from last)`
+      );
     } else {
-      console.log(`⏭️  Location not saved (only ${distanceFromLast.toFixed(1)}m from last, need 10m+)`);
+      console.log(
+        `⏭️  Location not saved (only ${distanceFromLast.toFixed(1)}m from last, need 10m+)`
+      );
     }
 
-    // Update driver's last seen and set status to online (actively sending location = online)
-    await driverUtils.updateStatus(driver.id, 'online');
+    // Always refresh heartbeat and last-seen — independent of location-history persistence.
+    const activityTimestamp = timestamp || new Date().toISOString();
+    await realtimeCache.setDriverHeartbeat(driver.id, activityTimestamp);
+    await db
+      .update(drivers)
+      .set({ lastSeen: new Date(activityTimestamp), updatedAt: new Date() })
+      .where(eq(drivers.id, driver.id));
+
+    // Update driver status to online only when allowed (duty-aware when QR_DUTY_REQUIRED)
+    const allowOnline =
+      !qrDutyRequired || (await shouldAllowGpsOnlineTransition(driver.id));
+    if (allowOnline && driver.status !== 'busy') {
+      await driverUtils.updateStatus(driver.id, 'online');
+      await realtimeCache.setDriverStatus(driver.id, 'online');
+    }
 
     // Try to snap coordinates to nearest road (for smoother map display)
     let snappedLat = latitude;
@@ -162,7 +191,7 @@ router.post(
           {
             latitude: latitude,
             longitude: longitude,
-            timestamp: timestamp || new Date().toISOString(),
+            timestamp: activityTimestamp,
           },
         ];
 
@@ -174,15 +203,20 @@ router.post(
           const snappedCurrent = result.matched[result.matched.length - 1];
           snappedLat = snappedCurrent.latitude;
           snappedLng = snappedCurrent.longitude;
-          console.log(`  ✅ Position snapped to road (${snappedCurrent.distance.toFixed(1)}m from GPS)`);
+          console.log(
+            `  ✅ Position snapped to road (${snappedCurrent.distance.toFixed(1)}m from GPS)`
+          );
         }
       }
     } catch (error) {
       // If road-snapping fails, just use raw GPS coordinates
-      console.log(`  ⏭️  Road snapping skipped/failed, using raw GPS:`, error instanceof Error ? error.message : 'Unknown error');
+      console.log(
+        `  ⏭️  Road snapping skipped/failed, using raw GPS:`,
+        error instanceof Error ? error.message : 'Unknown error'
+      );
     }
 
-    // Cache location in Redis for fast retrieval (store both raw and snapped)
+    // Cache latest dispatch location in Redis on every valid update.
     await realtimeCache.setDriverLocation(driver.id, {
       latitude: latitude,
       longitude: longitude,
@@ -190,7 +224,7 @@ router.post(
       snappedLongitude: snappedLng,
       speed: speed,
       heading: heading,
-      timestamp: timestamp || new Date().toISOString(),
+      timestamp: activityTimestamp,
     });
 
     // Broadcast location update to all connected admin clients via WebSocket
@@ -207,23 +241,51 @@ router.post(
         snappedLongitude: snappedLng,
         speed: speed,
         heading: heading,
-        timestamp: timestamp || new Date().toISOString(),
+        timestamp: activityTimestamp,
       };
 
       // Emit to admin room
-      console.log(`  📡 Broadcasting location to ${io.sockets.adapter.rooms.get('admin')?.size || 0} admins in 'admin' room`);
+      console.log(
+        `  📡 Broadcasting location to ${io.sockets.adapter.rooms.get('admin')?.size || 0} admins in 'admin' room`
+      );
       io.to('admin').emit('location:broadcast', broadcastPayload);
 
       // Also publish to Redis Pub/Sub for multi-server scalability
-      await redisPub.publish(
-        PubSubChannels.LOCATION_UPDATE,
-        JSON.stringify(broadcastPayload)
-      );
+      await redisPub.publish(PubSubChannels.LOCATION_UPDATE, JSON.stringify(broadcastPayload));
 
       console.log(`  📍 Location from ${driver.name} broadcast to admin clients via WebSocket`);
     } catch (error) {
       console.error('Failed to broadcast location update:', error);
       // Don't fail the request if broadcast fails
+    }
+
+    const activeBooking = bookingId
+      ? await findActiveBookingByDriver(driver.id).then((b) =>
+          b && b.id === bookingId ? b : null
+        )
+      : await findActiveBookingByDriver(driver.id);
+
+    if (bookingId && !activeBooking) {
+      return sendError(
+        res,
+        'BOOKING_NOT_ASSIGNED',
+        'bookingId does not match an active assigned booking',
+        400
+      );
+    }
+
+    if (activeBooking) {
+      const speedKph = speed != null && speed >= 0 ? speed * 3.6 : null;
+      await emitDriverLocationToCustomer(activeBooking.customerId, {
+        driverId: driver.id,
+        bookingId: activeBooking.id,
+        latitude,
+        longitude,
+        heading: heading ?? null,
+        speedKph,
+        accuracyMeters: accuracy ?? null,
+        timestamp: activityTimestamp,
+      });
     }
 
     return sendSuccess(
@@ -233,7 +295,7 @@ router.post(
         driverId: driver.id,
         latitude: latitude,
         longitude: longitude,
-        timestamp: timestamp || new Date().toISOString(),
+        timestamp: activityTimestamp,
         saved: shouldSaveToDatabase,
         distanceFromLast: distanceFromLast.toFixed(1),
       },
@@ -283,16 +345,14 @@ router.get(
     );
 
     // Convert to response format - in chronological order (oldest first)
-    const breadcrumbs = locationHistory
-      .reverse()
-      .map((loc) => ({
-        id: loc.id,
-        latitude: parseFloat(loc.latitude),
-        longitude: parseFloat(loc.longitude),
-        speed: loc.speed ? parseFloat(loc.speed) : undefined,
-        heading: loc.heading ? parseFloat(loc.heading) : undefined,
-        timestamp: loc.timestamp.toISOString(), // Convert Date to string for Coordinate interface
-      }));
+    const breadcrumbs = locationHistory.reverse().map((loc) => ({
+      id: loc.id,
+      latitude: parseFloat(loc.latitude),
+      longitude: parseFloat(loc.longitude),
+      speed: loc.speed ? parseFloat(loc.speed) : undefined,
+      heading: loc.heading ? parseFloat(loc.heading) : undefined,
+      timestamp: loc.timestamp.toISOString(), // Convert Date to string for Coordinate interface
+    }));
 
     // If road snapping is enabled and we have enough points, snap to roads
     let roadGeometry: number[][] | undefined;
@@ -306,19 +366,23 @@ router.get(
 
     if (snapToRoads && breadcrumbs.length >= 2) {
       try {
-        console.log(`🛣️  Snapping ${breadcrumbs.length} GPS points to roads for driver ${driver.name}`);
+        console.log(
+          `🛣️  Snapping ${breadcrumbs.length} GPS points to roads for driver ${driver.name}`
+        );
 
         const result = await snapToRoadsBatch(breadcrumbs);
 
         // Convert [lng, lat] to {latitude, longitude} format
         roadGeometry = result.geometry;
-        snappedPoints = result.matched.map(coord => ({
+        snappedPoints = result.matched.map((coord) => ({
           latitude: coord.latitude,
           longitude: coord.longitude,
           distance: coord.distance, // How far from original point
         }));
 
-        console.log(`✅ Road snapping complete: ${roadGeometry.length} geometry points, distance: ${(result.totalDistance / 1000).toFixed(2)}km`);
+        console.log(
+          `✅ Road snapping complete: ${roadGeometry.length} geometry points, distance: ${(result.totalDistance / 1000).toFixed(2)}km`
+        );
       } catch (error) {
         console.error('❌ Road snapping failed:', error instanceof Error ? error.message : error);
         console.error('❌ Error details:', error);
@@ -403,21 +467,21 @@ router.get(
     console.log(`📊 Found ${locationHistory.length} locations`);
 
     // Convert to response format - in chronological order (oldest first)
-    const breadcrumbs = locationHistory
-      .reverse()
-      .map((loc) => ({
-        id: loc.id,
-        latitude: parseFloat(loc.latitude),
-        longitude: parseFloat(loc.longitude),
-        accuracy: loc.accuracy ? parseFloat(loc.accuracy) : undefined,
-        speed: loc.speed ? parseFloat(loc.speed) : undefined,
-        heading: loc.heading ? parseFloat(loc.heading) : undefined,
-        timestamp: loc.timestamp.toISOString(),
-      }));
+    const breadcrumbs = locationHistory.reverse().map((loc) => ({
+      id: loc.id,
+      latitude: parseFloat(loc.latitude),
+      longitude: parseFloat(loc.longitude),
+      accuracy: loc.accuracy ? parseFloat(loc.accuracy) : undefined,
+      speed: loc.speed ? parseFloat(loc.speed) : undefined,
+      heading: loc.heading ? parseFloat(loc.heading) : undefined,
+      timestamp: loc.timestamp.toISOString(),
+    }));
 
     // Detect sessions based on time gaps (5+ minute gap = new session)
     const sessions = detectSessions(breadcrumbs, 5);
-    console.log(`📊 Detected ${sessions.length} driving session(s) from ${breadcrumbs.length} points`);
+    console.log(
+      `📊 Detected ${sessions.length} driving session(s) from ${breadcrumbs.length} points`
+    );
 
     // Process each session
     let processedSessions = [];
@@ -428,12 +492,14 @@ router.get(
       // Filter points to reduce density while keeping important changes
       const filteredPoints = filterSignificantPoints(
         session.points,
-        20,  // Min 20 seconds between points
-        3,   // Min 3 m/s speed change (about 7 mph)
-        20   // Min 20 degree heading change
+        20, // Min 20 seconds between points
+        3, // Min 3 m/s speed change (about 7 mph)
+        20 // Min 20 degree heading change
       );
 
-      console.log(`Session ${session.id}: ${session.points.length} points → ${filteredPoints.length} after filtering`);
+      console.log(
+        `Session ${session.id}: ${session.points.length} points → ${filteredPoints.length} after filtering`
+      );
       totalFilteredPoints += filteredPoints.length;
 
       // Calculate session distance
@@ -459,16 +525,21 @@ router.get(
           const result = await snapToRoadsBatch(filteredPoints);
 
           sessionData.roadGeometry = result.geometry;
-          sessionData.snappedPoints = result.matched.map(coord => ({
+          sessionData.snappedPoints = result.matched.map((coord) => ({
             latitude: coord.latitude,
             longitude: coord.longitude,
             distance: coord.distance,
           }));
           sessionData.snappedDistance = result.totalDistance;
 
-          console.log(`✓ Session ${session.id} snapped: ${(result.totalDistance / 1000).toFixed(2)}km`);
+          console.log(
+            `✓ Session ${session.id} snapped: ${(result.totalDistance / 1000).toFixed(2)}km`
+          );
         } catch (error) {
-          console.error(`❌ Road snapping failed for session ${session.id}:`, error instanceof Error ? error.message : error);
+          console.error(
+            `❌ Road snapping failed for session ${session.id}:`,
+            error instanceof Error ? error.message : error
+          );
           // Continue without road snapping for this session
         }
       }
@@ -476,7 +547,9 @@ router.get(
       processedSessions.push(sessionData);
     }
 
-    console.log(`📊 Processed ${sessions.length} sessions: ${breadcrumbs.length} → ${totalFilteredPoints} points, ${(totalDistance / 1000).toFixed(2)}km total`);
+    console.log(
+      `📊 Processed ${sessions.length} sessions: ${breadcrumbs.length} → ${totalFilteredPoints} points, ${(totalDistance / 1000).toFixed(2)}km total`
+    );
 
     return sendSuccess(res, {
       raw: breadcrumbs,
@@ -515,7 +588,9 @@ router.delete(
       .where(lte(locations.timestamp, sixMonthsAgo))
       .returning();
 
-    console.log(`🗑️  Cleaned up ${deletedLocations.length} locations older than ${sixMonthsAgo.toISOString()}`);
+    console.log(
+      `🗑️  Cleaned up ${deletedLocations.length} locations older than ${sixMonthsAgo.toISOString()}`
+    );
 
     return sendSuccess(res, {
       deletedCount: deletedLocations.length,

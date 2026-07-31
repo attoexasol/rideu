@@ -20,15 +20,55 @@ const envConfigs = {
             'AUTH0_API_IDENTIFIER',
             'AUTH0_CLIENT_ID',
             'AUTH0_CLIENT_SECRET',
+            'AUTH0_PASSENGER_CLIENT_ID',
             'JWT_SECRET',
             'CORS_ORIGIN',
             'MAPBOX_ACCESS_TOKEN',
+            'GOOGLE_MAPS_API_KEY',
         ],
         optional: [
+            'AUTH0_AUDIENCE',
+            'AUTH0_ALGORITHM',
             'SENTRY_DSN',
             'RATE_LIMIT_WINDOW_MS',
             'RATE_LIMIT_MAX_REQUESTS',
+            'RATE_LIMIT_ENABLED',
+            'RATE_LIMIT_USE_REDIS',
+            'AUTH_RATE_LIMIT_MAX',
+            'PASSENGER_MAPS_RATE_LIMIT_WINDOW_MS',
+            'PASSENGER_MAPS_RATE_LIMIT_MAX',
+            'PASSENGER_RATE_LIMIT_MAX',
+            'BOOKING_RATE_LIMIT_MAX',
+            'PASSENGER_CANCEL_RATE_LIMIT_WINDOW_MS',
+            'PASSENGER_CANCEL_RATE_LIMIT_MAX',
+            'DRIVER_RATE_LIMIT_MAX',
+            'DRIVER_LOCATION_RATE_LIMIT_WINDOW_MS',
+            'DRIVER_LOCATION_RATE_LIMIT_MAX',
+            'DRIVER_OFFER_RATE_LIMIT_MAX',
+            'DRIVER_RECOVERY_RATE_LIMIT_MAX',
+            'VIDEO_UPLOAD_RATE_LIMIT_MAX',
             'LOG_LEVEL',
+            'GOOGLE_MAPS_REGION',
+            'GOOGLE_MAPS_LANGUAGE',
+            'GOOGLE_MAPS_DEFAULT_COUNTRY',
+            'GOOGLE_MAPS_REQUEST_TIMEOUT_MS',
+            'GOOGLE_MAPS_CACHE_TTL_SECONDS',
+            'DRIVER_LOCATION_STALE_SECONDS',
+            'DISPATCH_RADIUS_KM',
+            'DISPATCH_BATCH_SIZE',
+            'DISPATCH_OFFER_TIMEOUT_SECONDS',
+            'DISPATCH_MAX_BATCHES',
+            'VIDEO_RECORDING_ENABLED',
+            'VIDEO_RECORDING_CONSENT_REQUIRED',
+            'VIDEO_SEGMENT_DURATION_SECONDS',
+            'VIDEO_MAX_SEGMENT_SIZE_BYTES',
+            'VIDEO_UPLOAD_URL_TTL_SECONDS',
+            'VIDEO_READ_URL_TTL_SECONDS',
+            'VIDEO_RETENTION_DAYS',
+            'VIDEO_STORAGE_CONTAINER',
+            'VIDEO_STORAGE_ROOT',
+            'VIDEO_SIGNING_SECRET',
+            'QR_DUTY_REQUIRED',
         ],
     },
     staging: {
@@ -41,21 +81,44 @@ const envConfigs = {
             'AUTH0_API_IDENTIFIER',
             'AUTH0_CLIENT_ID',
             'AUTH0_CLIENT_SECRET',
+            'AUTH0_PASSENGER_CLIENT_ID',
             'JWT_SECRET',
             'CORS_ORIGIN',
         ],
         optional: [
+            'AUTH0_AUDIENCE',
+            'AUTH0_ALGORITHM',
             'MAPBOX_ACCESS_TOKEN',
+            'GOOGLE_MAPS_API_KEY',
+            'GOOGLE_MAPS_REGION',
+            'GOOGLE_MAPS_LANGUAGE',
+            'GOOGLE_MAPS_DEFAULT_COUNTRY',
+            'GOOGLE_MAPS_REQUEST_TIMEOUT_MS',
+            'GOOGLE_MAPS_CACHE_TTL_SECONDS',
             'RATE_LIMIT_WINDOW_MS',
             'RATE_LIMIT_MAX_REQUESTS',
+            'RATE_LIMIT_ENABLED',
+            'RATE_LIMIT_USE_REDIS',
+            'AUTH_RATE_LIMIT_MAX',
+            'PASSENGER_MAPS_RATE_LIMIT_MAX',
+            'BOOKING_RATE_LIMIT_MAX',
+            'DRIVER_LOCATION_RATE_LIMIT_MAX',
+            'DRIVER_OFFER_RATE_LIMIT_MAX',
+            'VIDEO_RECORDING_ENABLED',
+            'VIDEO_RECORDING_CONSENT_REQUIRED',
+            'VIDEO_SEGMENT_DURATION_SECONDS',
+            'VIDEO_MAX_SEGMENT_SIZE_BYTES',
+            'VIDEO_UPLOAD_URL_TTL_SECONDS',
+            'VIDEO_READ_URL_TTL_SECONDS',
+            'VIDEO_RETENTION_DAYS',
+            'VIDEO_STORAGE_CONTAINER',
+            'VIDEO_STORAGE_ROOT',
+            'VIDEO_SIGNING_SECRET',
             'LOG_LEVEL',
         ],
     },
     development: {
-        required: [
-            'PORT',
-            'DATABASE_URL',
-        ],
+        required: ['PORT', 'DATABASE_URL'],
         optional: [
             'NODE_ENV',
             'REDIS_URL',
@@ -63,26 +126,51 @@ const envConfigs = {
             'REDIS_PORT',
             'AUTH0_DOMAIN',
             'AUTH0_API_IDENTIFIER',
+            'AUTH0_AUDIENCE',
+            'AUTH0_ALGORITHM',
             'AUTH0_CLIENT_ID',
             'AUTH0_CLIENT_SECRET',
+            'AUTH0_PASSENGER_CLIENT_ID',
             'JWT_SECRET',
             'CORS_ORIGIN',
             'BYPASS_AUTH',
             'MAPBOX_ACCESS_TOKEN',
+            'GOOGLE_MAPS_API_KEY',
+            'GOOGLE_MAPS_REGION',
+            'GOOGLE_MAPS_LANGUAGE',
+            'GOOGLE_MAPS_DEFAULT_COUNTRY',
+            'GOOGLE_MAPS_REQUEST_TIMEOUT_MS',
+            'GOOGLE_MAPS_CACHE_TTL_SECONDS',
             'RATE_LIMIT_WINDOW_MS',
             'RATE_LIMIT_MAX_REQUESTS',
+            'RATE_LIMIT_ENABLED',
+            'RATE_LIMIT_USE_REDIS',
+            'AUTH_RATE_LIMIT_MAX',
+            'PASSENGER_MAPS_RATE_LIMIT_MAX',
+            'BOOKING_RATE_LIMIT_MAX',
+            'DRIVER_LOCATION_RATE_LIMIT_MAX',
+            'DRIVER_OFFER_RATE_LIMIT_MAX',
             'LOG_LEVEL',
+            'DRIVER_LOCATION_STALE_SECONDS',
+            'DISPATCH_RADIUS_KM',
+            'DISPATCH_BATCH_SIZE',
+            'DISPATCH_OFFER_TIMEOUT_SECONDS',
+            'DISPATCH_MAX_BATCHES',
+            'VIDEO_RECORDING_ENABLED',
+            'VIDEO_RECORDING_CONSENT_REQUIRED',
+            'VIDEO_SEGMENT_DURATION_SECONDS',
+            'VIDEO_MAX_SEGMENT_SIZE_BYTES',
+            'VIDEO_UPLOAD_URL_TTL_SECONDS',
+            'VIDEO_READ_URL_TTL_SECONDS',
+            'VIDEO_RETENTION_DAYS',
+            'VIDEO_STORAGE_CONTAINER',
+            'VIDEO_STORAGE_ROOT',
+            'VIDEO_SIGNING_SECRET',
         ],
     },
     test: {
         required: [],
-        optional: [
-            'NODE_ENV',
-            'PORT',
-            'DATABASE_URL',
-            'REDIS_URL',
-            'BYPASS_AUTH',
-        ],
+        optional: ['NODE_ENV', 'PORT', 'DATABASE_URL', 'REDIS_URL', 'BYPASS_AUTH'],
     },
 };
 /**
@@ -121,6 +209,31 @@ function validateEnvironment() {
     }
     if (process.env.AUTH0_DOMAIN && process.env.AUTH0_DOMAIN.startsWith('https://')) {
         throw new Error('AUTH0_DOMAIN should not include https:// prefix');
+    }
+    const videoRecordingEnabled = process.env.VIDEO_RECORDING_ENABLED?.toLowerCase() === 'true';
+    if (videoRecordingEnabled) {
+        const numericVideoVariables = [
+            'VIDEO_SEGMENT_DURATION_SECONDS',
+            'VIDEO_MAX_SEGMENT_SIZE_BYTES',
+            'VIDEO_UPLOAD_URL_TTL_SECONDS',
+            'VIDEO_READ_URL_TTL_SECONDS',
+            'VIDEO_RETENTION_DAYS',
+        ];
+        for (const key of numericVideoVariables) {
+            const value = Number(process.env[key]);
+            if (!process.env[key] || !Number.isFinite(value) || value <= 0) {
+                throw new Error(`${key} must be a positive number when video recording is enabled`);
+            }
+        }
+        if (nodeEnv === 'production') {
+            for (const key of ['VIDEO_STORAGE_CONTAINER', 'VIDEO_STORAGE_ROOT', 'VIDEO_SIGNING_SECRET']) {
+                if (!process.env[key])
+                    missing.push(key);
+            }
+            if ((process.env.VIDEO_SIGNING_SECRET?.length ?? 0) < 32) {
+                throw new Error('VIDEO_SIGNING_SECRET must be at least 32 characters in production');
+            }
+        }
     }
     // Security checks for production
     if (nodeEnv === 'production') {
@@ -207,6 +320,11 @@ function printEnvironmentInfo() {
     console.log(`  - AUTH0_DOMAIN: ${process.env.AUTH0_DOMAIN || '[NOT SET]'}`);
     console.log(`  - CORS_ORIGIN: ${process.env.CORS_ORIGIN || '[NOT SET]'}`);
     console.log(`  - BYPASS_AUTH: ${process.env.BYPASS_AUTH || 'false'}`);
+    console.log(`  - MAPBOX_ACCESS_TOKEN: ${process.env.MAPBOX_ACCESS_TOKEN ? '[SET] (admin map)' : '[NOT SET]'}`);
+    console.log(`  - GOOGLE_MAPS_API_KEY: ${process.env.GOOGLE_MAPS_API_KEY ? '[SET] (passenger app)' : '[NOT SET]'}`);
+    console.log(`  - GOOGLE_MAPS_REGION: ${process.env.GOOGLE_MAPS_REGION || 'BD (default)'}`);
+    console.log(`  - GOOGLE_MAPS_DEFAULT_COUNTRY: ${process.env.GOOGLE_MAPS_DEFAULT_COUNTRY || 'BD (default)'}`);
+    console.log(`  - AUTH0_PASSENGER_CLIENT_ID: ${process.env.AUTH0_PASSENGER_CLIENT_ID ? '[SET] (forgot-password emails)' : '[NOT SET — uses AUTH0_CLIENT_ID]'}`);
     console.log(`  - LOG_LEVEL: ${process.env.LOG_LEVEL || 'info'}`);
     if (nodeEnv === 'production') {
         console.log(`  - SENTRY_DSN: ${process.env.SENTRY_DSN ? '[SET]' : '[NOT SET]'}`);

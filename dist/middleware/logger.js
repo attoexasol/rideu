@@ -35,7 +35,7 @@ const requestLogger = (req, res, next) => {
     exports.logger.info({
         type: 'request',
         method: req.method,
-        url: req.url,
+        path: req.path,
         ip: req.ip,
         userAgent: req.get('user-agent'),
     });
@@ -45,7 +45,7 @@ const requestLogger = (req, res, next) => {
         exports.logger.info({
             type: 'response',
             method: req.method,
-            url: req.url,
+            path: req.path,
             status: res.statusCode,
             duration: `${duration}ms`,
         });

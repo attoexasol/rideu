@@ -3,7 +3,12 @@
  *
  * POST /api/trips - Start new trip
  * PUT /api/trips/:id - Update/end trip
+ * GET /api/trips/current - Get authenticated driver's active trip
  * GET /api/trips/:driverId - Get trip history for driver
+ * POST /api/trips/:tripId/generate-qr - Generate passenger pickup QR (admin)
+ * GET /api/trips/:tripId/qrcode - Passenger QR image PNG/base64 (admin)
+ * POST /api/trips/scan-passenger - Driver verifies passenger pickup QR
+ * GET /api/trips/:tripId/videos - List videos for a trip
  */
 
 import express from 'express';
@@ -13,7 +18,17 @@ import {
   createTripSchema,
   updateTripSchema,
   getTripsQuerySchema,
+  tripIdParamSchema,
+  tripQrImageQuerySchema,
+  scanPassengerSchema,
 } from '../validators';
+import {
+  generatePassengerQrHandler,
+  getPassengerQrCodeImageHandler,
+  scanPassengerHandler,
+} from '../controllers/passengerTripQr.controller';
+import { getCurrentTripHandler } from '../controllers/trip.controller';
+import { listTripVideosHandler } from '../controllers/video.controller';
 import { sendSuccess, sendNotFound, calculatePagination } from '../utils/response';
 import { asyncHandler } from '../middleware/error-handler';
 import { db } from '../db/connection';
@@ -76,6 +91,61 @@ router.get(
 
     return sendSuccess(res, results, 200, { pagination });
   })
+);
+
+/**
+ * GET /api/trips/current
+ * Get the authenticated driver's active (in_progress) trip
+ */
+router.get('/current', requireAuth, extractUserInfo, asyncHandler(getCurrentTripHandler));
+
+/**
+ * POST /api/trips/scan-passenger
+ * Driver scans passenger pickup QR to verify boarding
+ */
+router.post(
+  '/scan-passenger',
+  requireAuth,
+  extractUserInfo,
+  validate(scanPassengerSchema),
+  asyncHandler(scanPassengerHandler)
+);
+
+/**
+ * GET /api/trips/:tripId/videos
+ * List trip videos (driver own trip or admin)
+ */
+router.get(
+  '/:tripId/videos',
+  requireAuth,
+  extractUserInfo,
+  validate(tripIdParamSchema, 'params'),
+  asyncHandler(listTripVideosHandler)
+);
+
+/**
+ * POST /api/trips/:tripId/generate-qr
+ * Generate and save passenger pickup QR for a trip (admin)
+ */
+router.post(
+  '/:tripId/generate-qr',
+  requireAuth,
+  extractUserInfo,
+  validate(tripIdParamSchema, 'params'),
+  asyncHandler(generatePassengerQrHandler)
+);
+
+/**
+ * GET /api/trips/:tripId/qrcode
+ * Generate passenger pickup QR image (PNG or base64, admin)
+ */
+router.get(
+  '/:tripId/qrcode',
+  requireAuth,
+  extractUserInfo,
+  validate(tripIdParamSchema, 'params'),
+  validate(tripQrImageQuerySchema, 'query'),
+  asyncHandler(getPassengerQrCodeImageHandler)
 );
 
 /**
@@ -211,7 +281,8 @@ router.get(
 
     // Check authorization: user must be the driver themselves OR an admin
     const isOwnProfile = driver.auth0Id === user.auth0Id;
-    const isAdmin = user.role?.toLowerCase() === 'admin' || user.role?.toLowerCase() === 'super_admin';
+    const isAdmin =
+      user.role?.toLowerCase() === 'admin' || user.role?.toLowerCase() === 'super_admin';
 
     if (!isOwnProfile && !isAdmin) {
       return sendNotFound(res, 'Driver'); // Return 404 to avoid leaking info about other drivers

@@ -1,0 +1,44 @@
+{
+  "generatedAt": "2026-07-12T11:50:14.099Z",
+  "totalVehicles": 2,
+  "incompleteVehicles": 2,
+  "proposed": 1,
+  "ambiguous": 0,
+  "noLegacyData": 1,
+  "proposals": [
+    {
+      "vehicleId": "ee462fab-4b4f-40b3-bc7d-ed0debd5413c",
+      "status": "proposed",
+      "current": {
+        "make": null,
+        "model": null,
+        "plateNumber": null,
+        "year": null
+      },
+      "proposed": {
+        "make": "Ford",
+        "model": "F-160",
+        "plateNumber": "54321",
+        "year": 2026
+      },
+      "sourceDriverIds": [
+        "281b0d60-71c9-45e3-abcd-0d7c6a590c37"
+      ],
+      "ambiguousFields": []
+    },
+    {
+      "vehicleId": "da7f40ee-2d76-4547-97a6-22e6c4c3d28b",
+      "status": "no_legacy_data",
+      "current": {
+        "make": null,
+        "model": null,
+        "plateNumber": null,
+        "year": null
+      },
+      "proposed": {},
+      "sourceDriverIds": [],
+      "ambiguousFields": [],
+      "note": "No linked driver legacy data — edit vehicle manually in admin"
+    }
+  ]
+}

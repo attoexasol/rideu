@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import postgres from 'postgres';
 import * as schema from './schema';
 declare const queryClient: postgres.Sql<{}>;

@@ -22,19 +22,13 @@ const redisOptions: RedisOptions = {
 };
 
 // Main Redis client for general operations
-export const redis = REDIS_URL
-  ? new Redis(REDIS_URL, redisOptions)
-  : new Redis(redisOptions);
+export const redis = REDIS_URL ? new Redis(REDIS_URL, redisOptions) : new Redis(redisOptions);
 
 // Publisher client for Pub/Sub (WebSocket broadcasting)
-export const redisPub = REDIS_URL
-  ? new Redis(REDIS_URL, redisOptions)
-  : new Redis(redisOptions);
+export const redisPub = REDIS_URL ? new Redis(REDIS_URL, redisOptions) : new Redis(redisOptions);
 
 // Subscriber client for Pub/Sub (WebSocket broadcasting)
-export const redisSub = REDIS_URL
-  ? new Redis(REDIS_URL, redisOptions)
-  : new Redis(redisOptions);
+export const redisSub = REDIS_URL ? new Redis(REDIS_URL, redisOptions) : new Redis(redisOptions);
 
 // Connection event handlers
 redis.on('connect', () => {
@@ -65,15 +59,43 @@ redisSub.on('error', (err) => {
   console.error('✗ Redis subscriber error:', err);
 });
 
+async function pingClient(client: Redis): Promise<string> {
+  const result = await client.ping();
+  const normalized = String(result).trim().toUpperCase();
+  if (normalized.startsWith('PONG')) return 'PONG';
+  return String(result).trim();
+}
+
+async function pingWithRetry(
+  client: Redis,
+  attempts = 5,
+  delayMs = 200
+): Promise<string> {
+  let lastError: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const result = await pingClient(client);
+      if (result === 'PONG') return result;
+      lastError = new Error(`Unexpected PING response: ${result}`);
+    } catch (err) {
+      lastError = err;
+    }
+    if (i < attempts - 1) {
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error('PING failed');
+}
+
 /**
  * Test Redis connection
  * @returns Promise that resolves if connection is successful
  */
 export async function testRedisConnection(): Promise<boolean> {
   try {
-    await redis.ping();
+    const result = await pingWithRetry(redis);
     console.log('✓ Redis connection successful');
-    return true;
+    return result === 'PONG';
   } catch (error) {
     console.error('✗ Redis connection failed:', error);
     return false;
@@ -85,11 +107,7 @@ export async function testRedisConnection(): Promise<boolean> {
  */
 export async function closeRedisConnections(): Promise<void> {
   try {
-    await Promise.all([
-      redis.quit(),
-      redisPub.quit(),
-      redisSub.quit(),
-    ]);
+    await Promise.all([redis.quit(), redisPub.quit(), redisSub.quit()]);
     console.log('✓ All Redis connections closed');
   } catch (error) {
     console.error('✗ Error closing Redis connections:', error);
@@ -191,6 +209,22 @@ export const realtimeCache = {
   },
 
   /**
+   * Store driver heartbeat (refreshed on every valid location post).
+   */
+  async setDriverHeartbeat(driverId: string, timestamp?: string, ttl: number = 600): Promise<void> {
+    const key = `heartbeat:driver:${driverId}`;
+    await redis.setex(key, ttl, timestamp ?? new Date().toISOString());
+  },
+
+  /**
+   * Get driver heartbeat ISO timestamp.
+   */
+  async getDriverHeartbeat(driverId: string): Promise<string | null> {
+    const key = `heartbeat:driver:${driverId}`;
+    return await redis.get(key);
+  },
+
+  /**
    * Get all active drivers (with recent location updates)
    * Uses SCAN instead of KEYS to avoid blocking
    * @returns Array of driver IDs
@@ -227,22 +261,161 @@ export const PubSubChannels = {
   DRIVER_ONLINE: 'driver:online',
   DRIVER_OFFLINE: 'driver:offline',
   TRIP_UPDATE: 'trip:update',
+  BOOKING_UPDATE: 'booking:update',
+  VIDEO_LIVE: 'video:live',
+};
+
+/**
+ * Google Maps response cache (non-sensitive, normalized keys only)
+ */
+export const mapsCache = {
+  async get<T>(key: string): Promise<T | null> {
+    try {
+      const data = await redis.get(`maps:${key}`);
+      return data ? (JSON.parse(data) as T) : null;
+    } catch {
+      return null;
+    }
+  },
+
+  async set(key: string, value: unknown, ttl: number): Promise<void> {
+    try {
+      await redis.setex(`maps:${key}`, ttl, JSON.stringify(value));
+    } catch {
+      // Cache failures must not break requests
+    }
+  },
 };
 
 /**
  * Health check for Redis
  * @returns Object with health status and latency
  */
-export async function redisHealthCheck(): Promise<{ healthy: boolean; latency?: number; error?: string }> {
+export async function redisHealthCheck(): Promise<{
+  healthy: boolean;
+  latency?: number;
+  error?: string;
+  ping?: string;
+  pubSub?: { publisher: boolean; subscriber: boolean };
+}> {
   const start = Date.now();
   try {
-    await redis.ping();
+    const mainPing = await pingWithRetry(redis);
+    const [pubPing, subPing] = await Promise.all([
+      pingWithRetry(redisPub),
+      pingWithRetry(redisSub),
+    ]);
+
     const latency = Date.now() - start;
-    return { healthy: true, latency };
+    const publisher = pubPing === 'PONG';
+    const subscriber = subPing === 'PONG';
+
+    if (!publisher || !subscriber) {
+      return {
+        healthy: false,
+        latency,
+        ping: mainPing,
+        pubSub: { publisher, subscriber },
+        error: 'Redis pub/sub clients failed PING',
+      };
+    }
+
+    return {
+      healthy: true,
+      latency,
+      ping: 'PONG',
+      pubSub: { publisher, subscriber },
+    };
   } catch (error) {
     return {
       healthy: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : 'Unknown error',
     };
+  }
+}
+
+/**
+ * Verify namespaced driver-cache-style write-read (does not touch real driver keys).
+ */
+export async function verifyRedisRealtimeCache(): Promise<{
+  pass: boolean;
+  error?: string;
+}> {
+  const probeId = `${Date.now()}`;
+  const locationKey = `health:probe:location:${probeId}`;
+  const statusKey = `health:probe:status:${probeId}`;
+  const ttlSeconds = 30;
+  const probeLocation = JSON.stringify({
+    latitude: 23.8103,
+    longitude: 90.4125,
+    timestamp: new Date().toISOString(),
+  });
+
+  try {
+    await redis.setex(locationKey, ttlSeconds, probeLocation);
+    await redis.setex(statusKey, ttlSeconds, 'online');
+
+    const readLocation = await redis.get(locationKey);
+    const readStatus = await redis.get(statusKey);
+
+    await redis.del(locationKey, statusKey);
+
+    const locationOk = readLocation === probeLocation;
+    const statusOk = readStatus === 'online';
+
+    if (!locationOk || !statusOk) {
+      return { pass: false, error: 'Probe read-back mismatch' };
+    }
+
+    return { pass: true };
+  } catch (error) {
+    await redis.del(locationKey, statusKey).catch(() => {});
+    return {
+      pass: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+/**
+ * Temporary pub/sub round-trip on an isolated health probe channel.
+ */
+export async function verifyRedisPubSub(): Promise<{
+  pass: boolean;
+  error?: string;
+}> {
+  const channel = `health:probe:pubsub:${Date.now()}`;
+  const testMessage = `probe-${Date.now()}`;
+  const probeSub = redisSub.duplicate();
+  const probePub = redisPub.duplicate();
+
+  try {
+    const received = await new Promise<string>((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error('Pub/sub probe timed out')), 5000);
+
+      const onMessage = (ch: string, msg: string) => {
+        if (ch !== channel) return;
+        clearTimeout(timeout);
+        probeSub.off('message', onMessage);
+        resolve(msg);
+      };
+
+      probeSub.on('message', onMessage);
+      probeSub.subscribe(channel).then(() => probePub.publish(channel, testMessage)).catch(reject);
+    });
+
+    if (received !== testMessage) {
+      return { pass: false, error: 'Pub/sub message mismatch' };
+    }
+
+    return { pass: true };
+  } catch (error) {
+    return {
+      pass: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  } finally {
+    await probeSub.unsubscribe(channel).catch(() => {});
+    await Promise.allSettled([probeSub.quit(), probePub.quit()]);
   }
 }

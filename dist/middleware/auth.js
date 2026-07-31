@@ -2,26 +2,20 @@
 /**
  * Authentication Middleware
  *
- * Verifies Auth0 JWT tokens (RS256) in production
- * Also accepts local HS256 tokens in development for testing
- * Uses express-oauth2-jwt-bearer for Auth0 + jsonwebtoken for local tokens
+ * Verifies Auth0 JWT tokens (RS256) via JWKS
+ * Also accepts backend HS256 session tokens from /api/auth/login
  */
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.requireDriverOrAdmin = exports.requireSuperAdmin = exports.requireAdmin = exports.checkPermission = exports.optionalAuth = exports.extractUserInfo = exports.requireAuth = exports.verifyJWT = void 0;
 const express_oauth2_jwt_bearer_1 = require("express-oauth2-jwt-bearer");
-const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const auth0_1 = require("../config/auth0");
+const jwt_verifier_1 = require("../utils/jwt-verifier");
 /**
- * Lazy-loaded Auth0 JWT verification middleware (RS256)
- * Only initialized when actually needed (for Auth0 tokens)
+ * Lazy-loaded Auth0 JWT verification middleware (RS256) for optionalAuth
  */
 let verifyAuth0JWT = null;
 const getAuth0Middleware = () => {
     if (!verifyAuth0JWT) {
-        // Check if Auth0 is configured
         if (!auth0_1.auth0Config.domain || auth0_1.auth0Config.domain === '') {
             throw new Error('Auth0 domain not configured. Cannot use Auth0 authentication.');
         }
@@ -33,20 +27,23 @@ const getAuth0Middleware = () => {
     }
     return verifyAuth0JWT;
 };
+const sendAuthFailed = (res, message) => {
+    res.status(401).json({
+        success: false,
+        error: { code: 'AUTH_FAILED', message },
+    });
+};
 /**
- * Dual JWT verification middleware
+ * JWT verification middleware
  *
- * In development: Decodes JWT without full validation (for testing with real tokens)
- * In production: Validates Auth0 RS256 tokens with full signature verification
- * Can optionally bypass authentication if BYPASS_AUTH=true is set
+ * - BYPASS_AUTH=true without token: mock admin (dev only)
+ * - With token: verify Auth0 RS256 (JWKS) or backend HS256 session JWT
  */
-const verifyJWT = (req, res, next) => {
-    // Check if authentication bypass is explicitly enabled
+const verifyJWT = async (req, res, next) => {
     const bypassAuth = process.env.BYPASS_AUTH === 'true';
-    const nodeEnv = process.env.NODE_ENV?.trim();
-    const isDev = nodeEnv === 'development' || nodeEnv === 'test';
-    if (bypassAuth) {
-        // Bypass mode: Use mock admin for testing WITHOUT Auth0
+    const authHeader = req.headers.authorization;
+    const hasBearerToken = Boolean(authHeader?.startsWith('Bearer '));
+    if (bypassAuth && !hasBearerToken) {
         console.log('✓ Auth bypass enabled: Using mock user (set BYPASS_AUTH=false to use Auth0)');
         req.auth = {
             sub: 'dev-admin-1',
@@ -54,70 +51,31 @@ const verifyJWT = (req, res, next) => {
             role: 'super_admin',
         };
         next();
+        return;
     }
-    else if (isDev) {
-        // Development mode: Decode JWT without full validation
-        // This allows testing with real Auth0 tokens without JWKS verification
-        try {
-            const authHeader = req.headers.authorization;
-            if (!authHeader || !authHeader.startsWith('Bearer ')) {
-                res.status(401).json({
-                    success: false,
-                    error: { code: 'AUTH_FAILED', message: 'No token provided' },
-                });
-                return;
-            }
-            const token = authHeader.split(' ')[1];
-            const decoded = jsonwebtoken_1.default.decode(token);
-            if (!decoded) {
-                res.status(401).json({
-                    success: false,
-                    error: { code: 'AUTH_FAILED', message: 'Invalid token' },
-                });
-                return;
-            }
-            // Attach decoded token to request
-            req.auth = decoded;
-            next();
-        }
-        catch (error) {
-            res.status(401).json({
-                success: false,
-                error: {
-                    code: 'AUTH_FAILED',
-                    message: error instanceof Error ? error.message : 'Invalid token',
-                },
-            });
-        }
+    if (!hasBearerToken) {
+        sendAuthFailed(res, 'No token provided');
+        return;
     }
-    else {
-        // Production mode: Validate Auth0 tokens (RS256) with full verification
-        console.log('✓ Validating Auth0 token (RS256)');
-        const auth0Middleware = getAuth0Middleware();
-        auth0Middleware(req, res, next);
+    const token = authHeader.split(' ')[1];
+    try {
+        const payload = await (0, jwt_verifier_1.verifyBearerToken)(token);
+        req.auth = payload;
+        next();
+    }
+    catch (error) {
+        sendAuthFailed(res, error instanceof Error ? error.message : 'Invalid or expired token');
     }
 };
 exports.verifyJWT = verifyJWT;
 /**
  * Middleware to require authentication
- *
- * Use this middleware on routes that require a valid JWT token
- * Handles both Auth0 and local JWT tokens in development
- *
- * Usage:
- * router.get('/protected', requireAuth, (req, res) => { ... });
  */
 exports.requireAuth = exports.verifyJWT;
 /**
  * Extract user information from the JWT token
  *
  * This middleware should be used AFTER requireAuth
- * Extracts and normalizes user info from the Auth0 token
- *
- * Usage:
- * router.get('/profile', requireAuth, extractUserInfo, (req, res) => {
- *   const { userId, email, role } = req.user;
- * });
  */
 const extractUserInfo = (req, res, next) => {
     try {
@@ -131,33 +89,33 @@ const extractUserInfo = (req, res, next) => {
             });
             return;
         }
-        // DEBUG: Log the full token payload
-        console.log('=== TOKEN PAYLOAD ===');
-        console.log(JSON.stringify(req.auth, null, 2));
-        console.log('=== END TOKEN PAYLOAD ===');
         // Handle both Auth0 JWT format (with payload property) and direct payload
         const authPayload = req.auth.payload || req.auth;
-        // Extract user info from token
-        const auth0Id = authPayload.sub;
+        // Auth0 tokens use `sub`; backend session JWTs from /api/auth/login use `auth0Id`
+        const auth0Id = authPayload.sub || authPayload.auth0Id;
         const email = authPayload.email || authPayload['https://drivewize.com/email'];
         const name = authPayload.name || authPayload['https://drivewize.com/name'];
-        // Extract role from custom claims (Auth0 rules set this)
-        // Role can be in: auth.role, auth['https://drivewize.com/role'], or auth['https://drivewize.com/roles'][0]
         let role = authPayload.role || authPayload['https://drivewize.com/role'];
         if (!role && authPayload['https://drivewize.com/roles']) {
             role = Array.isArray(authPayload['https://drivewize.com/roles'])
                 ? authPayload['https://drivewize.com/roles'][0]
                 : authPayload['https://drivewize.com/roles'];
         }
-        // Extract permissions from token
         const permissions = authPayload.permissions || authPayload['https://drivewize.com/permissions'] || [];
-        // Attach normalized user info to request
+        const fleetIds = authPayload.fleetIds ||
+            authPayload['https://drivewize.com/fleet_ids'] ||
+            authPayload['https://drivewize.com/fleetIds'] ||
+            [];
         req.user = {
+            userId: authPayload.userId,
             auth0Id,
             email,
             name,
             role,
+            userType: authPayload.userType,
             permissions,
+            fleetIds: Array.isArray(fleetIds) ? fleetIds : [],
+            sessionId: authPayload.sessionId,
         };
         next();
     }
@@ -173,30 +131,19 @@ const extractUserInfo = (req, res, next) => {
 };
 exports.extractUserInfo = extractUserInfo;
 /**
- * Optional authentication middleware
- *
- * Verifies token if present, but doesn't fail if missing
- * Useful for routes that have different behavior for authenticated vs anonymous users
- *
- * Usage:
- * router.get('/public-route', optionalAuth, (req, res) => {
- *   if (req.auth) {
- *     // User is authenticated
- *   } else {
- *     // User is anonymous
- *   }
- * });
+ * Optional authentication middleware (Auth0 RS256 only)
  */
-exports.optionalAuth = (0, express_oauth2_jwt_bearer_1.auth)({
-    audience: auth0_1.auth0Config.audience,
-    issuerBaseURL: `https://${auth0_1.auth0Config.domain}`,
-    tokenSigningAlg: auth0_1.auth0Config.tokenSigningAlg,
-});
+const optionalAuth = (req, res, next) => {
+    if (!(0, jwt_verifier_1.isAuth0Configured)()) {
+        next();
+        return;
+    }
+    const auth0Middleware = getAuth0Middleware();
+    auth0Middleware(req, res, next);
+};
+exports.optionalAuth = optionalAuth;
 /**
  * Middleware to check if user has specific permission
- *
- * Usage:
- * router.post('/drivers', requireAuth, extractUserInfo, checkPermission('create:drivers'), (req, res) => { ... });
  */
 const checkPermission = (permission) => {
     return (req, res, next) => {
@@ -225,17 +172,6 @@ const checkPermission = (permission) => {
     };
 };
 exports.checkPermission = checkPermission;
-/**
- * Role-based authorization middleware
- */
-/**
- * Require user to have admin or super_admin role
- *
- * Must be used after extractUserInfo middleware
- *
- * Usage:
- * router.get('/admin/dashboard', requireAuth, extractUserInfo, requireAdmin, (req, res) => { ... });
- */
 const requireAdmin = (req, res, next) => {
     const user = req.user;
     if (!user || !user.role) {
@@ -262,14 +198,6 @@ const requireAdmin = (req, res, next) => {
     next();
 };
 exports.requireAdmin = requireAdmin;
-/**
- * Require user to have super_admin role
- *
- * Must be used after extractUserInfo middleware
- *
- * Usage:
- * router.post('/admin/users', requireAuth, extractUserInfo, requireSuperAdmin, (req, res) => { ... });
- */
 const requireSuperAdmin = (req, res, next) => {
     const user = req.user;
     if (!user || !user.role) {
@@ -296,20 +224,6 @@ const requireSuperAdmin = (req, res, next) => {
     next();
 };
 exports.requireSuperAdmin = requireSuperAdmin;
-/**
- * Require user to be accessing their own data or be an admin
- *
- * Checks if the authenticated user is accessing their own resource
- * or has admin privileges
- *
- * Must be used after extractUserInfo middleware
- *
- * The route parameter name for the user ID can be specified
- * Defaults to 'id' or 'driverId'
- *
- * Usage:
- * router.get('/drivers/:driverId', requireAuth, extractUserInfo, requireDriverOrAdmin('driverId'), (req, res) => { ... });
- */
 const requireDriverOrAdmin = (paramName = 'id') => {
     return (req, res, next) => {
         const user = req.user;
@@ -326,11 +240,9 @@ const requireDriverOrAdmin = (paramName = 'id') => {
         const requestedUserId = req.params[paramName];
         const authenticatedUserId = user.auth0Id;
         const role = user.role?.toLowerCase();
-        // Admins can access any resource
         if (role === 'admin' || role === 'super_admin') {
             return next();
         }
-        // Drivers can only access their own resources
         if (requestedUserId && requestedUserId === authenticatedUserId) {
             return next();
         }

@@ -47,7 +47,7 @@ async function clearLocations() {
     console.log('\n⚠️  WARNING: This will DELETE ALL location records from the database!');
     console.log('   Press Ctrl+C to cancel, or wait 5 seconds to proceed...\n');
 
-    await new Promise(resolve => setTimeout(resolve, 5000));
+    await new Promise((resolve) => setTimeout(resolve, 5000));
 
     console.log('🗑️  Deleting all locations...');
     await db.delete(locations);

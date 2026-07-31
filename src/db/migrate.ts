@@ -11,7 +11,8 @@ dotenv.config();
  * Applies all pending migrations to the database
  */
 async function runMigrations() {
-  const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://user:password@localhost:5432/drivewize';
+  const DATABASE_URL =
+    process.env.DATABASE_URL || 'postgresql://user:password@localhost:5432/drivewize';
 
   console.log('🔄 Starting database migrations...');
   console.log(`📍 Database: ${DATABASE_URL.replace(/:[^:@]+@/, ':****@')}`);

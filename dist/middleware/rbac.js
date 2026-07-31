@@ -11,7 +11,7 @@
  * - requireRole(['driver']): Only drivers can access
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.hasRoleLevel = exports.getRoleLevel = exports.isDriver = exports.isSuperAdmin = exports.isAdmin = exports.requireOwnResource = exports.requireDriver = exports.requireSuperAdmin = exports.requireAdmin = exports.requireRole = void 0;
+exports.hasRoleLevel = exports.getRoleLevel = exports.requireCustomer = exports.isCustomer = exports.isDriver = exports.isSuperAdmin = exports.isAdmin = exports.requireOwnResource = exports.requireDriver = exports.requireSuperAdmin = exports.requireAdmin = exports.requireRole = void 0;
 const auth0_1 = require("../config/auth0");
 const device_tracking_1 = require("./device-tracking");
 /**
@@ -86,10 +86,7 @@ exports.requireSuperAdmin = (0, exports.requireRole)([auth0_1.Auth0Roles.SUPER_A
  * Usage:
  * router.post('/locations', requireAuth, extractUserInfo, requireDriver, (req, res) => { ... });
  */
-exports.requireDriver = [
-    (0, exports.requireRole)([auth0_1.Auth0Roles.DRIVER]),
-    device_tracking_1.trackDriverDevice,
-];
+exports.requireDriver = [(0, exports.requireRole)([auth0_1.Auth0Roles.DRIVER]), device_tracking_1.trackDriverDevice];
 /**
  * Middleware to ensure user can only access their own resources
  *
@@ -192,6 +189,11 @@ const isDriver = (role) => {
     return role === auth0_1.Auth0Roles.DRIVER;
 };
 exports.isDriver = isDriver;
+const isCustomer = (role) => {
+    return role === auth0_1.Auth0Roles.CUSTOMER;
+};
+exports.isCustomer = isCustomer;
+exports.requireCustomer = (0, exports.requireRole)([auth0_1.Auth0Roles.CUSTOMER]);
 /**
  * Get user role hierarchy level
  *
@@ -205,6 +207,8 @@ const getRoleLevel = (role) => {
         case auth0_1.Auth0Roles.ADMIN:
             return 2;
         case auth0_1.Auth0Roles.DRIVER:
+            return 1;
+        case auth0_1.Auth0Roles.CUSTOMER:
             return 1;
         default:
             return 0;

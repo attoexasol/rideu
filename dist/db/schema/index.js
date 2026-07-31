@@ -19,7 +19,6 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.schema = void 0;
-// Import all schemas
 __exportStar(require("./drivers"), exports);
 __exportStar(require("./locations"), exports);
 __exportStar(require("./trips"), exports);
@@ -27,7 +26,32 @@ __exportStar(require("./admin_users"), exports);
 __exportStar(require("./sessions"), exports);
 __exportStar(require("./vehicles"), exports);
 __exportStar(require("./logs"), exports);
-// Import schemas for combined export
+__exportStar(require("./driver_vehicle_assignments"), exports);
+__exportStar(require("./driver_attendance"), exports);
+__exportStar(require("./trip_videos"), exports);
+__exportStar(require("./customers"), exports);
+__exportStar(require("./customer_places"), exports);
+__exportStar(require("./service_categories"), exports);
+__exportStar(require("./driver_service_categories"), exports);
+__exportStar(require("./promotions"), exports);
+__exportStar(require("./payment_methods"), exports);
+__exportStar(require("./bookings"), exports);
+__exportStar(require("./booking_stops"), exports);
+__exportStar(require("./booking_offers"), exports);
+__exportStar(require("./booking_events"), exports);
+__exportStar(require("./booking_idempotency"), exports);
+__exportStar(require("./video_sessions"), exports);
+__exportStar(require("./video_segments"), exports);
+__exportStar(require("./organizations"), exports);
+__exportStar(require("./fleets"), exports);
+__exportStar(require("./driver_fleet_memberships"), exports);
+__exportStar(require("./duty_sessions"), exports);
+__exportStar(require("./vehicle_qr_tokens"), exports);
+__exportStar(require("./vehicle_service_categories"), exports);
+__exportStar(require("./fleet_audit_events"), exports);
+__exportStar(require("./vehicle_exchange_requests"), exports);
+__exportStar(require("./vehicle_exchange_events"), exports);
+__exportStar(require("./vehicle_exchange_resource_locks"), exports);
 const drivers_1 = require("./drivers");
 const locations_1 = require("./locations");
 const trips_1 = require("./trips");
@@ -35,7 +59,32 @@ const admin_users_1 = require("./admin_users");
 const sessions_1 = require("./sessions");
 const vehicles_1 = require("./vehicles");
 const logs_1 = require("./logs");
-// Export all schemas as a single object for Drizzle ORM
+const driver_vehicle_assignments_1 = require("./driver_vehicle_assignments");
+const driver_attendance_1 = require("./driver_attendance");
+const trip_videos_1 = require("./trip_videos");
+const customers_1 = require("./customers");
+const customer_places_1 = require("./customer_places");
+const service_categories_1 = require("./service_categories");
+const driver_service_categories_1 = require("./driver_service_categories");
+const promotions_1 = require("./promotions");
+const payment_methods_1 = require("./payment_methods");
+const bookings_1 = require("./bookings");
+const booking_stops_1 = require("./booking_stops");
+const booking_offers_1 = require("./booking_offers");
+const booking_events_1 = require("./booking_events");
+const video_sessions_1 = require("./video_sessions");
+const booking_idempotency_1 = require("./booking_idempotency");
+const video_segments_1 = require("./video_segments");
+const organizations_1 = require("./organizations");
+const fleets_1 = require("./fleets");
+const driver_fleet_memberships_1 = require("./driver_fleet_memberships");
+const duty_sessions_1 = require("./duty_sessions");
+const vehicle_qr_tokens_1 = require("./vehicle_qr_tokens");
+const vehicle_service_categories_1 = require("./vehicle_service_categories");
+const fleet_audit_events_1 = require("./fleet_audit_events");
+const vehicle_exchange_requests_1 = require("./vehicle_exchange_requests");
+const vehicle_exchange_events_1 = require("./vehicle_exchange_events");
+const vehicle_exchange_resource_locks_1 = require("./vehicle_exchange_resource_locks");
 exports.schema = {
     drivers: drivers_1.drivers,
     locations: locations_1.locations,
@@ -44,5 +93,31 @@ exports.schema = {
     sessions: sessions_1.sessions,
     vehicles: vehicles_1.vehicles,
     logs: logs_1.logs,
+    driverVehicleAssignments: driver_vehicle_assignments_1.driverVehicleAssignments,
+    driverAttendance: driver_attendance_1.driverAttendance,
+    tripVideos: trip_videos_1.tripVideos,
+    customers: customers_1.customers,
+    customerPlaces: customer_places_1.customerPlaces,
+    serviceCategories: service_categories_1.serviceCategories,
+    driverServiceCategories: driver_service_categories_1.driverServiceCategories,
+    promotions: promotions_1.promotions,
+    paymentMethods: payment_methods_1.paymentMethods,
+    bookings: bookings_1.bookings,
+    bookingStops: booking_stops_1.bookingStops,
+    bookingOffers: booking_offers_1.bookingOffers,
+    bookingEvents: booking_events_1.bookingEvents,
+    bookingIdempotencyKeys: booking_idempotency_1.bookingIdempotencyKeys,
+    videoSessions: video_sessions_1.videoSessions,
+    videoSegments: video_segments_1.videoSegments,
+    organizations: organizations_1.organizations,
+    fleets: fleets_1.fleets,
+    driverFleetMemberships: driver_fleet_memberships_1.driverFleetMemberships,
+    dutySessions: duty_sessions_1.dutySessions,
+    vehicleQrTokens: vehicle_qr_tokens_1.vehicleQrTokens,
+    vehicleServiceCategories: vehicle_service_categories_1.vehicleServiceCategories,
+    fleetAuditEvents: fleet_audit_events_1.fleetAuditEvents,
+    vehicleExchangeRequests: vehicle_exchange_requests_1.vehicleExchangeRequests,
+    vehicleExchangeEvents: vehicle_exchange_events_1.vehicleExchangeEvents,
+    vehicleExchangeResourceLocks: vehicle_exchange_resource_locks_1.vehicleExchangeResourceLocks,
 };
 //# sourceMappingURL=index.js.map

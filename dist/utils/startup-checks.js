@@ -10,8 +10,10 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.runStartupHealthChecks = runStartupHealthChecks;
 exports.verifyCriticalServices = verifyCriticalServices;
 exports.createHealthCheckHandler = createHealthCheckHandler;
+exports.createApiHealthCheckHandler = createApiHealthCheckHandler;
 const redis_1 = require("../config/redis");
 const connection_1 = require("../db/connection");
+const response_1 = require("./response");
 const axios_1 = __importDefault(require("axios"));
 /**
  * Check if Auth0 is reachable
@@ -119,8 +121,8 @@ async function runStartupHealthChecks() {
         }
     }
     // Determine overall health
-    const unhealthyCount = services.filter(s => s.status === 'unhealthy').length;
-    const degradedCount = services.filter(s => s.status === 'degraded').length;
+    const unhealthyCount = services.filter((s) => s.status === 'unhealthy').length;
+    const degradedCount = services.filter((s) => s.status === 'degraded').length;
     let overall;
     if (unhealthyCount > 0) {
         overall = 'unhealthy';
@@ -139,7 +141,7 @@ async function runStartupHealthChecks() {
     // Print summary
     console.log('\n📊 Health Check Summary:');
     console.log(`  Overall Status: ${overall.toUpperCase()}`);
-    services.forEach(service => {
+    services.forEach((service) => {
         const icon = service.status === 'healthy' ? '✅' : service.status === 'degraded' ? '⚠️' : '❌';
         const latencyStr = service.latency ? ` (${service.latency}ms)` : '';
         const errorStr = service.error ? ` - ${service.error}` : '';
@@ -154,20 +156,20 @@ async function verifyCriticalServices() {
     const healthCheck = await runStartupHealthChecks();
     // Check for critical service failures
     const criticalServices = ['PostgreSQL', 'Redis'];
-    const failedCritical = healthCheck.services.filter(s => criticalServices.includes(s.name) && s.status === 'unhealthy');
+    const failedCritical = healthCheck.services.filter((s) => criticalServices.includes(s.name) && s.status === 'unhealthy');
     if (failedCritical.length > 0) {
         console.error('\n❌ Critical services are unavailable:');
-        failedCritical.forEach(service => {
+        failedCritical.forEach((service) => {
             console.error(`  - ${service.name}: ${service.error || 'Connection failed'}`);
         });
         console.error('\nPlease ensure all required services are running and try again.');
         process.exit(1);
     }
     // Warn about degraded services but don't fail
-    const degradedServices = healthCheck.services.filter(s => s.status === 'degraded');
+    const degradedServices = healthCheck.services.filter((s) => s.status === 'degraded');
     if (degradedServices.length > 0) {
         console.warn('\n⚠️  Some services are degraded:');
-        degradedServices.forEach(service => {
+        degradedServices.forEach((service) => {
             console.warn(`  - ${service.name}: ${service.error || 'Service degraded'}`);
         });
         console.warn('\nThe server will start but some features may not work properly.');
@@ -182,9 +184,48 @@ async function verifyCriticalServices() {
 function createHealthCheckHandler() {
     return async (_req, res) => {
         const healthCheck = await runStartupHealthChecks();
-        const statusCode = healthCheck.overall === 'healthy' ? 200 :
-            healthCheck.overall === 'degraded' ? 200 : 503;
+        const statusCode = healthCheck.overall === 'healthy' ? 200 : healthCheck.overall === 'degraded' ? 200 : 503;
         res.status(statusCode).json(healthCheck);
+    };
+}
+/**
+ * Safe public API health check — no credentials, URLs, or stack traces.
+ * GET /api/health
+ */
+function createApiHealthCheckHandler() {
+    return async (_req, res) => {
+        try {
+            const [dbHealth, redisHealth, writeRead, pubSub] = await Promise.all([
+                (0, connection_1.healthCheck)(),
+                (0, redis_1.redisHealthCheck)(),
+                (0, redis_1.verifyRedisRealtimeCache)(),
+                (0, redis_1.verifyRedisPubSub)(),
+            ]);
+            const redisOk = redisHealth.healthy && writeRead.pass && pubSub.pass;
+            const data = {
+                server: 'ok',
+                database: dbHealth.healthy ? 'ok' : 'error',
+                redis: redisOk ? 'ok' : 'error',
+                redisProbes: {
+                    ping: redisHealth.ping ?? (redisHealth.healthy ? 'PONG' : 'failure'),
+                    writeRead: writeRead.pass ? 'pass' : 'fail',
+                    pubSub: pubSub.pass ? 'pass' : 'fail',
+                },
+            };
+            const allOk = data.database === 'ok' && data.redis === 'ok';
+            if (allOk) {
+                return (0, response_1.sendSuccess)(res, data);
+            }
+            return (0, response_1.sendError)(res, 'SERVICE_UNAVAILABLE', 'One or more services are unavailable', 503, data);
+        }
+        catch {
+            return (0, response_1.sendError)(res, 'HEALTH_CHECK_FAILED', 'Health check failed', 503, {
+                server: 'ok',
+                database: 'error',
+                redis: 'error',
+                redisProbes: { ping: 'failure', writeRead: 'fail', pubSub: 'fail' },
+            });
+        }
     };
 }
 //# sourceMappingURL=startup-checks.js.map

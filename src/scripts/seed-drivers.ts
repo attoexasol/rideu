@@ -8,7 +8,8 @@ import path from 'path';
 const AUTH0_DOMAIN = 'dev-3t82y4zqjstv66qp.us.auth0.com';
 const AUTH0_MGMT_CLIENT_ID = 'rjWwtSrC1rWZwkgz2EpNetoVQGHLsJEN';
 const AUTH0_MGMT_CLIENT_SECRET = '0LeWmq9oH8nCVAtn5unhkkoEQUrZUkIT7qKIw-55J6jfryECf5VYT42hzm6hbe3u';
-const DATABASE_URL = 'postgresql://postgres:zZEzdQIcIcumpgTLogbWZGnLVdHfUOLq@tramway.proxy.rlwy.net:32928/railway';
+const DATABASE_URL =
+  'postgresql://postgres:zZEzdQIcIcumpgTLogbWZGnLVdHfUOLq@tramway.proxy.rlwy.net:32928/railway';
 
 // ── Driver Data ─────────────────────────────────────────────────────────────
 // Format: [name, cabName, cabNumber, phone]
@@ -137,7 +138,7 @@ function generatePassword(): string {
 function makeEmail(cabName: string, cabNumber: string): string {
   const slug = cabName
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '')  // strip non-alphanumeric
+    .replace(/[^a-z0-9]+/g, '') // strip non-alphanumeric
     .slice(0, 30);
   return `${slug}.${cabNumber}@drivers.drivewize.com`;
 }
@@ -173,11 +174,7 @@ async function getDriverRoleId(): Promise<string> {
   return role.id;
 }
 
-async function createAuth0User(
-  email: string,
-  password: string,
-  name: string
-): Promise<string> {
+async function createAuth0User(email: string, password: string, name: string): Promise<string> {
   const token = await getManagementToken();
 
   const res = await axios.post(
@@ -234,9 +231,7 @@ async function main() {
   console.log(`📋 ${uniqueDrivers.length} unique cab accounts to create\n`);
 
   // CSV header
-  const csvRows: string[] = [
-    'Name,Cab Name,Cab Number,Phone,Email,Password,Auth0 ID,DB ID,Status',
-  ];
+  const csvRows: string[] = ['Name,Cab Name,Cab Number,Phone,Email,Password,Auth0 ID,DB ID,Status'];
 
   let successCount = 0;
   let failCount = 0;

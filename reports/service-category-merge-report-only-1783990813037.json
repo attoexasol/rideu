@@ -1,0 +1,1077 @@
+{
+  "generatedAt": "2026-07-14T01:00:13.036Z",
+  "mode": "report-only",
+  "canonicalProposal": {
+    "RIDE": {
+      "id": "59ab7ef9-0bb3-47c8-8afa-3313b295151e",
+      "code": "ride",
+      "displayName": "Ride"
+    },
+    "BIKE": {
+      "id": "d793ac30-c749-48b9-9c63-0b6b7d50289a",
+      "code": "bike",
+      "displayName": "Bike"
+    },
+    "CNG": {
+      "id": "10ef8afd-7e45-4be2-97a4-00303a624cde",
+      "code": "cng",
+      "displayName": "CNG"
+    },
+    "MOTO": {
+      "id": "264247c5-af89-4fcb-802a-d576791dc300",
+      "code": "moto",
+      "displayName": "Moto"
+    },
+    "PREMIUM": {
+      "id": "2d7bcfdd-4343-4a07-b0df-214c807a8e87",
+      "code": "premium",
+      "displayName": "Premium"
+    },
+    "COMFORT": {
+      "id": "9a9da7dd-f122-4e9c-a351-1c2ab6fe4e00",
+      "code": "comfort",
+      "displayName": "Comfort"
+    }
+  },
+  "plans": [
+    {
+      "base": "ride",
+      "canonical": {
+        "id": "59ab7ef9-0bb3-47c8-8afa-3313b295151e",
+        "code": "ride",
+        "name": "Ride"
+      },
+      "duplicates": []
+    },
+    {
+      "base": "bike",
+      "canonical": {
+        "id": "d793ac30-c749-48b9-9c63-0b6b7d50289a",
+        "code": "bike",
+        "name": "Bike"
+      },
+      "duplicates": [
+        {
+          "duplicateCategoryId": "87b87f13-a274-4e14-9db2-429555ae7105",
+          "code": "BIKE-004c9e7f",
+          "name": "Bike 3db90f70",
+          "linkedDrivers": 0,
+          "linkedVehicles": 0,
+          "linkedBookings": 0,
+          "linkedPromotions": 0,
+          "linkedFareRules": 1,
+          "mergeSafety": "safe_repoint_and_deactivate",
+          "conflicts": [
+            "per_km_rate_differs",
+            "min_fare_differs"
+          ],
+          "actions": [
+            "repoint_driver_service_categories",
+            "repoint_vehicle_service_categories",
+            "repoint_promotions",
+            "no_bookings_to_repoint",
+            "deactivate_duplicate",
+            "normalize_canonical_display_name"
+          ]
+        },
+        {
+          "duplicateCategoryId": "9dae464a-dc9a-4798-b5b9-6803a4686767",
+          "code": "BIKE-0408821d",
+          "name": "Bike d1f26de2",
+          "linkedDrivers": 0,
+          "linkedVehicles": 0,
+          "linkedBookings": 0,
+          "linkedPromotions": 0,
+          "linkedFareRules": 1,
+          "mergeSafety": "safe_repoint_and_deactivate",
+          "conflicts": [
+            "per_km_rate_differs",
+            "min_fare_differs"
+          ],
+          "actions": [
+            "repoint_driver_service_categories",
+            "repoint_vehicle_service_categories",
+            "repoint_promotions",
+            "no_bookings_to_repoint",
+            "deactivate_duplicate",
+            "normalize_canonical_display_name"
+          ]
+        },
+        {
+          "duplicateCategoryId": "44b72a5b-fe50-4a27-b437-d4d4a3719d72",
+          "code": "BIKE-05a12360",
+          "name": "Bike f9a034fc",
+          "linkedDrivers": 0,
+          "linkedVehicles": 0,
+          "linkedBookings": 0,
+          "linkedPromotions": 0,
+          "linkedFareRules": 1,
+          "mergeSafety": "safe_repoint_and_deactivate",
+          "conflicts": [
+            "per_km_rate_differs",
+            "min_fare_differs"
+          ],
+          "actions": [
+            "repoint_driver_service_categories",
+            "repoint_vehicle_service_categories",
+            "repoint_promotions",
+            "no_bookings_to_repoint",
+            "deactivate_duplicate",
+            "normalize_canonical_display_name"
+          ]
+        },
+        {
+          "duplicateCategoryId": "f2275425-6f1d-47dc-98e4-030c5dedab8e",
+          "code": "BIKE-0b417995",
+          "name": "Bike 4c518a1a",
+          "linkedDrivers": 0,
+          "linkedVehicles": 0,
+          "linkedBookings": 0,
+          "linkedPromotions": 0,
+          "linkedFareRules": 1,
+          "mergeSafety": "safe_repoint_and_deactivate",
+          "conflicts": [
+            "per_km_rate_differs",
+            "min_fare_differs"
+          ],
+          "actions": [
+            "repoint_driver_service_categories",
+            "repoint_vehicle_service_categories",
+            "repoint_promotions",
+            "no_bookings_to_repoint",
+            "deactivate_duplicate",
+            "normalize_canonical_display_name"
+          ]
+        },
+        {
+          "duplicateCategoryId": "0f802ff3-8529-4f84-ac9a-639a797a1a12",
+          "code": "BIKE-0e35c00c",
+          "name": "Bike 7d1f5e01",
+          "linkedDrivers": 0,
+          "linkedVehicles": 0,
+          "linkedBookings": 0,
+          "linkedPromotions": 0,
+          "linkedFareRules": 1,
+          "mergeSafety": "safe_repoint_and_deactivate",
+          "conflicts": [
+            "per_km_rate_differs",
+            "min_fare_differs"
+          ],
+          "actions": [
+            "repoint_driver_service_categories",
+            "repoint_vehicle_service_categories",
+            "repoint_promotions",
+            "no_bookings_to_repoint",
+            "deactivate_duplicate",
+            "normalize_canonical_display_name"
+          ]
+        },
+        {
+          "duplicateCategoryId": "dfc2d3cf-da47-47cd-92ea-0f7d87c19c5c",
+          "code": "BIKE-112e156c",
+          "name": "Bike 2937dc24",
+          "linkedDrivers": 0,
+          "linkedVehicles": 0,
+          "linkedBookings": 0,
+          "linkedPromotions": 0,
+          "linkedFareRules": 1,
+          "mergeSafety": "safe_repoint_and_deactivate",
+          "conflicts": [
+            "per_km_rate_differs",
+            "min_fare_differs"
+          ],
+          "actions": [
+            "repoint_driver_service_categories",
+            "repoint_vehicle_service_categories",
+            "repoint_promotions",
+            "no_bookings_to_repoint",
+            "deactivate_duplicate",
+            "normalize_canonical_display_name"
+          ]
+        },
+        {
+          "duplicateCategoryId": "0f28ee39-d7f0-450f-8fa8-a797e164e4e2",
+          "code": "BIKE-15f7b27f",
+          "name": "Bike f1eadf32",
+          "linkedDrivers": 0,
+          "linkedVehicles": 0,
+          "linkedBookings": 2,
+          "linkedPromotions": 0,
+          "linkedFareRules": 1,
+          "mergeSafety": "preserve_historical_booking_fk",
+          "conflicts": [
+            "per_km_rate_differs",
+            "min_fare_differs"
+          ],
+          "actions": [
+            "repoint_driver_service_categories",
+            "repoint_vehicle_service_categories",
+            "repoint_promotions",
+            "keep_booking_service_category_id",
+            "deactivate_duplicate",
+            "normalize_canonical_display_name"
+          ]
+        },
+        {
+          "duplicateCategoryId": "75d2e4f0-2ff7-48c9-926b-0d886dca3f5a",
+          "code": "BIKE-3358af1b",
+          "name": "Bike 22261c74",
+          "linkedDrivers": 0,
+          "linkedVehicles": 0,
+          "linkedBookings": 0,
+          "linkedPromotions": 0,
+          "linkedFareRules": 1,
+          "mergeSafety": "safe_repoint_and_deactivate",
+          "conflicts": [
+            "per_km_rate_differs",
+            "min_fare_differs"
+          ],
+          "actions": [
+            "repoint_driver_service_categories",
+            "repoint_vehicle_service_categories",
+            "repoint_promotions",
+            "no_bookings_to_repoint",
+            "deactivate_duplicate",
+            "normalize_canonical_display_name"
+          ]
+        },
+        {
+          "duplicateCategoryId": "9803e639-9b79-4047-b439-db1a44605970",
+          "code": "BIKE-3a680eb2",
+          "name": "Bike 249d2e68",
+          "linkedDrivers": 0,
+          "linkedVehicles": 0,
+          "linkedBookings": 0,
+          "linkedPromotions": 0,
+          "linkedFareRules": 1,
+          "mergeSafety": "safe_repoint_and_deactivate",
+          "conflicts": [
+            "per_km_rate_differs",
+            "min_fare_differs"
+          ],
+          "actions": [
+            "repoint_driver_service_categories",
+            "repoint_vehicle_service_categories",
+            "repoint_promotions",
+            "no_bookings_to_repoint",
+            "deactivate_duplicate",
+            "normalize_canonical_display_name"
+          ]
+        },
+        {
+          "duplicateCategoryId": "7063e500-56a6-4784-add3-3462d806a004",
+          "code": "BIKE-3fa602c0",
+          "name": "Bike 8f45ebb2",
+          "linkedDrivers": 0,
+          "linkedVehicles": 0,
+          "linkedBookings": 0,
+          "linkedPromotions": 0,
+          "linkedFareRules": 1,
+          "mergeSafety": "safe_repoint_and_deactivate",
+          "conflicts": [
+            "per_km_rate_differs",
+            "min_fare_differs"
+          ],
+          "actions": [
+            "repoint_driver_service_categories",
+            "repoint_vehicle_service_categories",
+            "repoint_promotions",
+            "no_bookings_to_repoint",
+            "deactivate_duplicate",
+            "normalize_canonical_display_name"
+          ]
+        },
+        {
+          "duplicateCategoryId": "58a305fb-a36f-4e3e-b1bd-91bfaa4989f9",
+          "code": "BIKE-47d713de",
+          "name": "Bike 6e15fb87",
+          "linkedDrivers": 0,
+          "linkedVehicles": 0,
+          "linkedBookings": 0,
+          "linkedPromotions": 0,
+          "linkedFareRules": 1,
+          "mergeSafety": "safe_repoint_and_deactivate",
+          "conflicts": [
+            "per_km_rate_differs",
+            "min_fare_differs"
+          ],
+          "actions": [
+            "repoint_driver_service_categories",
+            "repoint_vehicle_service_categories",
+            "repoint_promotions",
+            "no_bookings_to_repoint",
+            "deactivate_duplicate",
+            "normalize_canonical_display_name"
+          ]
+        },
+        {
+          "duplicateCategoryId": "6deea2b8-c432-40fe-8615-69ea6d654863",
+          "code": "BIKE-4d1d3ee7",
+          "name": "Bike e5bd3cc1",
+          "linkedDrivers": 0,
+          "linkedVehicles": 0,
+          "linkedBookings": 0,
+          "linkedPromotions": 0,
+          "linkedFareRules": 1,
+          "mergeSafety": "safe_repoint_and_deactivate",
+          "conflicts": [
+            "per_km_rate_differs",
+            "min_fare_differs"
+          ],
+          "actions": [
+            "repoint_driver_service_categories",
+            "repoint_vehicle_service_categories",
+            "repoint_promotions",
+            "no_bookings_to_repoint",
+            "deactivate_duplicate",
+            "normalize_canonical_display_name"
+          ]
+        },
+        {
+          "duplicateCategoryId": "2a7622ca-91aa-47fc-b02d-03ec184c2fc1",
+          "code": "BIKE-4f50382e",
+          "name": "Bike 8fdae6fd",
+          "linkedDrivers": 0,
+          "linkedVehicles": 0,
+          "linkedBookings": 0,
+          "linkedPromotions": 0,
+          "linkedFareRules": 1,
+          "mergeSafety": "safe_repoint_and_deactivate",
+          "conflicts": [
+            "per_km_rate_differs",
+            "min_fare_differs"
+          ],
+          "actions": [
+            "repoint_driver_service_categories",
+            "repoint_vehicle_service_categories",
+            "repoint_promotions",
+            "no_bookings_to_repoint",
+            "deactivate_duplicate",
+            "normalize_canonical_display_name"
+          ]
+        },
+        {
+          "duplicateCategoryId": "d31aed45-e220-4cd3-8821-f4663972ecb0",
+          "code": "BIKE-4f9d36b5",
+          "name": "Bike a6ace6a2",
+          "linkedDrivers": 0,
+          "linkedVehicles": 0,
+          "linkedBookings": 0,
+          "linkedPromotions": 0,
+          "linkedFareRules": 1,
+          "mergeSafety": "safe_repoint_and_deactivate",
+          "conflicts": [
+            "per_km_rate_differs",
+            "min_fare_differs"
+          ],
+          "actions": [
+            "repoint_driver_service_categories",
+            "repoint_vehicle_service_categories",
+            "repoint_promotions",
+            "no_bookings_to_repoint",
+            "deactivate_duplicate",
+            "normalize_canonical_display_name"
+          ]
+        },
+        {
+          "duplicateCategoryId": "3d039ef2-aaa6-4d42-8104-37c98f0821af",
+          "code": "BIKE-51f99cab",
+          "name": "Bike cfaf52f5",
+          "linkedDrivers": 0,
+          "linkedVehicles": 0,
+          "linkedBookings": 0,
+          "linkedPromotions": 0,
+          "linkedFareRules": 1,
+          "mergeSafety": "safe_repoint_and_deactivate",
+          "conflicts": [
+            "per_km_rate_differs",
+            "min_fare_differs"
+          ],
+          "actions": [
+            "repoint_driver_service_categories",
+            "repoint_vehicle_service_categories",
+            "repoint_promotions",
+            "no_bookings_to_repoint",
+            "deactivate_duplicate",
+            "normalize_canonical_display_name"
+          ]
+        },
+        {
+          "duplicateCategoryId": "1dd079f8-b7fe-4a5c-aa28-7cb738b0c188",
+          "code": "BIKE-58f1517e",
+          "name": "Bike 24a5c194",
+          "linkedDrivers": 0,
+          "linkedVehicles": 0,
+          "linkedBookings": 0,
+          "linkedPromotions": 0,
+          "linkedFareRules": 1,
+          "mergeSafety": "safe_repoint_and_deactivate",
+          "conflicts": [
+            "per_km_rate_differs",
+            "min_fare_differs"
+          ],
+          "actions": [
+            "repoint_driver_service_categories",
+            "repoint_vehicle_service_categories",
+            "repoint_promotions",
+            "no_bookings_to_repoint",
+            "deactivate_duplicate",
+            "normalize_canonical_display_name"
+          ]
+        },
+        {
+          "duplicateCategoryId": "a5128515-0c66-410f-af75-b4eeba2cf886",
+          "code": "BIKE-5cb29c3e",
+          "name": "Bike 8d73dca0",
+          "linkedDrivers": 0,
+          "linkedVehicles": 0,
+          "linkedBookings": 0,
+          "linkedPromotions": 0,
+          "linkedFareRules": 1,
+          "mergeSafety": "safe_repoint_and_deactivate",
+          "conflicts": [
+            "per_km_rate_differs",
+            "min_fare_differs"
+          ],
+          "actions": [
+            "repoint_driver_service_categories",
+            "repoint_vehicle_service_categories",
+            "repoint_promotions",
+            "no_bookings_to_repoint",
+            "deactivate_duplicate",
+            "normalize_canonical_display_name"
+          ]
+        },
+        {
+          "duplicateCategoryId": "d81f1275-5321-4d4d-9327-76adebcdef75",
+          "code": "BIKE-5d1a1f8f",
+          "name": "Bike b300845d",
+          "linkedDrivers": 0,
+          "linkedVehicles": 0,
+          "linkedBookings": 0,
+          "linkedPromotions": 0,
+          "linkedFareRules": 1,
+          "mergeSafety": "safe_repoint_and_deactivate",
+          "conflicts": [
+            "per_km_rate_differs",
+            "min_fare_differs"
+          ],
+          "actions": [
+            "repoint_driver_service_categories",
+            "repoint_vehicle_service_categories",
+            "repoint_promotions",
+            "no_bookings_to_repoint",
+            "deactivate_duplicate",
+            "normalize_canonical_display_name"
+          ]
+        },
+        {
+          "duplicateCategoryId": "9e7da76d-9279-4d73-be8f-05519c4b7db9",
+          "code": "BIKE-5d242411",
+          "name": "Bike 0a33a609",
+          "linkedDrivers": 0,
+          "linkedVehicles": 0,
+          "linkedBookings": 0,
+          "linkedPromotions": 0,
+          "linkedFareRules": 1,
+          "mergeSafety": "safe_repoint_and_deactivate",
+          "conflicts": [
+            "per_km_rate_differs",
+            "min_fare_differs"
+          ],
+          "actions": [
+            "repoint_driver_service_categories",
+            "repoint_vehicle_service_categories",
+            "repoint_promotions",
+            "no_bookings_to_repoint",
+            "deactivate_duplicate",
+            "normalize_canonical_display_name"
+          ]
+        },
+        {
+          "duplicateCategoryId": "2ad3d3a2-464d-4903-950e-ab8a135b561c",
+          "code": "BIKE-62692582",
+          "name": "Bike fa360976",
+          "linkedDrivers": 0,
+          "linkedVehicles": 0,
+          "linkedBookings": 0,
+          "linkedPromotions": 0,
+          "linkedFareRules": 1,
+          "mergeSafety": "safe_repoint_and_deactivate",
+          "conflicts": [
+            "per_km_rate_differs",
+            "min_fare_differs"
+          ],
+          "actions": [
+            "repoint_driver_service_categories",
+            "repoint_vehicle_service_categories",
+            "repoint_promotions",
+            "no_bookings_to_repoint",
+            "deactivate_duplicate",
+            "normalize_canonical_display_name"
+          ]
+        },
+        {
+          "duplicateCategoryId": "34c4eec2-2dbb-4b83-bb63-f9c18cf73652",
+          "code": "BIKE-67470ad2",
+          "name": "Bike 4223c1f5",
+          "linkedDrivers": 0,
+          "linkedVehicles": 0,
+          "linkedBookings": 0,
+          "linkedPromotions": 0,
+          "linkedFareRules": 1,
+          "mergeSafety": "safe_repoint_and_deactivate",
+          "conflicts": [
+            "per_km_rate_differs",
+            "min_fare_differs"
+          ],
+          "actions": [
+            "repoint_driver_service_categories",
+            "repoint_vehicle_service_categories",
+            "repoint_promotions",
+            "no_bookings_to_repoint",
+            "deactivate_duplicate",
+            "normalize_canonical_display_name"
+          ]
+        },
+        {
+          "duplicateCategoryId": "92644ecf-d1c6-4e13-8278-09b342b5a125",
+          "code": "BIKE-67d1c326",
+          "name": "Bike 0b35cc0d",
+          "linkedDrivers": 0,
+          "linkedVehicles": 0,
+          "linkedBookings": 0,
+          "linkedPromotions": 0,
+          "linkedFareRules": 1,
+          "mergeSafety": "safe_repoint_and_deactivate",
+          "conflicts": [
+            "per_km_rate_differs",
+            "min_fare_differs"
+          ],
+          "actions": [
+            "repoint_driver_service_categories",
+            "repoint_vehicle_service_categories",
+            "repoint_promotions",
+            "no_bookings_to_repoint",
+            "deactivate_duplicate",
+            "normalize_canonical_display_name"
+          ]
+        },
+        {
+          "duplicateCategoryId": "ecb8e47c-a8d5-4d29-8820-01e67598809d",
+          "code": "BIKE-6f616159",
+          "name": "Bike 2612d8bd",
+          "linkedDrivers": 0,
+          "linkedVehicles": 0,
+          "linkedBookings": 0,
+          "linkedPromotions": 0,
+          "linkedFareRules": 1,
+          "mergeSafety": "safe_repoint_and_deactivate",
+          "conflicts": [
+            "per_km_rate_differs",
+            "min_fare_differs"
+          ],
+          "actions": [
+            "repoint_driver_service_categories",
+            "repoint_vehicle_service_categories",
+            "repoint_promotions",
+            "no_bookings_to_repoint",
+            "deactivate_duplicate",
+            "normalize_canonical_display_name"
+          ]
+        },
+        {
+          "duplicateCategoryId": "3577e5d0-a5d5-407b-894d-1e122210e0cf",
+          "code": "BIKE-82adb5ed",
+          "name": "Bike f4b0f271",
+          "linkedDrivers": 0,
+          "linkedVehicles": 0,
+          "linkedBookings": 0,
+          "linkedPromotions": 0,
+          "linkedFareRules": 1,
+          "mergeSafety": "safe_repoint_and_deactivate",
+          "conflicts": [
+            "per_km_rate_differs",
+            "min_fare_differs"
+          ],
+          "actions": [
+            "repoint_driver_service_categories",
+            "repoint_vehicle_service_categories",
+            "repoint_promotions",
+            "no_bookings_to_repoint",
+            "deactivate_duplicate",
+            "normalize_canonical_display_name"
+          ]
+        },
+        {
+          "duplicateCategoryId": "2710bd7e-a5a5-4b12-8fb1-cfa923e808f4",
+          "code": "BIKE-8765497d",
+          "name": "Bike c570b3be",
+          "linkedDrivers": 0,
+          "linkedVehicles": 0,
+          "linkedBookings": 0,
+          "linkedPromotions": 0,
+          "linkedFareRules": 1,
+          "mergeSafety": "safe_repoint_and_deactivate",
+          "conflicts": [
+            "per_km_rate_differs",
+            "min_fare_differs"
+          ],
+          "actions": [
+            "repoint_driver_service_categories",
+            "repoint_vehicle_service_categories",
+            "repoint_promotions",
+            "no_bookings_to_repoint",
+            "deactivate_duplicate",
+            "normalize_canonical_display_name"
+          ]
+        },
+        {
+          "duplicateCategoryId": "1be9b85f-d8e8-4cc6-a26e-18b8e779743d",
+          "code": "BIKE-895fd71a",
+          "name": "Bike 631e01e9",
+          "linkedDrivers": 0,
+          "linkedVehicles": 0,
+          "linkedBookings": 0,
+          "linkedPromotions": 0,
+          "linkedFareRules": 1,
+          "mergeSafety": "safe_repoint_and_deactivate",
+          "conflicts": [
+            "per_km_rate_differs",
+            "min_fare_differs"
+          ],
+          "actions": [
+            "repoint_driver_service_categories",
+            "repoint_vehicle_service_categories",
+            "repoint_promotions",
+            "no_bookings_to_repoint",
+            "deactivate_duplicate",
+            "normalize_canonical_display_name"
+          ]
+        },
+        {
+          "duplicateCategoryId": "3f0a6aee-f064-4f60-af7f-60db24db3f22",
+          "code": "BIKE-9d555f4e",
+          "name": "Bike 34ee8615",
+          "linkedDrivers": 0,
+          "linkedVehicles": 0,
+          "linkedBookings": 0,
+          "linkedPromotions": 0,
+          "linkedFareRules": 1,
+          "mergeSafety": "safe_repoint_and_deactivate",
+          "conflicts": [
+            "per_km_rate_differs",
+            "min_fare_differs"
+          ],
+          "actions": [
+            "repoint_driver_service_categories",
+            "repoint_vehicle_service_categories",
+            "repoint_promotions",
+            "no_bookings_to_repoint",
+            "deactivate_duplicate",
+            "normalize_canonical_display_name"
+          ]
+        },
+        {
+          "duplicateCategoryId": "2f12a2bb-c3ea-448f-9955-f33ece064370",
+          "code": "BIKE-9d847809",
+          "name": "Bike 4b129954",
+          "linkedDrivers": 0,
+          "linkedVehicles": 0,
+          "linkedBookings": 0,
+          "linkedPromotions": 0,
+          "linkedFareRules": 1,
+          "mergeSafety": "safe_repoint_and_deactivate",
+          "conflicts": [
+            "per_km_rate_differs",
+            "min_fare_differs"
+          ],
+          "actions": [
+            "repoint_driver_service_categories",
+            "repoint_vehicle_service_categories",
+            "repoint_promotions",
+            "no_bookings_to_repoint",
+            "deactivate_duplicate",
+            "normalize_canonical_display_name"
+          ]
+        },
+        {
+          "duplicateCategoryId": "8cfc152a-c727-4da4-a630-ff25cb5418e9",
+          "code": "BIKE-af1e556d",
+          "name": "Bike ad9d4698",
+          "linkedDrivers": 0,
+          "linkedVehicles": 0,
+          "linkedBookings": 0,
+          "linkedPromotions": 0,
+          "linkedFareRules": 1,
+          "mergeSafety": "safe_repoint_and_deactivate",
+          "conflicts": [
+            "per_km_rate_differs",
+            "min_fare_differs"
+          ],
+          "actions": [
+            "repoint_driver_service_categories",
+            "repoint_vehicle_service_categories",
+            "repoint_promotions",
+            "no_bookings_to_repoint",
+            "deactivate_duplicate",
+            "normalize_canonical_display_name"
+          ]
+        },
+        {
+          "duplicateCategoryId": "5950b9e6-cda1-45eb-89b1-c130c87ede29",
+          "code": "BIKE-b1430e6b",
+          "name": "Bike 4a2df49f",
+          "linkedDrivers": 0,
+          "linkedVehicles": 0,
+          "linkedBookings": 0,
+          "linkedPromotions": 0,
+          "linkedFareRules": 1,
+          "mergeSafety": "safe_repoint_and_deactivate",
+          "conflicts": [
+            "per_km_rate_differs",
+            "min_fare_differs"
+          ],
+          "actions": [
+            "repoint_driver_service_categories",
+            "repoint_vehicle_service_categories",
+            "repoint_promotions",
+            "no_bookings_to_repoint",
+            "deactivate_duplicate",
+            "normalize_canonical_display_name"
+          ]
+        },
+        {
+          "duplicateCategoryId": "9020aafc-49a9-4d6f-8e7f-16de139cecd7",
+          "code": "BIKE-b5763a93",
+          "name": "Bike 90a11b1f",
+          "linkedDrivers": 0,
+          "linkedVehicles": 0,
+          "linkedBookings": 0,
+          "linkedPromotions": 0,
+          "linkedFareRules": 1,
+          "mergeSafety": "safe_repoint_and_deactivate",
+          "conflicts": [
+            "per_km_rate_differs",
+            "min_fare_differs"
+          ],
+          "actions": [
+            "repoint_driver_service_categories",
+            "repoint_vehicle_service_categories",
+            "repoint_promotions",
+            "no_bookings_to_repoint",
+            "deactivate_duplicate",
+            "normalize_canonical_display_name"
+          ]
+        },
+        {
+          "duplicateCategoryId": "c6f04799-a195-4512-93b3-6ddaf74cfc81",
+          "code": "BIKE-c13fea0d",
+          "name": "Bike 7635b186",
+          "linkedDrivers": 0,
+          "linkedVehicles": 0,
+          "linkedBookings": 0,
+          "linkedPromotions": 0,
+          "linkedFareRules": 1,
+          "mergeSafety": "safe_repoint_and_deactivate",
+          "conflicts": [
+            "per_km_rate_differs",
+            "min_fare_differs"
+          ],
+          "actions": [
+            "repoint_driver_service_categories",
+            "repoint_vehicle_service_categories",
+            "repoint_promotions",
+            "no_bookings_to_repoint",
+            "deactivate_duplicate",
+            "normalize_canonical_display_name"
+          ]
+        },
+        {
+          "duplicateCategoryId": "f7eb8af6-490c-43cb-bd27-ccef1b02e818",
+          "code": "BIKE-c2bc8dd8",
+          "name": "Bike 83c34a58",
+          "linkedDrivers": 0,
+          "linkedVehicles": 0,
+          "linkedBookings": 0,
+          "linkedPromotions": 0,
+          "linkedFareRules": 1,
+          "mergeSafety": "safe_repoint_and_deactivate",
+          "conflicts": [
+            "per_km_rate_differs",
+            "min_fare_differs"
+          ],
+          "actions": [
+            "repoint_driver_service_categories",
+            "repoint_vehicle_service_categories",
+            "repoint_promotions",
+            "no_bookings_to_repoint",
+            "deactivate_duplicate",
+            "normalize_canonical_display_name"
+          ]
+        },
+        {
+          "duplicateCategoryId": "ec2a9145-1899-4aaf-ba7b-d8483a2cd4a6",
+          "code": "BIKE-c7f71a5e",
+          "name": "Bike c97efdde",
+          "linkedDrivers": 0,
+          "linkedVehicles": 0,
+          "linkedBookings": 0,
+          "linkedPromotions": 0,
+          "linkedFareRules": 1,
+          "mergeSafety": "safe_repoint_and_deactivate",
+          "conflicts": [
+            "per_km_rate_differs",
+            "min_fare_differs"
+          ],
+          "actions": [
+            "repoint_driver_service_categories",
+            "repoint_vehicle_service_categories",
+            "repoint_promotions",
+            "no_bookings_to_repoint",
+            "deactivate_duplicate",
+            "normalize_canonical_display_name"
+          ]
+        },
+        {
+          "duplicateCategoryId": "cde42f74-6e87-4d29-8be0-e7a38f379600",
+          "code": "BIKE-c8e6ccd5",
+          "name": "Bike d6bde8b2",
+          "linkedDrivers": 0,
+          "linkedVehicles": 0,
+          "linkedBookings": 0,
+          "linkedPromotions": 0,
+          "linkedFareRules": 1,
+          "mergeSafety": "safe_repoint_and_deactivate",
+          "conflicts": [
+            "per_km_rate_differs",
+            "min_fare_differs"
+          ],
+          "actions": [
+            "repoint_driver_service_categories",
+            "repoint_vehicle_service_categories",
+            "repoint_promotions",
+            "no_bookings_to_repoint",
+            "deactivate_duplicate",
+            "normalize_canonical_display_name"
+          ]
+        },
+        {
+          "duplicateCategoryId": "0bc3a29c-f15f-47cc-95a5-dfe7f192090f",
+          "code": "BIKE-ca8ac875",
+          "name": "Bike 3e964dc4",
+          "linkedDrivers": 0,
+          "linkedVehicles": 0,
+          "linkedBookings": 0,
+          "linkedPromotions": 0,
+          "linkedFareRules": 1,
+          "mergeSafety": "safe_repoint_and_deactivate",
+          "conflicts": [
+            "per_km_rate_differs",
+            "min_fare_differs"
+          ],
+          "actions": [
+            "repoint_driver_service_categories",
+            "repoint_vehicle_service_categories",
+            "repoint_promotions",
+            "no_bookings_to_repoint",
+            "deactivate_duplicate",
+            "normalize_canonical_display_name"
+          ]
+        },
+        {
+          "duplicateCategoryId": "ce763ff5-b33b-435f-8cd1-6b6d10fc2803",
+          "code": "BIKE-dc51800a",
+          "name": "Bike 8ee65ba0",
+          "linkedDrivers": 0,
+          "linkedVehicles": 0,
+          "linkedBookings": 0,
+          "linkedPromotions": 0,
+          "linkedFareRules": 1,
+          "mergeSafety": "safe_repoint_and_deactivate",
+          "conflicts": [
+            "per_km_rate_differs",
+            "min_fare_differs"
+          ],
+          "actions": [
+            "repoint_driver_service_categories",
+            "repoint_vehicle_service_categories",
+            "repoint_promotions",
+            "no_bookings_to_repoint",
+            "deactivate_duplicate",
+            "normalize_canonical_display_name"
+          ]
+        },
+        {
+          "duplicateCategoryId": "06b25377-0cd9-454c-9b4c-b994f5d4427c",
+          "code": "BIKE-ddfa7576",
+          "name": "Bike f777323d",
+          "linkedDrivers": 0,
+          "linkedVehicles": 0,
+          "linkedBookings": 0,
+          "linkedPromotions": 0,
+          "linkedFareRules": 1,
+          "mergeSafety": "safe_repoint_and_deactivate",
+          "conflicts": [
+            "per_km_rate_differs",
+            "min_fare_differs"
+          ],
+          "actions": [
+            "repoint_driver_service_categories",
+            "repoint_vehicle_service_categories",
+            "repoint_promotions",
+            "no_bookings_to_repoint",
+            "deactivate_duplicate",
+            "normalize_canonical_display_name"
+          ]
+        },
+        {
+          "duplicateCategoryId": "7592bd94-ad8d-4a9a-af6d-b960fd018bf8",
+          "code": "BIKE-e3cf4675",
+          "name": "Bike b6004966",
+          "linkedDrivers": 0,
+          "linkedVehicles": 0,
+          "linkedBookings": 0,
+          "linkedPromotions": 0,
+          "linkedFareRules": 1,
+          "mergeSafety": "safe_repoint_and_deactivate",
+          "conflicts": [
+            "per_km_rate_differs",
+            "min_fare_differs"
+          ],
+          "actions": [
+            "repoint_driver_service_categories",
+            "repoint_vehicle_service_categories",
+            "repoint_promotions",
+            "no_bookings_to_repoint",
+            "deactivate_duplicate",
+            "normalize_canonical_display_name"
+          ]
+        },
+        {
+          "duplicateCategoryId": "d0a2f69f-9d22-4688-a3af-dea4757c1ca9",
+          "code": "BIKE-eba7f517",
+          "name": "Bike e2568ec6",
+          "linkedDrivers": 0,
+          "linkedVehicles": 0,
+          "linkedBookings": 0,
+          "linkedPromotions": 0,
+          "linkedFareRules": 1,
+          "mergeSafety": "safe_repoint_and_deactivate",
+          "conflicts": [
+            "per_km_rate_differs",
+            "min_fare_differs"
+          ],
+          "actions": [
+            "repoint_driver_service_categories",
+            "repoint_vehicle_service_categories",
+            "repoint_promotions",
+            "no_bookings_to_repoint",
+            "deactivate_duplicate",
+            "normalize_canonical_display_name"
+          ]
+        },
+        {
+          "duplicateCategoryId": "2b7202f9-362d-4bb3-b387-deaf36fc6b2d",
+          "code": "BIKE-f44576f1",
+          "name": "Bike bc801d3f",
+          "linkedDrivers": 0,
+          "linkedVehicles": 0,
+          "linkedBookings": 0,
+          "linkedPromotions": 0,
+          "linkedFareRules": 1,
+          "mergeSafety": "safe_repoint_and_deactivate",
+          "conflicts": [
+            "per_km_rate_differs",
+            "min_fare_differs"
+          ],
+          "actions": [
+            "repoint_driver_service_categories",
+            "repoint_vehicle_service_categories",
+            "repoint_promotions",
+            "no_bookings_to_repoint",
+            "deactivate_duplicate",
+            "normalize_canonical_display_name"
+          ]
+        },
+        {
+          "duplicateCategoryId": "0868d679-f16e-47ec-bc10-4c1eaa57ff7c",
+          "code": "BIKE-fb9eae28",
+          "name": "Bike 494885c7",
+          "linkedDrivers": 0,
+          "linkedVehicles": 0,
+          "linkedBookings": 0,
+          "linkedPromotions": 0,
+          "linkedFareRules": 1,
+          "mergeSafety": "safe_repoint_and_deactivate",
+          "conflicts": [
+            "per_km_rate_differs",
+            "min_fare_differs"
+          ],
+          "actions": [
+            "repoint_driver_service_categories",
+            "repoint_vehicle_service_categories",
+            "repoint_promotions",
+            "no_bookings_to_repoint",
+            "deactivate_duplicate",
+            "normalize_canonical_display_name"
+          ]
+        }
+      ]
+    },
+    {
+      "base": "cng",
+      "canonical": {
+        "id": "10ef8afd-7e45-4be2-97a4-00303a624cde",
+        "code": "cng",
+        "name": "CNG"
+      },
+      "duplicates": []
+    },
+    {
+      "base": "moto",
+      "canonical": {
+        "id": "264247c5-af89-4fcb-802a-d576791dc300",
+        "code": "moto",
+        "name": "Moto"
+      },
+      "duplicates": []
+    },
+    {
+      "base": "premium",
+      "canonical": {
+        "id": "2d7bcfdd-4343-4a07-b0df-214c807a8e87",
+        "code": "premium",
+        "name": "Premium"
+      },
+      "duplicates": []
+    },
+    {
+      "base": "comfort",
+      "canonical": {
+        "id": "9a9da7dd-f122-4e9c-a351-1c2ab6fe4e00",
+        "code": "comfort",
+        "name": "Comfort"
+      },
+      "duplicates": []
+    }
+  ],
+  "actionsLog": [],
+  "summary": {
+    "duplicateCategories": 42,
+    "applied": false,
+    "remainingActiveSuffixed": 42
+  },
+  "finalStatus": "SERVICE CATEGORY CLEANUP REQUIRED",
+  "rootCause": {
+    "primary": "tests/admin-fleet-vehicle-update.test.ts beforeEach inserts BIKE-${uuid}/Bike ${runId} but cleanupExchangeFixture only deletes fixture.ids.serviceCategoryIds (Ride), leaving Bike orphans.",
+    "file": "tests/admin-fleet-vehicle-update.test.ts",
+    "function": "beforeEach (secondaryCategory insert) + cleanupExchangeFixture",
+    "amplifiers": [
+      "listActiveServiceCategories returns every is_active row",
+      "fare.service buildQuotesFromRoute emits one quote per active category",
+      "admin listCategoriesHandler same list",
+      "code UNIQUE allows BIKE-xxxx alongside bike"
+    ]
+  }
+}

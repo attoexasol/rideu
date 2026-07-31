@@ -1,0 +1,72 @@
+{
+  "info": {
+    "name": "DriveWize Trip Videos",
+    "description": "Trip video upload, list, get, delete",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "token", "value": "" },
+    { "key": "tripId", "value": "" },
+    { "key": "videoId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "0 - Login",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"auth0Token\": \"<Auth0 access token>\",\n  \"deviceId\": \"postman-driver-001\"\n}"
+        },
+        "url": "{{baseUrl}}/api/auth/login"
+      }
+    },
+    {
+      "name": "1 - Upload Trip Video",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" },
+          { "key": "X-Device-ID", "value": "postman-driver-001" }
+        ],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            { "key": "video_file", "type": "file", "src": "" },
+            { "key": "tripId", "value": "{{tripId}}", "type": "text" },
+            { "key": "startTime", "value": "2026-06-20T10:00:00.000Z", "type": "text" },
+            { "key": "endTime", "value": "2026-06-20T10:02:00.000Z", "type": "text" },
+            { "key": "duration", "value": "120", "type": "text" }
+          ]
+        },
+        "url": "{{baseUrl}}/api/videos/upload"
+      }
+    },
+    {
+      "name": "2 - List Trip Videos",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": "{{baseUrl}}/api/trips/{{tripId}}/videos"
+      }
+    },
+    {
+      "name": "3 - Get Video Metadata",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": "{{baseUrl}}/api/videos/{{videoId}}"
+      }
+    },
+    {
+      "name": "4 - Delete Video (admin)",
+      "request": {
+        "method": "DELETE",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": "{{baseUrl}}/api/videos/{{videoId}}"
+      }
+    }
+  ]
+}

@@ -25,5 +25,10 @@ export declare function verifyCriticalServices(): Promise<void>;
  * Create a health check endpoint handler
  */
 export declare function createHealthCheckHandler(): (_req: any, res: any) => Promise<void>;
+/**
+ * Safe public API health check — no credentials, URLs, or stack traces.
+ * GET /api/health
+ */
+export declare function createApiHealthCheckHandler(): (_req: any, res: any) => Promise<import("express").Response<any, Record<string, any>>>;
 export {};
 //# sourceMappingURL=startup-checks.d.ts.map

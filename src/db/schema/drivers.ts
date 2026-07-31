@@ -6,11 +6,11 @@ import { vehicles } from './vehicles';
  * Defines the types of vehicles available in the fleet
  */
 export const vehicleTypeEnum = pgEnum('vehicle_type', [
-  'sedan',      // Business Class Travel - 3 passengers
-  'suv',        // Comfort for Small Groups - 5 passengers
-  'van',        // ADA Accessible Options - 10 passengers
-  'mini_bus',   // Mid-Sized Groups - 18-24 passengers
-  'coach_bus',  // Large Groups - 50-55 passengers
+  'sedan', // Business Class Travel - 3 passengers
+  'suv', // Comfort for Small Groups - 5 passengers
+  'van', // ADA Accessible Options - 10 passengers
+  'mini_bus', // Mid-Sized Groups - 18-24 passengers
+  'coach_bus', // Large Groups - 50-55 passengers
 ]);
 
 /**
@@ -31,10 +31,13 @@ export const drivers = pgTable(
     // Cab/Vehicle information
     cabName: varchar('cab_name', { length: 255 }),
     cabNumber: varchar('cab_number', { length: 100 }),
+    cabLicence: varchar('cab_licence', { length: 100 }),
     vehicleMake: varchar('vehicle_make', { length: 100 }),
     vehicleModel: varchar('vehicle_model', { length: 100 }),
     vehicleYear: varchar('vehicle_year', { length: 4 }),
     vehicleColor: varchar('vehicle_color', { length: 50 }),
+    qrCode: varchar('qr_code', { length: 255 }).unique(),
+    vehicleQrCode: varchar('vehicle_qr_code', { length: 255 }).unique(),
     lastSeen: timestamp('last_seen'),
     // Single-session enforcement for mobile apps
     activeSessionId: varchar('active_session_id', { length: 255 }), // Current active session ID
@@ -49,6 +52,8 @@ export const drivers = pgTable(
     auth0IdIdx: index('idx_drivers_auth0_id').on(table.auth0Id),
     vehicleTypeIdx: index('idx_drivers_vehicle_type').on(table.vehicleType),
     activeSessionIdx: index('idx_drivers_active_session').on(table.activeSessionId),
+    qrCodeIdx: index('idx_drivers_qr_code').on(table.qrCode),
+    vehicleQrCodeIdx: index('idx_drivers_vehicle_qr_code').on(table.vehicleQrCode),
   })
 );
 

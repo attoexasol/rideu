@@ -8,11 +8,14 @@ import * as schema from './schema';
  * Uses postgres-js for efficient connection management
  */
 
-const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://user:password@localhost:5432/drivewize';
+const DATABASE_URL =
+  process.env.DATABASE_URL || 'postgresql://user:password@localhost:5432/drivewize';
 
 // Configure PostgreSQL connection with pooling
+const DB_POOL_MAX = Number(process.env.DB_POOL_MAX ?? (process.env.NODE_ENV === 'test' ? 2 : 5));
+
 const queryClient = postgres(DATABASE_URL, {
-  max: 20, // Maximum number of connections in the pool
+  max: DB_POOL_MAX,
   idle_timeout: 20, // Close idle connections after 20 seconds
   connect_timeout: 10, // Connection timeout in seconds
   max_lifetime: 60 * 30, // Maximum lifetime of a connection (30 minutes)
@@ -53,7 +56,11 @@ export async function closeConnection(): Promise<void> {
  * Health check for database
  * @returns Object with health status and latency
  */
-export async function healthCheck(): Promise<{ healthy: boolean; latency?: number; error?: string }> {
+export async function healthCheck(): Promise<{
+  healthy: boolean;
+  latency?: number;
+  error?: string;
+}> {
   const start = Date.now();
   try {
     await queryClient`SELECT 1`;
@@ -62,7 +69,7 @@ export async function healthCheck(): Promise<{ healthy: boolean; latency?: numbe
   } catch (error) {
     return {
       healthy: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : 'Unknown error',
     };
   }
 }

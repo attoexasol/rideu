@@ -4,7 +4,12 @@
  *
  * POST /api/trips - Start new trip
  * PUT /api/trips/:id - Update/end trip
+ * GET /api/trips/current - Get authenticated driver's active trip
  * GET /api/trips/:driverId - Get trip history for driver
+ * POST /api/trips/:tripId/generate-qr - Generate passenger pickup QR (admin)
+ * GET /api/trips/:tripId/qrcode - Passenger QR image PNG/base64 (admin)
+ * POST /api/trips/scan-passenger - Driver verifies passenger pickup QR
+ * GET /api/trips/:tripId/videos - List videos for a trip
  */
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
@@ -13,6 +18,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const auth_1 = require("../middleware/auth");
 const validators_1 = require("../validators");
+const passengerTripQr_controller_1 = require("../controllers/passengerTripQr.controller");
+const trip_controller_1 = require("../controllers/trip.controller");
+const video_controller_1 = require("../controllers/video.controller");
 const response_1 = require("../utils/response");
 const error_handler_1 = require("../middleware/error-handler");
 const connection_1 = require("../db/connection");
@@ -62,6 +70,31 @@ router.get('/me', auth_1.requireAuth, auth_1.extractUserInfo, (0, validators_1.v
     const pagination = (0, response_1.calculatePagination)(total, pageNum, limitNum);
     return (0, response_1.sendSuccess)(res, results, 200, { pagination });
 }));
+/**
+ * GET /api/trips/current
+ * Get the authenticated driver's active (in_progress) trip
+ */
+router.get('/current', auth_1.requireAuth, auth_1.extractUserInfo, (0, error_handler_1.asyncHandler)(trip_controller_1.getCurrentTripHandler));
+/**
+ * POST /api/trips/scan-passenger
+ * Driver scans passenger pickup QR to verify boarding
+ */
+router.post('/scan-passenger', auth_1.requireAuth, auth_1.extractUserInfo, (0, validators_1.validate)(validators_1.scanPassengerSchema), (0, error_handler_1.asyncHandler)(passengerTripQr_controller_1.scanPassengerHandler));
+/**
+ * GET /api/trips/:tripId/videos
+ * List trip videos (driver own trip or admin)
+ */
+router.get('/:tripId/videos', auth_1.requireAuth, auth_1.extractUserInfo, (0, validators_1.validate)(validators_1.tripIdParamSchema, 'params'), (0, error_handler_1.asyncHandler)(video_controller_1.listTripVideosHandler));
+/**
+ * POST /api/trips/:tripId/generate-qr
+ * Generate and save passenger pickup QR for a trip (admin)
+ */
+router.post('/:tripId/generate-qr', auth_1.requireAuth, auth_1.extractUserInfo, (0, validators_1.validate)(validators_1.tripIdParamSchema, 'params'), (0, error_handler_1.asyncHandler)(passengerTripQr_controller_1.generatePassengerQrHandler));
+/**
+ * GET /api/trips/:tripId/qrcode
+ * Generate passenger pickup QR image (PNG or base64, admin)
+ */
+router.get('/:tripId/qrcode', auth_1.requireAuth, auth_1.extractUserInfo, (0, validators_1.validate)(validators_1.tripIdParamSchema, 'params'), (0, validators_1.validate)(validators_1.tripQrImageQuerySchema, 'query'), (0, error_handler_1.asyncHandler)(passengerTripQr_controller_1.getPassengerQrCodeImageHandler));
 /**
  * POST /api/trips
  * Start new trip

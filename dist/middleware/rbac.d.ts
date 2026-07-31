@@ -88,6 +88,8 @@ export declare const isSuperAdmin: (role?: string) => boolean;
  * Utility function (not middleware)
  */
 export declare const isDriver: (role?: string) => boolean;
+export declare const isCustomer: (role?: string) => boolean;
+export declare const requireCustomer: (req: UserRequest, res: Response, next: NextFunction) => void;
 /**
  * Get user role hierarchy level
  *

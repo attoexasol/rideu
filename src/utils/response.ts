@@ -78,47 +78,22 @@ export const sendError = (
 /**
  * Send a validation error response
  */
-export const sendValidationError = (
-  res: Response,
-  errors: any
-): Response => {
-  return sendError(
-    res,
-    'VALIDATION_ERROR',
-    'Request validation failed',
-    400,
-    errors
-  );
+export const sendValidationError = (res: Response, errors: any): Response => {
+  return sendError(res, 'VALIDATION_ERROR', 'Request validation failed', 400, errors);
 };
 
 /**
  * Send a not found error response
  */
-export const sendNotFound = (
-  res: Response,
-  resource: string = 'Resource'
-): Response => {
-  return sendError(
-    res,
-    'NOT_FOUND',
-    `${resource} not found`,
-    404
-  );
+export const sendNotFound = (res: Response, resource: string = 'Resource'): Response => {
+  return sendError(res, 'NOT_FOUND', `${resource} not found`, 404);
 };
 
 /**
  * Send an unauthorized error response
  */
-export const sendUnauthorized = (
-  res: Response,
-  message: string = 'Unauthorized'
-): Response => {
-  return sendError(
-    res,
-    'UNAUTHORIZED',
-    message,
-    403
-  );
+export const sendUnauthorized = (res: Response, message: string = 'Unauthorized'): Response => {
+  return sendError(res, 'UNAUTHORIZED', message, 403);
 };
 
 /**
@@ -128,12 +103,7 @@ export const sendAuthFailed = (
   res: Response,
   message: string = 'Authentication failed'
 ): Response => {
-  return sendError(
-    res,
-    'AUTH_FAILED',
-    message,
-    401
-  );
+  return sendError(res, 'AUTH_FAILED', message, 401);
 };
 
 /**

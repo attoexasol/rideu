@@ -3,12 +3,16 @@ import express from 'express';
 import { createServer } from 'http';
 import cors from 'cors';
 import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
+// Rate Limiting — centralized config with dedicated per-route limiters
+import { globalRateLimiter } from './middleware/rate-limiters';
 import { setupWebSocketServer } from './websocket/server';
+import { setupBookingEventSubscriber } from './services/bookingNotify.service';
+import { processExpiredOffers } from './services/dispatch.service';
+import { startVehicleExchangeExpirationPoller } from './services/vehicleExchangeExpiration.service';
 import { requestLogger } from './middleware/logger';
 import { errorHandler, notFoundHandler } from './middleware/error-handler';
 import { validateEnvironment, printEnvironmentInfo } from './config/env-validator';
-import { verifyCriticalServices, createHealthCheckHandler } from './utils/startup-checks';
+import { verifyCriticalServices, createHealthCheckHandler, createApiHealthCheckHandler } from './utils/startup-checks';
 import { startInactivityChecker } from './services/driver-inactivity-checker';
 import { closeRedisConnections } from './config/redis';
 import { closeConnection } from './db/connection';
@@ -20,6 +24,12 @@ import locationRoutes from './routes/locations';
 import tripRoutes from './routes/trips';
 import reportRoutes from './routes/reports';
 import adminRoutes from './routes/admin';
+import vehicleRoutes from './routes/vehicles';
+import companyRoutes from './routes/company';
+import videoRoutes from './routes/videos';
+import v1Routes from './routes/v1';
+import path from 'path';
+import { ensureUploadDirectories } from './services/video-storage.service';
 
 // Validate environment variables on startup
 try {
@@ -42,8 +52,16 @@ try {
 
 // Start background jobs
 let inactivityCheckerInterval: NodeJS.Timeout;
+let offerExpirationInterval: NodeJS.Timeout;
+let vehicleExchangeExpirationInterval: NodeJS.Timeout;
 try {
   inactivityCheckerInterval = startInactivityChecker();
+  offerExpirationInterval = setInterval(() => {
+    processExpiredOffers().catch((err) =>
+      console.error('[OfferExpiration] Failed to process expired offers:', err)
+    );
+  }, 15_000);
+  vehicleExchangeExpirationInterval = startVehicleExchangeExpirationPoller();
 } catch (error) {
   console.error('⚠️  Failed to start inactivity checker:', error);
   // Non-fatal - server can continue without this background job
@@ -59,38 +77,34 @@ app.set('trust proxy', 1);
 
 // Security & CORS Middleware
 app.use(helmet());
-app.use(cors({
-  origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:5173', 'http://localhost:8081'],
-  credentials: true,
-}));
+app.use(
+  cors({
+    origin: process.env.CORS_ORIGIN?.split(',') || [
+      'http://localhost:5173',
+      'http://localhost:8081',
+    ],
+    credentials: true,
+  })
+);
 
-// Rate Limiting (always enabled but with different limits)
-const isDevelopment = process.env.NODE_ENV === 'development';
-const limiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'), // 15 minutes
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || (isDevelopment ? '10000' : '100')), // Higher limit in dev
-  message: {
-    success: false,
-    error: {
-      code: 'RATE_LIMIT_EXCEEDED',
-      message: 'Too many requests, please try again later',
-    },
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-app.use(limiter);
+app.use(globalRateLimiter);
 
 // Body parsing middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Local video file serving (v1 storage)
+app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')));
+ensureUploadDirectories().catch((err) => {
+  console.error('Failed to create upload directories:', err);
+});
+
 // Request logging middleware
 app.use(requestLogger);
 
-// Health check endpoint with comprehensive service checks
+// Health check endpoints
 app.get('/health', createHealthCheckHandler());
+app.get('/api/health', createApiHealthCheckHandler());
 
 // Basic route
 app.get('/', (_req, res) => {
@@ -100,6 +114,7 @@ app.get('/', (_req, res) => {
     websocket: 'Socket.IO enabled',
     endpoints: {
       health: '/health',
+      apiHealth: '/api/health',
       api: '/api',
     },
   });
@@ -108,13 +123,18 @@ app.get('/', (_req, res) => {
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/drivers', driverRoutes);
+app.use('/api/vehicles', vehicleRoutes);
+app.use('/api/company', companyRoutes);
 app.use('/api/locations', locationRoutes);
 app.use('/api/trips', tripRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/videos', videoRoutes);
+app.use('/api/v1', v1Routes);
 
 // Setup WebSocket server with Redis adapter
 export const io = setupWebSocketServer(httpServer);
+setupBookingEventSubscriber(io);
 
 // 404 handler - must be after all routes
 app.use(notFoundHandler);
@@ -129,14 +149,25 @@ async function gracefulShutdown(signal: string) {
     clearInterval(inactivityCheckerInterval);
     console.log('Inactivity checker stopped');
   }
+  if (offerExpirationInterval) {
+    clearInterval(offerExpirationInterval);
+    console.log('Offer expiration checker stopped');
+  }
+  if (vehicleExchangeExpirationInterval) {
+    clearInterval(vehicleExchangeExpirationInterval);
+    console.log('Vehicle exchange expiration checker stopped');
+  }
   httpServer.close(async () => {
     console.log('HTTP server closed');
-    await Promise.allSettled([
-      closeRedisConnections(),
-      closeConnection(),
-    ]);
+    await Promise.allSettled([closeRedisConnections(), closeConnection()]);
     process.exit(0);
   });
+
+  // Force exit if close hangs (e.g. open WebSocket connections during tsx reload)
+  setTimeout(() => {
+    console.warn('Forced shutdown after timeout');
+    process.exit(0);
+  }, 3000).unref();
 }
 
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
@@ -149,6 +180,22 @@ process.on('unhandledRejection', (reason) => {
 
 // Start server - Listen on all network interfaces (0.0.0.0) for mobile device access
 const HOST = '0.0.0.0';
+
+httpServer.on('error', (err: NodeJS.ErrnoException) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error('');
+    console.error(`❌ Port ${PORT} is already in use.`);
+    console.error('   Another server instance is still running (common after tsx watch reload).');
+    console.error('');
+    console.error('   Fix: run   npm run stop:dev');
+    console.error('   Then:     npm run dev');
+    console.error('');
+    process.exit(1);
+  }
+  console.error('HTTP server error:', err);
+  process.exit(1);
+});
+
 httpServer.listen(Number(PORT), HOST, () => {
   console.log('═══════════════════════════════════════════════════════');
   console.log('  DriveWize Backend Server');

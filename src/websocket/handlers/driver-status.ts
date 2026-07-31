@@ -110,10 +110,7 @@ export function setupDriverStatusHandler(io: Server, socket: Socket): void {
       io.to('admin').emit('driver:status_change', broadcastPayload);
 
       // Publish to Redis Pub/Sub for multi-server scalability
-      await redisPub.publish(
-        PubSubChannels.DRIVER_STATUS,
-        JSON.stringify(broadcastPayload)
-      );
+      await redisPub.publish(PubSubChannels.DRIVER_STATUS, JSON.stringify(broadcastPayload));
 
       // Send acknowledgment
       if (callback) {
@@ -203,10 +200,7 @@ export function setupDriverStatusHandler(io: Server, socket: Socket): void {
       io.to('admin').emit('driver:online', notification);
 
       // Publish to Redis
-      await redisPub.publish(
-        PubSubChannels.DRIVER_ONLINE,
-        JSON.stringify(notification)
-      );
+      await redisPub.publish(PubSubChannels.DRIVER_ONLINE, JSON.stringify(notification));
 
       if (callback) {
         callback({
@@ -289,10 +283,7 @@ export function setupDriverStatusHandler(io: Server, socket: Socket): void {
       io.to('admin').emit('driver:offline', notification);
 
       // Publish to Redis
-      await redisPub.publish(
-        PubSubChannels.DRIVER_OFFLINE,
-        JSON.stringify(notification)
-      );
+      await redisPub.publish(PubSubChannels.DRIVER_OFFLINE, JSON.stringify(notification));
 
       if (callback) {
         callback({

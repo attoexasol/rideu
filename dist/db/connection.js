@@ -40,6 +40,7 @@ exports.queryClient = exports.db = void 0;
 exports.testConnection = testConnection;
 exports.closeConnection = closeConnection;
 exports.healthCheck = healthCheck;
+require("dotenv/config");
 const postgres_js_1 = require("drizzle-orm/postgres-js");
 const postgres_1 = __importDefault(require("postgres"));
 const schema = __importStar(require("./schema"));
@@ -49,8 +50,9 @@ const schema = __importStar(require("./schema"));
  */
 const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://user:password@localhost:5432/drivewize';
 // Configure PostgreSQL connection with pooling
+const DB_POOL_MAX = Number(process.env.DB_POOL_MAX ?? (process.env.NODE_ENV === 'test' ? 2 : 5));
 const queryClient = (0, postgres_1.default)(DATABASE_URL, {
-    max: 20, // Maximum number of connections in the pool
+    max: DB_POOL_MAX,
     idle_timeout: 20, // Close idle connections after 20 seconds
     connect_timeout: 10, // Connection timeout in seconds
     max_lifetime: 60 * 30, // Maximum lifetime of a connection (30 minutes)
@@ -100,7 +102,7 @@ async function healthCheck() {
     catch (error) {
         return {
             healthy: false,
-            error: error instanceof Error ? error.message : 'Unknown error'
+            error: error instanceof Error ? error.message : 'Unknown error',
         };
     }
 }

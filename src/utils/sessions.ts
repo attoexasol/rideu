@@ -37,8 +37,8 @@ export function detectSessions(
   let sessionId = 1;
 
   // Sort locations by timestamp
-  const sorted = [...locations].sort((a, b) =>
-    new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+  const sorted = [...locations].sort(
+    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
   );
 
   sorted.forEach((location, index) => {
@@ -106,11 +106,7 @@ export function simplifyPoints(
   let maxIndex = 0;
 
   for (let i = 1; i < points.length - 1; i++) {
-    const dist = perpendicularDistance(
-      points[i],
-      points[0],
-      points[points.length - 1]
-    );
+    const dist = perpendicularDistance(points[i], points[0], points[points.length - 1]);
     if (dist > maxDist) {
       maxDist = dist;
       maxIndex = i;
@@ -198,8 +194,8 @@ export function filterSignificantPoints(
 
   for (let i = 1; i < points.length - 1; i++) {
     const point = points[i];
-    const timeDelta = (new Date(point.timestamp).getTime() -
-                      new Date(lastKeptPoint.timestamp).getTime()) / 1000;
+    const timeDelta =
+      (new Date(point.timestamp).getTime() - new Date(lastKeptPoint.timestamp).getTime()) / 1000;
 
     // Check if this point is significant
     let isSignificant = false;
@@ -264,12 +260,7 @@ export function calculateSessionDistance(points: LocationPoint[]): number {
  * Calculate distance between two points using Haversine formula
  * Returns distance in meters
  */
-function haversineDistance(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number
-): number {
+function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371000; // Earth's radius in meters
   const φ1 = (lat1 * Math.PI) / 180;
   const φ2 = (lat2 * Math.PI) / 180;

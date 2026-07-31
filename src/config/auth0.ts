@@ -5,7 +5,8 @@
  *
  * Environment Variables Required:
  * - AUTH0_DOMAIN: Your Auth0 tenant domain (e.g., your-tenant.auth0.com)
- * - AUTH0_API_IDENTIFIER: The API identifier/audience (e.g., https://api.drivewize.com)
+ * - AUTH0_API_IDENTIFIER or AUTH0_AUDIENCE: API identifier/audience
+ * - AUTH0_ALGORITHM: JWT signing algorithm (default RS256)
  * - AUTH0_CLIENT_ID: Backend application client ID
  * - AUTH0_CLIENT_SECRET: Backend application client secret
  */
@@ -14,15 +15,16 @@ export const auth0Config = {
   // Auth0 tenant domain
   domain: process.env.AUTH0_DOMAIN || '',
 
-  // API identifier (audience)
-  audience: process.env.AUTH0_API_IDENTIFIER || 'https://api.drivewize.com',
+  // API identifier (audience) — AUTH0_AUDIENCE alias supported
+  audience:
+    process.env.AUTH0_AUDIENCE || process.env.AUTH0_API_IDENTIFIER || 'https://api.drivewize.com',
 
   // Client credentials for backend
   clientId: process.env.AUTH0_CLIENT_ID || '',
   clientSecret: process.env.AUTH0_CLIENT_SECRET || '',
 
   // Token settings
-  tokenSigningAlg: 'RS256',
+  tokenSigningAlg: (process.env.AUTH0_ALGORITHM || 'RS256') as 'RS256',
 
   // JWKS URI for token verification
   jwksUri: process.env.AUTH0_DOMAIN
@@ -30,9 +32,7 @@ export const auth0Config = {
     : '',
 
   // Issuer URL
-  issuer: process.env.AUTH0_DOMAIN
-    ? `https://${process.env.AUTH0_DOMAIN}/`
-    : '',
+  issuer: process.env.AUTH0_DOMAIN ? `https://${process.env.AUTH0_DOMAIN}/` : '',
 };
 
 /**
@@ -40,13 +40,18 @@ export const auth0Config = {
  * Throws error if required environment variables are missing
  */
 export const validateAuth0Config = (): void => {
-  const required = ['AUTH0_DOMAIN', 'AUTH0_API_IDENTIFIER', 'AUTH0_CLIENT_ID', 'AUTH0_CLIENT_SECRET'];
-  const missing = required.filter(key => !process.env[key]);
+  const required = [
+    'AUTH0_DOMAIN',
+    'AUTH0_API_IDENTIFIER',
+    'AUTH0_CLIENT_ID',
+    'AUTH0_CLIENT_SECRET',
+  ];
+  const missing = required.filter((key) => !process.env[key]);
 
   if (missing.length > 0) {
     throw new Error(
       `Missing required Auth0 environment variables: ${missing.join(', ')}\n` +
-      'Please check your .env file and ensure all Auth0 variables are set.'
+        'Please check your .env file and ensure all Auth0 variables are set.'
     );
   }
 };
@@ -58,9 +63,11 @@ export const Auth0Roles = {
   DRIVER: 'driver',
   ADMIN: 'admin',
   SUPER_ADMIN: 'super_admin',
+  CUSTOMER: 'customer',
+  FLEET_MANAGER: 'fleet_manager',
 } as const;
 
-export type Auth0Role = typeof Auth0Roles[keyof typeof Auth0Roles];
+export type Auth0Role = (typeof Auth0Roles)[keyof typeof Auth0Roles];
 
 /**
  * Auth0 permissions/scopes
@@ -87,4 +94,4 @@ export const Auth0Permissions = {
   DELETE_ADMINS: 'delete:admins',
 } as const;
 
-export type Auth0Permission = typeof Auth0Permissions[keyof typeof Auth0Permissions];
+export type Auth0Permission = (typeof Auth0Permissions)[keyof typeof Auth0Permissions];

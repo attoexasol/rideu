@@ -5,7 +5,8 @@
  *
  * Environment Variables Required:
  * - AUTH0_DOMAIN: Your Auth0 tenant domain (e.g., your-tenant.auth0.com)
- * - AUTH0_API_IDENTIFIER: The API identifier/audience (e.g., https://api.drivewize.com)
+ * - AUTH0_API_IDENTIFIER or AUTH0_AUDIENCE: API identifier/audience
+ * - AUTH0_ALGORITHM: JWT signing algorithm (default RS256)
  * - AUTH0_CLIENT_ID: Backend application client ID
  * - AUTH0_CLIENT_SECRET: Backend application client secret
  */
@@ -14,7 +15,7 @@ export declare const auth0Config: {
     audience: string;
     clientId: string;
     clientSecret: string;
-    tokenSigningAlg: string;
+    tokenSigningAlg: "RS256";
     jwksUri: string;
     issuer: string;
 };
@@ -30,8 +31,10 @@ export declare const Auth0Roles: {
     readonly DRIVER: "driver";
     readonly ADMIN: "admin";
     readonly SUPER_ADMIN: "super_admin";
+    readonly CUSTOMER: "customer";
+    readonly FLEET_MANAGER: "fleet_manager";
 };
-export type Auth0Role = typeof Auth0Roles[keyof typeof Auth0Roles];
+export type Auth0Role = (typeof Auth0Roles)[keyof typeof Auth0Roles];
 /**
  * Auth0 permissions/scopes
  */
@@ -51,5 +54,5 @@ export declare const Auth0Permissions: {
     readonly UPDATE_ADMINS: "update:admins";
     readonly DELETE_ADMINS: "delete:admins";
 };
-export type Auth0Permission = typeof Auth0Permissions[keyof typeof Auth0Permissions];
+export type Auth0Permission = (typeof Auth0Permissions)[keyof typeof Auth0Permissions];
 //# sourceMappingURL=auth0.d.ts.map

@@ -120,14 +120,11 @@ export class AuthService {
    */
   async getUserInfo(accessToken: string): Promise<Auth0UserInfo> {
     try {
-      const response = await axios.get<Auth0UserInfo>(
-        `https://${auth0Config.domain}/userinfo`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
-      );
+      const response = await axios.get<Auth0UserInfo>(`https://${auth0Config.domain}/userinfo`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
 
       return response.data;
     } catch (error: any) {
@@ -147,9 +144,7 @@ export class AuthService {
     try {
       // In production, use jsonwebtoken library to verify signature
       // For now, we'll decode without verification (NOT SECURE - placeholder)
-      const payload = JSON.parse(
-        Buffer.from(idToken.split('.')[1], 'base64').toString()
-      );
+      const payload = JSON.parse(Buffer.from(idToken.split('.')[1], 'base64').toString());
 
       // Check expiration
       if (payload.exp && Date.now() >= payload.exp * 1000) {
@@ -224,21 +219,13 @@ export class AuthService {
    * @param sessionData - Session data to store
    * @param redisClient - Redis client instance
    */
-  async storeSession(
-    sessionId: string,
-    sessionData: SessionData,
-    redisClient: any
-  ): Promise<void> {
+  async storeSession(sessionId: string, sessionData: SessionData, redisClient: any): Promise<void> {
     try {
       // Calculate TTL (time to live) in seconds
       const ttl = Math.floor((sessionData.expiresAt.getTime() - Date.now()) / 1000);
 
       // Store session in Redis with expiration
-      await redisClient.setex(
-        `session:${sessionId}`,
-        ttl,
-        JSON.stringify(sessionData)
-      );
+      await redisClient.setex(`session:${sessionId}`, ttl, JSON.stringify(sessionData));
     } catch (error: any) {
       throw new Error(`Failed to store session: ${error.message}`);
     }

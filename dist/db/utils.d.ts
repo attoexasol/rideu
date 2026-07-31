@@ -20,10 +20,13 @@ export declare const driverUtils: {
         vehicleId: string | null;
         cabName: string | null;
         cabNumber: string | null;
+        cabLicence: string | null;
         vehicleMake: string | null;
         vehicleModel: string | null;
         vehicleYear: string | null;
         vehicleColor: string | null;
+        qrCode: string | null;
+        vehicleQrCode: string | null;
         lastSeen: Date | null;
         activeSessionId: string | null;
         activeDeviceId: string | null;
@@ -46,10 +49,13 @@ export declare const driverUtils: {
         vehicleId: string | null;
         cabName: string | null;
         cabNumber: string | null;
+        cabLicence: string | null;
         vehicleMake: string | null;
         vehicleModel: string | null;
         vehicleYear: string | null;
         vehicleColor: string | null;
+        qrCode: string | null;
+        vehicleQrCode: string | null;
         lastSeen: Date | null;
         activeSessionId: string | null;
         activeDeviceId: string | null;
@@ -72,10 +78,13 @@ export declare const driverUtils: {
         vehicleId: string | null;
         cabName: string | null;
         cabNumber: string | null;
+        cabLicence: string | null;
         vehicleMake: string | null;
         vehicleModel: string | null;
         vehicleYear: string | null;
         vehicleColor: string | null;
+        qrCode: string | null;
+        vehicleQrCode: string | null;
         lastSeen: Date | null;
         activeSessionId: string | null;
         activeDeviceId: string | null;
@@ -98,10 +107,13 @@ export declare const driverUtils: {
         vehicleId: string | null;
         cabName: string | null;
         cabNumber: string | null;
+        cabLicence: string | null;
         vehicleMake: string | null;
         vehicleModel: string | null;
         vehicleYear: string | null;
         vehicleColor: string | null;
+        qrCode: string | null;
+        vehicleQrCode: string | null;
         lastSeen: Date | null;
         activeSessionId: string | null;
         activeDeviceId: string | null;
@@ -114,22 +126,25 @@ export declare const driverUtils: {
      * Get driver with vehicle information
      */
     findWithVehicle(driverId: string): Promise<{
-        id: string;
         name: string;
+        id: string;
+        status: string;
         createdAt: Date;
         updatedAt: Date;
+        qrCode: string | null;
         auth0Id: string;
         email: string;
         phone: string | null;
-        status: string;
         vehicleType: "sedan" | "suv" | "van" | "mini_bus" | "coach_bus" | null;
         vehicleId: string | null;
         cabName: string | null;
         cabNumber: string | null;
+        cabLicence: string | null;
         vehicleMake: string | null;
         vehicleModel: string | null;
         vehicleYear: string | null;
         vehicleColor: string | null;
+        vehicleQrCode: string | null;
         lastSeen: Date | null;
         activeSessionId: string | null;
         activeDeviceId: string | null;
@@ -156,10 +171,13 @@ export declare const driverUtils: {
         vehicleId: string | null;
         cabName: string | null;
         cabNumber: string | null;
+        cabLicence: string | null;
         vehicleMake: string | null;
         vehicleModel: string | null;
         vehicleYear: string | null;
         vehicleColor: string | null;
+        qrCode: string | null;
+        vehicleQrCode: string | null;
         lastSeen: Date | null;
         activeSessionId: string | null;
         activeDeviceId: string | null;
@@ -182,10 +200,13 @@ export declare const driverUtils: {
         vehicleId: string | null;
         cabName: string | null;
         cabNumber: string | null;
+        cabLicence: string | null;
         vehicleMake: string | null;
         vehicleModel: string | null;
         vehicleYear: string | null;
         vehicleColor: string | null;
+        qrCode: string | null;
+        vehicleQrCode: string | null;
         lastSeen: Date | null;
         activeSessionId: string | null;
         activeDeviceId: string | null;
@@ -280,12 +301,18 @@ export declare const tripUtils: {
     getForDriver(driverId: string, status?: string, startDate?: Date, endDate?: Date, limit?: number): Promise<{
         id: string;
         driverId: string;
+        bookingId: string | null;
+        customerId: string | null;
         startTime: Date;
         endTime: Date | null;
         distance: string | null;
         status: string;
         startLocationId: string | null;
         endLocationId: string | null;
+        passengerQrCode: string | null;
+        qrVerified: boolean;
+        qrVerifiedAt: Date | null;
+        tripType: string | null;
         createdAt: Date;
         updatedAt: Date;
     }[]>;
@@ -295,12 +322,18 @@ export declare const tripUtils: {
     getActiveForDriver(driverId: string): Promise<{
         id: string;
         driverId: string;
+        bookingId: string | null;
+        customerId: string | null;
         startTime: Date;
         endTime: Date | null;
         distance: string | null;
         status: string;
         startLocationId: string | null;
         endLocationId: string | null;
+        passengerQrCode: string | null;
+        qrVerified: boolean;
+        qrVerifiedAt: Date | null;
+        tripType: string | null;
         createdAt: Date;
         updatedAt: Date;
     }>;
@@ -312,16 +345,22 @@ export declare const tripUtils: {
         startTime: Date;
         startLocationId?: string;
     }): Promise<{
+        bookingId: string | null;
         id: string;
+        status: string;
         createdAt: Date;
         updatedAt: Date;
-        status: string;
         driverId: string;
+        customerId: string | null;
         startTime: Date;
         endTime: Date | null;
         distance: string | null;
         startLocationId: string | null;
         endLocationId: string | null;
+        passengerQrCode: string | null;
+        qrVerified: boolean;
+        qrVerifiedAt: Date | null;
+        tripType: string | null;
     }>;
     /**
      * End a trip
@@ -334,12 +373,18 @@ export declare const tripUtils: {
     }): Promise<{
         id: string;
         driverId: string;
+        bookingId: string | null;
+        customerId: string | null;
         startTime: Date;
         endTime: Date | null;
         distance: string | null;
         status: string;
         startLocationId: string | null;
         endLocationId: string | null;
+        passengerQrCode: string | null;
+        qrVerified: boolean;
+        qrVerifiedAt: Date | null;
+        tripType: string | null;
         createdAt: Date;
         updatedAt: Date;
     }>;

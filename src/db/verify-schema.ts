@@ -72,13 +72,17 @@ async function verifySchema() {
     // Show sample location
     const sampleLocation = locationCount[0];
     if (sampleLocation) {
-      console.log(`   ✓ Sample location: lat=${sampleLocation.latitude}, lng=${sampleLocation.longitude}`);
+      console.log(
+        `   ✓ Sample location: lat=${sampleLocation.latitude}, lng=${sampleLocation.longitude}`
+      );
     }
 
     // Show sample trip
     const sampleTrip = tripCount[0];
     if (sampleTrip) {
-      console.log(`   ✓ Sample trip: ${sampleTrip.status} (distance: ${sampleTrip.distance || 'N/A'})`);
+      console.log(
+        `   ✓ Sample trip: ${sampleTrip.status} (distance: ${sampleTrip.distance || 'N/A'})`
+      );
     }
 
     console.log('\n✅ Schema verification complete! All tables and indexes are in place.');

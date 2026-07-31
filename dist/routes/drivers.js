@@ -7,7 +7,15 @@
  * POST /api/drivers - Create new driver
  * PUT /api/drivers/:id - Update driver
  * DELETE /api/drivers/:id - Delete driver
+ * PATCH /api/drivers/:id/cab-identifier - Update cab number or licence only
  * PATCH /api/drivers/:id/status - Update driver status
+ * GET /api/drivers/qr/:qrCode - Lookup driver by QR code value
+ * GET /api/drivers/:id/qrcode - Generate QR code image (PNG or base64)
+ * POST /api/drivers/scan-vehicle - Assign vehicle via QR scan
+ * POST /api/drivers/check-in - Company check-in
+ * POST /api/drivers/check-out - Company check-out
+ * GET /api/drivers/:driverId/assignment - Active vehicle assignment
+ * GET /api/drivers/:driverId/attendance - Attendance status
  */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
@@ -50,6 +58,10 @@ const express_1 = __importDefault(require("express"));
 const auth_1 = require("../middleware/auth");
 const rbac_1 = require("../middleware/rbac");
 const device_tracking_1 = require("../middleware/device-tracking");
+const normalizeCabIdentifier_1 = require("../middleware/normalizeCabIdentifier");
+const driverQrCode_controller_1 = require("../controllers/driverQrCode.controller");
+const driverVehicleAssignment_controller_1 = require("../controllers/driverVehicleAssignment.controller");
+const driverAttendance_controller_1 = require("../controllers/driverAttendance.controller");
 const validators_1 = require("../validators");
 const response_1 = require("../utils/response");
 const error_handler_1 = require("../middleware/error-handler");
@@ -59,7 +71,13 @@ const vehicles_1 = require("../db/schema/vehicles");
 const utils_1 = require("../db/utils");
 const drizzle_orm_1 = require("drizzle-orm");
 const redis_1 = require("../config/redis");
+const duty_1 = require("../config/duty");
+const duty_service_1 = require("../services/duty.service");
 const auth0Management_1 = require("../services/auth0Management");
+const driverCabIdentifier_1 = require("../services/driverCabIdentifier");
+const cabIdentifier_1 = require("../utils/cabIdentifier");
+const driverQrCode_service_1 = require("../services/driverQrCode.service");
+const vehicleQrCode_service_1 = require("../services/vehicleQrCode.service");
 const router = express_1.default.Router();
 /**
  * GET /api/drivers/me
@@ -97,6 +115,41 @@ router.get('/me', auth_1.requireAuth, auth_1.extractUserInfo, device_tracking_1.
     });
 }));
 /**
+ * GET /api/drivers/qr/:qrCode
+ * Lookup driver by unique qr_code value
+ */
+router.get('/qr/:qrCode', auth_1.requireAuth, auth_1.extractUserInfo, (0, validators_1.validate)(validators_1.driverQrCodeParamSchema, 'params'), (0, error_handler_1.asyncHandler)(driverQrCode_controller_1.getDriverByQrCodeHandler));
+/**
+ * GET /api/drivers/:id/qrcode
+ * Generate QR code image from driver's qr_code (PNG or base64)
+ */
+router.get('/:id/qrcode', auth_1.requireAuth, auth_1.extractUserInfo, (0, validators_1.validate)(validators_1.driverIdParamSchema, 'params'), (0, validators_1.validate)(validators_1.driverQrImageQuerySchema, 'query'), (0, error_handler_1.asyncHandler)(driverQrCode_controller_1.getDriverQrCodeImageHandler));
+/**
+ * POST /api/drivers/scan-vehicle
+ * Driver scans vehicle QR to start shift assignment
+ */
+router.post('/scan-vehicle', auth_1.requireAuth, auth_1.extractUserInfo, (0, validators_1.validate)(validators_1.scanVehicleSchema), (0, error_handler_1.asyncHandler)(driverVehicleAssignment_controller_1.scanVehicleHandler));
+/**
+ * POST /api/drivers/check-in
+ * Driver checks in at company (COMPANY_CHECKIN QR)
+ */
+router.post('/check-in', auth_1.requireAuth, auth_1.extractUserInfo, (0, validators_1.validate)(validators_1.checkInSchema), (0, error_handler_1.asyncHandler)(driverAttendance_controller_1.checkInHandler));
+/**
+ * POST /api/drivers/check-out
+ * Driver checks out at company (COMPANY_CHECKIN QR)
+ */
+router.post('/check-out', auth_1.requireAuth, auth_1.extractUserInfo, (0, validators_1.validate)(validators_1.checkOutSchema), (0, error_handler_1.asyncHandler)(driverAttendance_controller_1.checkOutHandler));
+/**
+ * GET /api/drivers/:driverId/assignment
+ * Get active vehicle assignment for driver
+ */
+router.get('/:driverId/assignment', auth_1.requireAuth, auth_1.extractUserInfo, (0, validators_1.validate)(validators_1.driverIdPathSchema, 'params'), (0, error_handler_1.asyncHandler)(driverVehicleAssignment_controller_1.getActiveAssignmentHandler));
+/**
+ * GET /api/drivers/:driverId/attendance
+ * Get attendance status for driver
+ */
+router.get('/:driverId/attendance', auth_1.requireAuth, auth_1.extractUserInfo, (0, validators_1.validate)(validators_1.driverIdPathSchema, 'params'), (0, error_handler_1.asyncHandler)(driverAttendance_controller_1.getAttendanceStatusHandler));
+/**
  * GET /api/drivers
  * List all drivers with pagination, search, and filters
  */
@@ -133,6 +186,8 @@ router.get('/', auth_1.requireAuth, auth_1.extractUserInfo, rbac_1.requireAdmin,
         vehicleId: drivers_1.drivers.vehicleId,
         cabName: drivers_1.drivers.cabName,
         cabNumber: drivers_1.drivers.cabNumber,
+        cabLicence: drivers_1.drivers.cabLicence,
+        qrCode: drivers_1.drivers.qrCode,
         vehicleMake: drivers_1.drivers.vehicleMake,
         vehicleModel: drivers_1.drivers.vehicleModel,
         vehicleYear: drivers_1.drivers.vehicleYear,
@@ -202,15 +257,39 @@ router.get('/:id', auth_1.requireAuth, auth_1.extractUserInfo, (0, error_handler
  * POST /api/drivers
  * Create new driver with Auth0 account
  */
-router.post('/', auth_1.requireAuth, auth_1.extractUserInfo, rbac_1.requireAdmin, (0, validators_1.validate)(validators_1.createDriverSchema), (0, error_handler_1.asyncHandler)(async (req, res) => {
-    const { email, password, name, phone, vehicleType, vehicleId, cabName, cabNumber, vehicleMake, vehicleModel, vehicleYear, vehicleColor } = req.body;
-    console.log('🚗 Creating driver with data:', { email, name, phone, vehicleType, vehicleId, cabName, cabNumber, vehicleMake, vehicleModel, vehicleYear, vehicleColor });
+router.post('/', auth_1.requireAuth, auth_1.extractUserInfo, rbac_1.requireAdmin, normalizeCabIdentifier_1.logAndNormalizeCabIdentifier, (0, validators_1.validate)(validators_1.createDriverSchema), (0, error_handler_1.asyncHandler)(async (req, res) => {
+    console.log('REQUEST BODY (after validation):', req.body);
+    const { email, password, name, phone, vehicleType, vehicleId, cabName, cabFieldType, cabValue, vehicleMake, vehicleModel, vehicleYear, vehicleColor, } = req.body;
+    const { cabNumber: resolvedCabNumber, cabLicence } = (0, cabIdentifier_1.resolveCabFieldsForInsert)(req.body);
+    const insertValues = {
+        auth0Id: '', // set after Auth0
+        email,
+        name,
+        phone: phone || null,
+        vehicleType: vehicleType || null,
+        vehicleId: vehicleId || null,
+        cabName: cabName || null,
+        cabNumber: resolvedCabNumber,
+        cabLicence,
+        vehicleMake: vehicleMake || null,
+        vehicleModel: vehicleModel || null,
+        vehicleYear: vehicleYear || null,
+        vehicleColor: vehicleColor || null,
+        status: 'offline',
+    };
+    console.log('INSERT cab fields:', {
+        cabFieldType,
+        cabValue,
+        cabNumber: insertValues.cabNumber,
+        cabLicence: insertValues.cabLicence,
+    });
     // Check if driver already exists
     const existingDriver = await utils_1.driverUtils.findByEmail(email);
     if (existingDriver) {
         return (0, response_1.sendError)(res, 'DUPLICATE_ERROR', 'Driver with this email already exists', 409);
     }
     try {
+        const qrCode = await (0, driverQrCode_service_1.generateUniqueDriverQrCode)();
         // Create user in Auth0 with driver role
         const auth0User = await auth0Management_1.auth0Management.createUser({
             email,
@@ -223,22 +302,17 @@ router.post('/', auth_1.requireAuth, auth_1.extractUserInfo, rbac_1.requireAdmin
         const [newDriver] = await connection_1.db
             .insert(drivers_1.drivers)
             .values({
+            ...insertValues,
             auth0Id: auth0User.user_id,
-            email,
-            name,
-            phone: phone || null,
-            vehicleType: vehicleType || null,
-            vehicleId: vehicleId || null,
-            cabName: cabName || null,
-            cabNumber: cabNumber || null,
-            vehicleMake: vehicleMake || null,
-            vehicleModel: vehicleModel || null,
-            vehicleYear: vehicleYear || null,
-            vehicleColor: vehicleColor || null,
-            status: 'offline',
+            qrCode,
         })
             .returning();
-        console.log('✅ Driver created in database:', newDriver.id);
+        await (0, vehicleQrCode_service_1.ensureDriverVehicleQrCode)(newDriver.id);
+        console.log('✅ Driver created in database:', newDriver.id, {
+            cabNumber: newDriver.cabNumber,
+            cabLicence: newDriver.cabLicence,
+            qrCode: newDriver.qrCode,
+        });
         return (0, response_1.sendSuccess)(res, newDriver, 201);
     }
     catch (error) {
@@ -258,9 +332,11 @@ router.post('/', auth_1.requireAuth, auth_1.extractUserInfo, rbac_1.requireAdmin
  * PUT /api/drivers/:id
  * Update driver
  */
-router.put('/:id', auth_1.requireAuth, auth_1.extractUserInfo, rbac_1.requireAdmin, (0, validators_1.validate)(validators_1.updateDriverSchema), (0, error_handler_1.asyncHandler)(async (req, res) => {
+router.put('/:id', auth_1.requireAuth, auth_1.extractUserInfo, rbac_1.requireAdmin, normalizeCabIdentifier_1.logAndNormalizeCabIdentifier, (0, validators_1.validate)(validators_1.updateDriverSchema), (0, error_handler_1.asyncHandler)(async (req, res) => {
     const { id } = req.params;
-    const { name, phone, vehicleType, vehicleId, status, cabName, cabNumber, vehicleMake, vehicleModel, vehicleYear, vehicleColor } = req.body;
+    console.log('REQUEST BODY (after validation):', req.body);
+    const { name, phone, vehicleType, vehicleId, status, cabName, vehicleMake, vehicleModel, vehicleYear, vehicleColor, } = req.body;
+    const cabUpdate = (0, cabIdentifier_1.resolveCabFieldsForUpdate)(req.body);
     // Check if driver exists
     const existingDriver = await connection_1.db.query.drivers.findFirst({
         where: (0, drizzle_orm_1.eq)(drivers_1.drivers.id, id),
@@ -268,7 +344,21 @@ router.put('/:id', auth_1.requireAuth, auth_1.extractUserInfo, rbac_1.requireAdm
     if (!existingDriver) {
         return (0, response_1.sendNotFound)(res, 'Driver');
     }
-    // Build update data
+    // Update cab_number or cab_licence only (parameterized SQL — other column unchanged)
+    if (cabUpdate.cabFieldType && cabUpdate.cabValue) {
+        console.log('UPDATE cab fields:', cabUpdate);
+        try {
+            const cabResult = await (0, driverCabIdentifier_1.updateDriverCabIdentifier)(id, cabUpdate.cabFieldType, cabUpdate.cabValue);
+            if (!cabResult) {
+                return (0, response_1.sendNotFound)(res, 'Driver');
+            }
+        }
+        catch (error) {
+            const message = error instanceof Error ? error.message : 'Failed to update cab identifier';
+            return (0, response_1.sendError)(res, 'VALIDATION_ERROR', message, 400);
+        }
+    }
+    // Build update data for remaining fields
     const updateData = {
         updatedAt: new Date(),
     };
@@ -282,8 +372,6 @@ router.put('/:id', auth_1.requireAuth, auth_1.extractUserInfo, rbac_1.requireAdm
         updateData.vehicleId = vehicleId;
     if (cabName !== undefined)
         updateData.cabName = cabName;
-    if (cabNumber !== undefined)
-        updateData.cabNumber = cabNumber;
     if (vehicleMake !== undefined)
         updateData.vehicleMake = vehicleMake;
     if (vehicleModel !== undefined)
@@ -294,6 +382,16 @@ router.put('/:id', auth_1.requireAuth, auth_1.extractUserInfo, rbac_1.requireAdm
         updateData.vehicleColor = vehicleColor;
     if (status !== undefined)
         updateData.status = status;
+    const hasOtherUpdates = Object.keys(updateData).length > 1;
+    if (!hasOtherUpdates && cabUpdate.cabFieldType && cabUpdate.cabValue) {
+        const refreshedDriver = await connection_1.db.query.drivers.findFirst({
+            where: (0, drizzle_orm_1.eq)(drivers_1.drivers.id, id),
+        });
+        return (0, response_1.sendSuccess)(res, refreshedDriver);
+    }
+    if (!hasOtherUpdates) {
+        return (0, response_1.sendSuccess)(res, existingDriver);
+    }
     // Update driver
     const [updatedDriver] = await connection_1.db
         .update(drivers_1.drivers)
@@ -301,6 +399,37 @@ router.put('/:id', auth_1.requireAuth, auth_1.extractUserInfo, rbac_1.requireAdm
         .where((0, drizzle_orm_1.eq)(drivers_1.drivers.id, id))
         .returning();
     return (0, response_1.sendSuccess)(res, updatedDriver);
+}));
+/**
+ * PATCH /api/drivers/:id/cab-identifier
+ * Update only cab_number OR cab_licence (parameterized SQL)
+ */
+router.patch('/:id/cab-identifier', auth_1.requireAuth, auth_1.extractUserInfo, rbac_1.requireAdmin, normalizeCabIdentifier_1.logAndNormalizeCabIdentifier, (0, validators_1.validate)(validators_1.updateCabIdentifierSchema), (0, error_handler_1.asyncHandler)(async (req, res) => {
+    const { id } = req.params;
+    const fieldType = req.body.fieldType ?? req.body.cabFieldType;
+    const value = req.body.value ?? req.body.cabValue;
+    const existingDriver = await connection_1.db.query.drivers.findFirst({
+        where: (0, drizzle_orm_1.eq)(drivers_1.drivers.id, id),
+    });
+    if (!existingDriver) {
+        return (0, response_1.sendNotFound)(res, 'Driver');
+    }
+    try {
+        const updated = await (0, driverCabIdentifier_1.updateDriverCabIdentifier)(id, fieldType, value);
+        if (!updated) {
+            return (0, response_1.sendNotFound)(res, 'Driver');
+        }
+        return (0, response_1.sendSuccess)(res, {
+            id: updated.id,
+            cabNumber: updated.cab_number,
+            cabLicence: updated.cab_licence,
+            updatedAt: updated.updated_at,
+        });
+    }
+    catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to update cab identifier';
+        return (0, response_1.sendError)(res, 'VALIDATION_ERROR', message, 400);
+    }
 }));
 /**
  * DELETE /api/drivers/:id
@@ -341,6 +470,17 @@ router.patch('/:id/status', auth_1.requireAuth, auth_1.extractUserInfo, device_t
     const isAdmin = user.role?.toLowerCase() === 'admin' || user.role?.toLowerCase() === 'super_admin';
     if (!isOwnProfile && !isAdmin) {
         return (0, response_1.sendError)(res, 'UNAUTHORIZED', 'You can only update your own status', 403);
+    }
+    if (duty_1.qrDutyRequired && status === 'online' && isOwnProfile) {
+        try {
+            await (0, duty_service_1.assertDriverCanGoOnline)(id);
+        }
+        catch (err) {
+            if (err instanceof duty_service_1.DutyError) {
+                return (0, response_1.sendError)(res, err.code, err.message, err.statusCode);
+            }
+            throw err;
+        }
     }
     // Update driver status
     const updatedDriver = await utils_1.driverUtils.updateStatus(id, status);

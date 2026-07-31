@@ -30,10 +30,13 @@ exports.drivers = (0, pg_core_1.pgTable)('drivers', {
     // Cab/Vehicle information
     cabName: (0, pg_core_1.varchar)('cab_name', { length: 255 }),
     cabNumber: (0, pg_core_1.varchar)('cab_number', { length: 100 }),
+    cabLicence: (0, pg_core_1.varchar)('cab_licence', { length: 100 }),
     vehicleMake: (0, pg_core_1.varchar)('vehicle_make', { length: 100 }),
     vehicleModel: (0, pg_core_1.varchar)('vehicle_model', { length: 100 }),
     vehicleYear: (0, pg_core_1.varchar)('vehicle_year', { length: 4 }),
     vehicleColor: (0, pg_core_1.varchar)('vehicle_color', { length: 50 }),
+    qrCode: (0, pg_core_1.varchar)('qr_code', { length: 255 }).unique(),
+    vehicleQrCode: (0, pg_core_1.varchar)('vehicle_qr_code', { length: 255 }).unique(),
     lastSeen: (0, pg_core_1.timestamp)('last_seen'),
     // Single-session enforcement for mobile apps
     activeSessionId: (0, pg_core_1.varchar)('active_session_id', { length: 255 }), // Current active session ID
@@ -47,5 +50,7 @@ exports.drivers = (0, pg_core_1.pgTable)('drivers', {
     auth0IdIdx: (0, pg_core_1.index)('idx_drivers_auth0_id').on(table.auth0Id),
     vehicleTypeIdx: (0, pg_core_1.index)('idx_drivers_vehicle_type').on(table.vehicleType),
     activeSessionIdx: (0, pg_core_1.index)('idx_drivers_active_session').on(table.activeSessionId),
+    qrCodeIdx: (0, pg_core_1.index)('idx_drivers_qr_code').on(table.qrCode),
+    vehicleQrCodeIdx: (0, pg_core_1.index)('idx_drivers_vehicle_qr_code').on(table.vehicleQrCode),
 }));
 //# sourceMappingURL=drivers.js.map

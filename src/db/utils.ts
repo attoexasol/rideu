@@ -247,11 +247,7 @@ export const tripUtils = {
   /**
    * Start a new trip
    */
-  async start(tripData: {
-    driverId: string;
-    startTime: Date;
-    startLocationId?: string;
-  }) {
+  async start(tripData: { driverId: string; startTime: Date; startLocationId?: string }) {
     const result = await db.insert(trips).values(tripData).returning();
     return result[0];
   },
@@ -259,12 +255,15 @@ export const tripUtils = {
   /**
    * End a trip
    */
-  async end(tripId: string, endData: {
-    endTime: Date;
-    endLocationId?: string;
-    distance?: string;
-    status?: 'completed' | 'cancelled';
-  }) {
+  async end(
+    tripId: string,
+    endData: {
+      endTime: Date;
+      endLocationId?: string;
+      distance?: string;
+      status?: 'completed' | 'cancelled';
+    }
+  ) {
     const result = await db
       .update(trips)
       .set({ ...endData, updatedAt: new Date() })
@@ -320,11 +319,7 @@ export const adminUtils = {
    * Find admin user by email
    */
   async findByEmail(email: string) {
-    const result = await db
-      .select()
-      .from(adminUsers)
-      .where(eq(adminUsers.email, email))
-      .limit(1);
+    const result = await db.select().from(adminUsers).where(eq(adminUsers.email, email)).limit(1);
     return result[0] || null;
   },
 
@@ -343,12 +338,7 @@ export const sessionUtils = {
   /**
    * Create a new session
    */
-  async create(sessionData: {
-    userId: string;
-    userType: string;
-    token: string;
-    expiresAt: Date;
-  }) {
+  async create(sessionData: { userId: string; userType: string; token: string; expiresAt: Date }) {
     const result = await db.insert(sessions).values(sessionData).returning();
     return result[0];
   },

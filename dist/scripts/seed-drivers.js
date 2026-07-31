@@ -167,9 +167,7 @@ async function main() {
     }
     console.log(`📋 ${uniqueDrivers.length} unique cab accounts to create\n`);
     // CSV header
-    const csvRows = [
-        'Name,Cab Name,Cab Number,Phone,Email,Password,Auth0 ID,DB ID,Status',
-    ];
+    const csvRows = ['Name,Cab Name,Cab Number,Phone,Email,Password,Auth0 ID,DB ID,Status'];
     let successCount = 0;
     let failCount = 0;
     for (let i = 0; i < uniqueDrivers.length; i++) {

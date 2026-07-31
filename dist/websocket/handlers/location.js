@@ -4,6 +4,39 @@
  * Handles location update events from drivers
  * Stores location in database and broadcasts to admins
  */
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.setupLocationHandler = setupLocationHandler;
 const connection_1 = require("../../db/connection");
@@ -11,6 +44,8 @@ const locations_1 = require("../../db/schema/locations");
 const drivers_1 = require("../../db/schema/drivers");
 const drizzle_orm_1 = require("drizzle-orm");
 const redis_1 = require("../../config/redis");
+const mapboxMatching_1 = require("../../services/mapboxMatching");
+const MAPBOX_ACCESS_TOKEN = process.env.MAPBOX_ACCESS_TOKEN || '';
 /**
  * Setup location event handlers
  * @param io - Socket.IO server instance
@@ -114,13 +149,12 @@ function setupLocationHandler(io, socket) {
                 const lastLng = parseFloat(last.longitude);
                 // Calculate distance using Haversine formula
                 const R = 6371e3; // Earth's radius in meters
-                const φ1 = lastLat * Math.PI / 180;
-                const φ2 = payload.latitude * Math.PI / 180;
-                const Δφ = (payload.latitude - lastLat) * Math.PI / 180;
-                const Δλ = (payload.longitude - lastLng) * Math.PI / 180;
+                const φ1 = (lastLat * Math.PI) / 180;
+                const φ2 = (payload.latitude * Math.PI) / 180;
+                const Δφ = ((payload.latitude - lastLat) * Math.PI) / 180;
+                const Δλ = ((payload.longitude - lastLng) * Math.PI) / 180;
                 const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-                    Math.cos(φ1) * Math.cos(φ2) *
-                        Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+                    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
                 const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
                 const distance = R * c;
                 // Only record if moved more than 50 meters
@@ -155,24 +189,53 @@ function setupLocationHandler(io, socket) {
                 .returning();
             console.log(`  📍 Location update from ${driverName}: ${payload.latitude}, ${payload.longitude}`);
             // Cache location in Redis for fast retrieval
+            let snappedLat = payload.latitude;
+            let snappedLng = payload.longitude;
+            try {
+                const previousLocation = await redis_1.realtimeCache.getDriverLocation(driverId);
+                if (previousLocation && MAPBOX_ACCESS_TOKEN) {
+                    const coordinates = [
+                        {
+                            latitude: previousLocation.latitude,
+                            longitude: previousLocation.longitude,
+                            timestamp: previousLocation.timestamp,
+                        },
+                        {
+                            latitude: payload.latitude,
+                            longitude: payload.longitude,
+                            timestamp: payload.timestamp || new Date().toISOString(),
+                        },
+                    ];
+                    const result = await (0, mapboxMatching_1.snapToRoadsBatch)(coordinates);
+                    if (result.matched && result.matched.length > 0) {
+                        const snappedCurrent = result.matched[result.matched.length - 1];
+                        snappedLat = snappedCurrent.latitude;
+                        snappedLng = snappedCurrent.longitude;
+                    }
+                }
+            }
+            catch (error) {
+                console.log('  ⏭️  Mapbox road snapping skipped for WebSocket broadcast:', error instanceof Error ? error.message : 'Unknown error');
+            }
             await redis_1.realtimeCache.setDriverLocation(driverId, {
                 latitude: payload.latitude,
                 longitude: payload.longitude,
+                snappedLatitude: snappedLat,
+                snappedLongitude: snappedLng,
                 speed: payload.speed,
                 heading: payload.heading,
                 timestamp: payload.timestamp || new Date().toISOString(),
             });
             // Update driver's last_seen timestamp
-            await connection_1.db
-                .update(drivers_1.drivers)
-                .set({ lastSeen: new Date() })
-                .where((0, drizzle_orm_1.eq)(drivers_1.drivers.id, driverId));
-            // Prepare broadcast payload for admins
+            await connection_1.db.update(drivers_1.drivers).set({ lastSeen: new Date() }).where((0, drizzle_orm_1.eq)(drivers_1.drivers.id, driverId));
+            // Prepare broadcast payload for admins (Mapbox-snapped coords for admin map)
             const broadcastPayload = {
                 driverId,
                 driverName,
                 latitude: payload.latitude,
                 longitude: payload.longitude,
+                snappedLatitude: snappedLat,
+                snappedLongitude: snappedLng,
                 speed: payload.speed,
                 heading: payload.heading,
                 timestamp: payload.timestamp || new Date().toISOString(),
@@ -181,6 +244,21 @@ function setupLocationHandler(io, socket) {
             io.to('admin').emit('location:broadcast', broadcastPayload);
             // Also publish to Redis Pub/Sub for multi-server scalability
             await redis_1.redisPub.publish(redis_1.PubSubChannels.LOCATION_UPDATE, JSON.stringify(broadcastPayload));
+            // Passenger app (Google Maps): raw GPS only — no Mapbox snapping
+            const { findActiveBookingByDriver } = await Promise.resolve().then(() => __importStar(require('../../repositories/booking.repository')));
+            const activeBooking = await findActiveBookingByDriver(driverId);
+            if (activeBooking) {
+                io.to(`customer-${activeBooking.customerId}`).emit('driver:location', {
+                    driverId,
+                    bookingId: activeBooking.id,
+                    latitude: payload.latitude,
+                    longitude: payload.longitude,
+                    heading: payload.heading ?? null,
+                    speedKph: payload.speed != null ? payload.speed * 3.6 : null,
+                    accuracyMeters: payload.accuracy ?? null,
+                    timestamp: payload.timestamp || new Date().toISOString(),
+                });
+            }
             // Send acknowledgment back to driver
             const ackPayload = {
                 received: true,

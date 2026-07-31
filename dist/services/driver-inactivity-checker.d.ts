@@ -1,18 +1,19 @@
 /**
  * Driver Inactivity Checker
  *
- * Automatically sets drivers to offline if they haven't sent a location update
- * in over 10 minutes. This handles cases where:
- * - Driver force-quits the app without logging out
- * - App crashes
- * - Phone dies/loses connection
+ * Marks drivers offline only when no fresh heartbeat, Redis location, or lastSeen
+ * is available within the configured threshold.
  */
+export interface DriverActivityTimestamps {
+    redisHeartbeat?: string | null;
+    redisLocation?: string | null;
+    dbLastSeen?: Date | null;
+    dbLocation?: Date | null;
+}
 /**
- * Check for inactive drivers and set them to offline
+ * Returns true if any authoritative activity timestamp is within the threshold.
  */
+export declare function isDriverActivityFresh(timestamps: DriverActivityTimestamps, thresholdMinutes?: number): boolean;
 export declare function checkInactiveDrivers(): Promise<void>;
-/**
- * Start the inactivity checker background job
- */
 export declare function startInactivityChecker(): NodeJS.Timeout;
 //# sourceMappingURL=driver-inactivity-checker.d.ts.map

@@ -246,11 +246,7 @@ exports.adminUtils = {
      * Find admin user by email
      */
     async findByEmail(email) {
-        const result = await connection_1.db
-            .select()
-            .from(schema_1.adminUsers)
-            .where((0, drizzle_orm_1.eq)(schema_1.adminUsers.email, email))
-            .limit(1);
+        const result = await connection_1.db.select().from(schema_1.adminUsers).where((0, drizzle_orm_1.eq)(schema_1.adminUsers.email, email)).limit(1);
         return result[0] || null;
     },
     /**

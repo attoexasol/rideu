@@ -1,0 +1,141 @@
+{
+  "generatedAt": "2026-07-14T01:00:39.053Z",
+  "mode": "apply",
+  "canonicalProposal": {
+    "RIDE": {
+      "id": "59ab7ef9-0bb3-47c8-8afa-3313b295151e",
+      "code": "ride",
+      "displayName": "Ride"
+    },
+    "BIKE": {
+      "id": "d793ac30-c749-48b9-9c63-0b6b7d50289a",
+      "code": "bike",
+      "displayName": "Bike"
+    },
+    "CNG": {
+      "id": "10ef8afd-7e45-4be2-97a4-00303a624cde",
+      "code": "cng",
+      "displayName": "CNG"
+    },
+    "MOTO": {
+      "id": "264247c5-af89-4fcb-802a-d576791dc300",
+      "code": "moto",
+      "displayName": "Moto"
+    },
+    "PREMIUM": {
+      "id": "2d7bcfdd-4343-4a07-b0df-214c807a8e87",
+      "code": "premium",
+      "displayName": "Premium"
+    },
+    "COMFORT": {
+      "id": "9a9da7dd-f122-4e9c-a351-1c2ab6fe4e00",
+      "code": "comfort",
+      "displayName": "Comfort"
+    }
+  },
+  "plans": [
+    {
+      "base": "ride",
+      "canonical": {
+        "id": "59ab7ef9-0bb3-47c8-8afa-3313b295151e",
+        "code": "ride",
+        "name": "Ride"
+      },
+      "duplicates": []
+    },
+    {
+      "base": "bike",
+      "canonical": {
+        "id": "d793ac30-c749-48b9-9c63-0b6b7d50289a",
+        "code": "bike",
+        "name": "Bike"
+      },
+      "duplicates": []
+    },
+    {
+      "base": "cng",
+      "canonical": {
+        "id": "10ef8afd-7e45-4be2-97a4-00303a624cde",
+        "code": "cng",
+        "name": "CNG"
+      },
+      "duplicates": []
+    },
+    {
+      "base": "moto",
+      "canonical": {
+        "id": "264247c5-af89-4fcb-802a-d576791dc300",
+        "code": "moto",
+        "name": "Moto"
+      },
+      "duplicates": []
+    },
+    {
+      "base": "premium",
+      "canonical": {
+        "id": "2d7bcfdd-4343-4a07-b0df-214c807a8e87",
+        "code": "premium",
+        "name": "Premium"
+      },
+      "duplicates": []
+    },
+    {
+      "base": "comfort",
+      "canonical": {
+        "id": "9a9da7dd-f122-4e9c-a351-1c2ab6fe4e00",
+        "code": "comfort",
+        "name": "Comfort"
+      },
+      "duplicates": []
+    }
+  ],
+  "actionsLog": [
+    {
+      "action": "normalize_canonical",
+      "base": "ride",
+      "canonicalId": "59ab7ef9-0bb3-47c8-8afa-3313b295151e"
+    },
+    {
+      "action": "normalize_canonical",
+      "base": "bike",
+      "canonicalId": "d793ac30-c749-48b9-9c63-0b6b7d50289a"
+    },
+    {
+      "action": "normalize_canonical",
+      "base": "cng",
+      "canonicalId": "10ef8afd-7e45-4be2-97a4-00303a624cde"
+    },
+    {
+      "action": "normalize_canonical",
+      "base": "moto",
+      "canonicalId": "264247c5-af89-4fcb-802a-d576791dc300"
+    },
+    {
+      "action": "normalize_canonical",
+      "base": "premium",
+      "canonicalId": "2d7bcfdd-4343-4a07-b0df-214c807a8e87"
+    },
+    {
+      "action": "normalize_canonical",
+      "base": "comfort",
+      "canonicalId": "9a9da7dd-f122-4e9c-a351-1c2ab6fe4e00"
+    }
+  ],
+  "summary": {
+    "duplicateCategories": 0,
+    "applied": true,
+    "remainingActiveSuffixed": 0
+  },
+  "finalStatus": "SERVICE CATEGORIES CLEAN",
+  "rootCause": {
+    "primary": "tests/admin-fleet-vehicle-update.test.ts beforeEach inserts BIKE-${uuid}/Bike ${runId} but cleanupExchangeFixture only deletes fixture.ids.serviceCategoryIds (Ride), leaving Bike orphans.",
+    "file": "tests/admin-fleet-vehicle-update.test.ts",
+    "function": "beforeEach (secondaryCategory insert) + cleanupExchangeFixture",
+    "amplifiers": [
+      "listActiveServiceCategories returns every is_active row",
+      "fare.service buildQuotesFromRoute emits one quote per active category",
+      "admin listCategoriesHandler same list",
+      "code UNIQUE allows BIKE-xxxx alongside bike"
+    ]
+  }
+}

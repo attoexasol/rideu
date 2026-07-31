@@ -48,9 +48,7 @@ export class ConnectionStateManager {
    * Get all connections for a specific user
    */
   getUserConnections(userId: string): ConnectionState[] {
-    return Array.from(this.connections.values()).filter(
-      (conn) => conn.userId === userId
-    );
+    return Array.from(this.connections.values()).filter((conn) => conn.userId === userId);
   }
 
   /**
@@ -64,9 +62,7 @@ export class ConnectionStateManager {
    * Get connections by user type (driver or admin)
    */
   getConnectionsByType(userType: 'driver' | 'admin'): ConnectionState[] {
-    return Array.from(this.connections.values()).filter(
-      (conn) => conn.userType === userType
-    );
+    return Array.from(this.connections.values()).filter((conn) => conn.userType === userType);
   }
 
   /**

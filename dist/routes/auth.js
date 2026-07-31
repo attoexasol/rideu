@@ -7,6 +7,39 @@
  * POST /api/auth/logout - Logout and destroy session
  * GET /api/auth/me - Get current user info
  */
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -16,8 +49,10 @@ const auth_1 = require("../middleware/auth");
 const validators_1 = require("../validators");
 const response_1 = require("../utils/response");
 const error_handler_1 = require("../middleware/error-handler");
+const rate_limiters_1 = require("../middleware/rate-limiters");
 const utils_1 = require("../db/utils");
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
+const jwt_verifier_1 = require("../utils/jwt-verifier");
 const router = express_1.default.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'your-jwt-secret-key';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
@@ -25,15 +60,20 @@ const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
  * POST /api/auth/login
  * Verify Auth0 token and create session
  */
-router.post('/login', (0, validators_1.validate)(validators_1.loginSchema), (0, error_handler_1.asyncHandler)(async (req, res) => {
+router.post('/login', rate_limiters_1.authRateLimiter, (0, validators_1.validate)(validators_1.loginSchema), (0, error_handler_1.asyncHandler)(async (req, res) => {
     const { auth0Token, deviceId, deviceInfo } = req.body;
     // In a real implementation, verify the Auth0 token here
     // For now, we'll extract info from the Auth0 token payload
     // The Auth0 token should already be verified by the client
     try {
-        // Decode the Auth0 token (without verification for now)
-        // In production, you should verify this with Auth0's public keys
-        const decoded = jsonwebtoken_1.default.decode(auth0Token);
+        // Verify Auth0 RS256 token via JWKS when configured
+        let decoded;
+        if ((0, jwt_verifier_1.isAuth0Configured)()) {
+            decoded = await (0, jwt_verifier_1.verifyAuth0Token)(auth0Token);
+        }
+        else {
+            decoded = jsonwebtoken_1.default.decode(auth0Token);
+        }
         if (!decoded || !decoded.sub) {
             return (0, response_1.sendError)(res, 'AUTH_FAILED', 'Invalid Auth0 token', 401);
         }
@@ -47,6 +87,11 @@ router.post('/login', (0, validators_1.validate)(validators_1.loginSchema), (0, 
         if (role === 'driver') {
             user = await utils_1.driverUtils.findByAuth0Id(auth0Id);
             userType = 'driver';
+        }
+        else if (role === 'customer') {
+            const { findCustomerByAuth0Id } = await Promise.resolve().then(() => __importStar(require('../repositories/customer.repository')));
+            user = await findCustomerByAuth0Id(auth0Id);
+            userType = 'customer';
         }
         else if (role === 'admin' || role === 'super_admin') {
             user = await utils_1.adminUtils.findByAuth0Id(auth0Id);
@@ -123,7 +168,7 @@ router.post('/login', (0, validators_1.validate)(validators_1.loginSchema), (0, 
  * POST /api/auth/refresh
  * Refresh JWT token
  */
-router.post('/refresh', (0, validators_1.validate)(validators_1.refreshTokenSchema), (0, error_handler_1.asyncHandler)(async (req, res) => {
+router.post('/refresh', rate_limiters_1.authRateLimiter, (0, validators_1.validate)(validators_1.refreshTokenSchema), (0, error_handler_1.asyncHandler)(async (req, res) => {
     const { refreshToken } = req.body;
     try {
         // Verify the refresh token

@@ -10,7 +10,12 @@
 export interface CreateUserRequest {
     email: string;
     password: string;
-    role: 'driver' | 'admin' | 'super_admin';
+    role: 'driver' | 'admin' | 'super_admin' | 'customer';
+    name: string;
+}
+export interface CreateCustomerRequest {
+    email: string;
+    password: string;
     name: string;
 }
 export interface Auth0User {
@@ -24,6 +29,19 @@ export interface Auth0User {
         role?: string;
     };
 }
+export declare class PasswordResetError extends Error {
+    readonly errorCode: string;
+    readonly statusCode: number;
+    constructor(message: string, errorCode: string, statusCode: number);
+}
+interface Auth0UserIdentity {
+    connection: string;
+    provider: string;
+    user_id: string;
+}
+interface Auth0UserWithIdentities extends Auth0User {
+    identities?: Auth0UserIdentity[];
+}
 declare class Auth0ManagementService {
     private token;
     private tokenExpiry;
@@ -35,7 +53,13 @@ declare class Auth0ManagementService {
     /**
      * Create a new user in Auth0
      */
-    createUser(data: CreateUserRequest): Promise<Auth0User>;
+    createUser(data: CreateUserRequest, options?: {
+        emailVerified?: boolean;
+    }): Promise<Auth0User>;
+    /**
+     * Create passenger customer in Auth0 (email + password)
+     */
+    createCustomer(data: CreateCustomerRequest): Promise<Auth0User>;
     /**
      * Get Auth0 Role ID by name
      * Maps our role names to Auth0 Role IDs
@@ -57,17 +81,35 @@ declare class Auth0ManagementService {
     /**
      * Get user from Auth0 by ID
      */
+    /**
+     * Find Auth0 user by email (Management API).
+     */
+    findUserByEmail(email: string): Promise<Auth0UserWithIdentities | null>;
     getUser(auth0UserId: string): Promise<Auth0User>;
     /**
      * Delete user from Auth0
      */
     deleteUser(auth0UserId: string): Promise<void>;
+    sendPasswordResetEmail(email: string): Promise<{
+        delivered: boolean;
+        detail: string;
+    }>;
+    private toPasswordResetError;
+    /** Password reset for phone-username Auth0 users (worldwide). */
+    sendPasswordResetForPhone(e164: string): Promise<void>;
     /**
-     * Send password reset email to user
+     * Client ID used for Auth0 /dbconnections/change_password.
+     * Must belong to an Auth0 application with Username-Password-Authentication enabled.
+     * The backend (Regular Web) client usually works; Native Flutter client often returns 404.
      */
-    sendPasswordResetEmail(email: string): Promise<void>;
+    getPasswordResetClientId(): string;
     /**
-     * Check if service is properly configured
+     * Client ID for passenger (Flutter Native) app logins.
+     */
+    getPassengerClientId(): string;
+    isPasswordResetConfigured(): boolean;
+    /**
+     * Check if Management API is properly configured
      */
     isConfigured(): boolean;
 }

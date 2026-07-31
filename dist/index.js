@@ -4,13 +4,17 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.io = void 0;
+require("dotenv/config");
 const express_1 = __importDefault(require("express"));
 const http_1 = require("http");
-const dotenv_1 = __importDefault(require("dotenv"));
 const cors_1 = __importDefault(require("cors"));
 const helmet_1 = __importDefault(require("helmet"));
-const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
+// Rate Limiting — centralized config with dedicated per-route limiters
+const rate_limiters_1 = require("./middleware/rate-limiters");
 const server_1 = require("./websocket/server");
+const bookingNotify_service_1 = require("./services/bookingNotify.service");
+const dispatch_service_1 = require("./services/dispatch.service");
+const vehicleExchangeExpiration_service_1 = require("./services/vehicleExchangeExpiration.service");
 const logger_1 = require("./middleware/logger");
 const error_handler_1 = require("./middleware/error-handler");
 const env_validator_1 = require("./config/env-validator");
@@ -25,8 +29,12 @@ const locations_1 = __importDefault(require("./routes/locations"));
 const trips_1 = __importDefault(require("./routes/trips"));
 const reports_1 = __importDefault(require("./routes/reports"));
 const admin_1 = __importDefault(require("./routes/admin"));
-// Load environment variables
-dotenv_1.default.config();
+const vehicles_1 = __importDefault(require("./routes/vehicles"));
+const company_1 = __importDefault(require("./routes/company"));
+const videos_1 = __importDefault(require("./routes/videos"));
+const v1_1 = __importDefault(require("./routes/v1"));
+const path_1 = __importDefault(require("path"));
+const video_storage_service_1 = require("./services/video-storage.service");
 // Validate environment variables on startup
 try {
     (0, env_validator_1.validateEnvironment)();
@@ -48,8 +56,14 @@ catch (error) {
 })();
 // Start background jobs
 let inactivityCheckerInterval;
+let offerExpirationInterval;
+let vehicleExchangeExpirationInterval;
 try {
     inactivityCheckerInterval = (0, driver_inactivity_checker_1.startInactivityChecker)();
+    offerExpirationInterval = setInterval(() => {
+        (0, dispatch_service_1.processExpiredOffers)().catch((err) => console.error('[OfferExpiration] Failed to process expired offers:', err));
+    }, 15_000);
+    vehicleExchangeExpirationInterval = (0, vehicleExchangeExpiration_service_1.startVehicleExchangeExpirationPoller)();
 }
 catch (error) {
     console.error('⚠️  Failed to start inactivity checker:', error);
@@ -64,32 +78,26 @@ app.set('trust proxy', 1);
 // Security & CORS Middleware
 app.use((0, helmet_1.default)());
 app.use((0, cors_1.default)({
-    origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:5173', 'http://localhost:8081'],
+    origin: process.env.CORS_ORIGIN?.split(',') || [
+        'http://localhost:5173',
+        'http://localhost:8081',
+    ],
     credentials: true,
 }));
-// Rate Limiting (always enabled but with different limits)
-const isDevelopment = process.env.NODE_ENV === 'development';
-const limiter = (0, express_rate_limit_1.default)({
-    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'), // 15 minutes
-    max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || (isDevelopment ? '10000' : '100')), // Higher limit in dev
-    message: {
-        success: false,
-        error: {
-            code: 'RATE_LIMIT_EXCEEDED',
-            message: 'Too many requests, please try again later',
-        },
-    },
-    standardHeaders: true,
-    legacyHeaders: false,
-});
-app.use(limiter);
+app.use(rate_limiters_1.globalRateLimiter);
 // Body parsing middleware
 app.use(express_1.default.json());
 app.use(express_1.default.urlencoded({ extended: true }));
+// Local video file serving (v1 storage)
+app.use('/uploads', express_1.default.static(path_1.default.resolve(process.cwd(), 'uploads')));
+(0, video_storage_service_1.ensureUploadDirectories)().catch((err) => {
+    console.error('Failed to create upload directories:', err);
+});
 // Request logging middleware
 app.use(logger_1.requestLogger);
-// Health check endpoint with comprehensive service checks
+// Health check endpoints
 app.get('/health', (0, startup_checks_1.createHealthCheckHandler)());
+app.get('/api/health', (0, startup_checks_1.createApiHealthCheckHandler)());
 // Basic route
 app.get('/', (_req, res) => {
     res.json({
@@ -98,6 +106,7 @@ app.get('/', (_req, res) => {
         websocket: 'Socket.IO enabled',
         endpoints: {
             health: '/health',
+            apiHealth: '/api/health',
             api: '/api',
         },
     });
@@ -105,12 +114,17 @@ app.get('/', (_req, res) => {
 // API Routes
 app.use('/api/auth', auth_1.default);
 app.use('/api/drivers', drivers_1.default);
+app.use('/api/vehicles', vehicles_1.default);
+app.use('/api/company', company_1.default);
 app.use('/api/locations', locations_1.default);
 app.use('/api/trips', trips_1.default);
 app.use('/api/reports', reports_1.default);
 app.use('/api/admin', admin_1.default);
+app.use('/api/videos', videos_1.default);
+app.use('/api/v1', v1_1.default);
 // Setup WebSocket server with Redis adapter
 exports.io = (0, server_1.setupWebSocketServer)(httpServer);
+(0, bookingNotify_service_1.setupBookingEventSubscriber)(exports.io);
 // 404 handler - must be after all routes
 app.use(error_handler_1.notFoundHandler);
 // Global error handler - must be last
@@ -122,14 +136,24 @@ async function gracefulShutdown(signal) {
         clearInterval(inactivityCheckerInterval);
         console.log('Inactivity checker stopped');
     }
+    if (offerExpirationInterval) {
+        clearInterval(offerExpirationInterval);
+        console.log('Offer expiration checker stopped');
+    }
+    if (vehicleExchangeExpirationInterval) {
+        clearInterval(vehicleExchangeExpirationInterval);
+        console.log('Vehicle exchange expiration checker stopped');
+    }
     httpServer.close(async () => {
         console.log('HTTP server closed');
-        await Promise.allSettled([
-            (0, redis_1.closeRedisConnections)(),
-            (0, connection_1.closeConnection)(),
-        ]);
+        await Promise.allSettled([(0, redis_1.closeRedisConnections)(), (0, connection_1.closeConnection)()]);
         process.exit(0);
     });
+    // Force exit if close hangs (e.g. open WebSocket connections during tsx reload)
+    setTimeout(() => {
+        console.warn('Forced shutdown after timeout');
+        process.exit(0);
+    }, 3000).unref();
 }
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
@@ -139,6 +163,20 @@ process.on('unhandledRejection', (reason) => {
 });
 // Start server - Listen on all network interfaces (0.0.0.0) for mobile device access
 const HOST = '0.0.0.0';
+httpServer.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+        console.error('');
+        console.error(`❌ Port ${PORT} is already in use.`);
+        console.error('   Another server instance is still running (common after tsx watch reload).');
+        console.error('');
+        console.error('   Fix: run   npm run stop:dev');
+        console.error('   Then:     npm run dev');
+        console.error('');
+        process.exit(1);
+    }
+    console.error('HTTP server error:', err);
+    process.exit(1);
+});
 httpServer.listen(Number(PORT), HOST, () => {
     console.log('═══════════════════════════════════════════════════════');
     console.log('  DriveWize Backend Server');

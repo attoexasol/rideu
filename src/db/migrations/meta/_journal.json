@@ -29,6 +29,111 @@
       "when": 1760956479113,
       "tag": "0003_steep_lorna_dane",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1760956479114,
+      "tag": "0004_add_cab_vehicle_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1760956479115,
+      "tag": "0005_add_cab_licence",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1760956479116,
+      "tag": "0006_add_qr_code",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1760956479117,
+      "tag": "0007_phase1_vehicle_qr_assignments_attendance",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1760956479118,
+      "tag": "0008_passenger_trip_qr",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1760956479119,
+      "tag": "0009_add_driver_vehicle_qr_code",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1760956479120,
+      "tag": "0010_trip_videos",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1760956479121,
+      "tag": "0011_passenger_booking_system",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1760956479122,
+      "tag": "0012_customer_email_auth",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1760956479124,
+      "tag": "0014_multi_fleet_foundation",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1760956479125,
+      "tag": "0015_multi_fleet_constraints",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1760956479126,
+      "tag": "0016_vehicle_exchange",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1760956479127,
+      "tag": "0017_vehicle_color",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1760956479129,
+      "tag": "0019_booking_offers_timestamptz",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1785441600000,
+      "tag": "0020_ride_video_recording_foundation",
+      "breakpoints": true
     }
   ]
 }

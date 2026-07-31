@@ -9,11 +9,7 @@
 import express from 'express';
 import { requireAuth, extractUserInfo } from '../middleware/auth';
 import { requireAdmin } from '../middleware/rbac';
-import {
-  validate,
-  exportReportQuerySchema,
-  getReportQuerySchema,
-} from '../validators';
+import { validate, exportReportQuerySchema, getReportQuerySchema } from '../validators';
 import { sendSuccess, sendNotFound } from '../utils/response';
 import { asyncHandler } from '../middleware/error-handler';
 import { db } from '../db/connection';
@@ -144,9 +140,8 @@ router.get(
     });
 
     // Calculate average speed
-    const avgSpeed = tripStats.totalDistance && totalHours > 0
-      ? Number(tripStats.totalDistance) / totalHours
-      : 0;
+    const avgSpeed =
+      tripStats.totalDistance && totalHours > 0 ? Number(tripStats.totalDistance) / totalHours : 0;
 
     return sendSuccess(res, {
       driverId: driver.id,

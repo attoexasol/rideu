@@ -104,10 +104,7 @@ export const requireSuperAdmin = requireRole([Auth0Roles.SUPER_ADMIN]);
  * Usage:
  * router.post('/locations', requireAuth, extractUserInfo, requireDriver, (req, res) => { ... });
  */
-export const requireDriver = [
-  requireRole([Auth0Roles.DRIVER]),
-  trackDriverDevice,
-];
+export const requireDriver = [requireRole([Auth0Roles.DRIVER]), trackDriverDevice];
 
 /**
  * Middleware to ensure user can only access their own resources
@@ -217,6 +214,12 @@ export const isDriver = (role?: string): boolean => {
   return role === Auth0Roles.DRIVER;
 };
 
+export const isCustomer = (role?: string): boolean => {
+  return role === Auth0Roles.CUSTOMER;
+};
+
+export const requireCustomer = requireRole([Auth0Roles.CUSTOMER]);
+
 /**
  * Get user role hierarchy level
  *
@@ -230,6 +233,8 @@ export const getRoleLevel = (role?: string): number => {
     case Auth0Roles.ADMIN:
       return 2;
     case Auth0Roles.DRIVER:
+      return 1;
+    case Auth0Roles.CUSTOMER:
       return 1;
     default:
       return 0;

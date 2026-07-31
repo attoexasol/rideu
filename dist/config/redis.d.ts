@@ -71,6 +71,14 @@ export declare const realtimeCache: {
      */
     getDriverStatus(driverId: string): Promise<string | null>;
     /**
+     * Store driver heartbeat (refreshed on every valid location post).
+     */
+    setDriverHeartbeat(driverId: string, timestamp?: string, ttl?: number): Promise<void>;
+    /**
+     * Get driver heartbeat ISO timestamp.
+     */
+    getDriverHeartbeat(driverId: string): Promise<string | null>;
+    /**
      * Get all active drivers (with recent location updates)
      * Uses SCAN instead of KEYS to avoid blocking
      * @returns Array of driver IDs
@@ -86,6 +94,15 @@ export declare const PubSubChannels: {
     DRIVER_ONLINE: string;
     DRIVER_OFFLINE: string;
     TRIP_UPDATE: string;
+    BOOKING_UPDATE: string;
+    VIDEO_LIVE: string;
+};
+/**
+ * Google Maps response cache (non-sensitive, normalized keys only)
+ */
+export declare const mapsCache: {
+    get<T>(key: string): Promise<T | null>;
+    set(key: string, value: unknown, ttl: number): Promise<void>;
 };
 /**
  * Health check for Redis
@@ -94,6 +111,25 @@ export declare const PubSubChannels: {
 export declare function redisHealthCheck(): Promise<{
     healthy: boolean;
     latency?: number;
+    error?: string;
+    ping?: string;
+    pubSub?: {
+        publisher: boolean;
+        subscriber: boolean;
+    };
+}>;
+/**
+ * Verify namespaced driver-cache-style write-read (does not touch real driver keys).
+ */
+export declare function verifyRedisRealtimeCache(): Promise<{
+    pass: boolean;
+    error?: string;
+}>;
+/**
+ * Temporary pub/sub round-trip on an isolated health probe channel.
+ */
+export declare function verifyRedisPubSub(): Promise<{
+    pass: boolean;
     error?: string;
 }>;
 //# sourceMappingURL=redis.d.ts.map
