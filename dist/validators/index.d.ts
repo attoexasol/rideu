@@ -1138,11 +1138,11 @@ export declare const declineOfferSchema: z.ZodObject<{
     offerId: z.ZodOptional<z.ZodString>;
     reason: z.ZodOptional<z.ZodString>;
 }, "strip", z.ZodTypeAny, {
-    offerId?: string | undefined;
     reason?: string | undefined;
+    offerId?: string | undefined;
 }, {
-    offerId?: string | undefined;
     reason?: string | undefined;
+    offerId?: string | undefined;
 }>;
 export declare const driverCancelBookingSchema: z.ZodObject<{
     reason: z.ZodOptional<z.ZodString>;
@@ -1529,6 +1529,131 @@ export declare const videoSegmentListQuerySchema: z.ZodObject<{
 }, {
     status?: "uploaded" | "pending" | "failed" | "verified" | "uploading" | undefined;
 }>;
+export declare const adminRideVideoListQuerySchema: z.ZodObject<{
+    page: z.ZodOptional<z.ZodNumber>;
+    limit: z.ZodOptional<z.ZodNumber>;
+    search: z.ZodOptional<z.ZodString>;
+    bookingId: z.ZodOptional<z.ZodString>;
+    sessionId: z.ZodOptional<z.ZodString>;
+    driverId: z.ZodOptional<z.ZodString>;
+    passengerId: z.ZodOptional<z.ZodString>;
+    driverPhone: z.ZodOptional<z.ZodString>;
+    passengerPhone: z.ZodOptional<z.ZodString>;
+    vehicleRegistration: z.ZodOptional<z.ZodString>;
+    bookingStatus: z.ZodOptional<z.ZodString>;
+    recordingStatus: z.ZodOptional<z.ZodString>;
+    consentStatus: z.ZodOptional<z.ZodEnum<["not_required", "pending", "granted", "denied", "revoked", "required"]>>;
+    uploadHealth: z.ZodOptional<z.ZodEnum<["healthy", "delayed", "missing_segments", "failed_segments", "duplicate_segments", "incomplete", "unknown"]>>;
+    processingStatus: z.ZodOptional<z.ZodString>;
+    retentionStatus: z.ZodOptional<z.ZodEnum<["active", "expiring_soon", "expired", "deleted"]>>;
+    serviceType: z.ZodOptional<z.ZodString>;
+    dateFrom: z.ZodOptional<z.ZodString>;
+    dateTo: z.ZodOptional<z.ZodString>;
+    sortBy: z.ZodOptional<z.ZodEnum<["createdAt", "finalizedAt", "startedAt", "rideDate"]>>;
+    sortOrder: z.ZodOptional<z.ZodEnum<["asc", "desc"]>>;
+}, "strip", z.ZodTypeAny, {
+    limit?: number | undefined;
+    bookingId?: string | undefined;
+    sessionId?: string | undefined;
+    search?: string | undefined;
+    driverId?: string | undefined;
+    sortOrder?: "asc" | "desc" | undefined;
+    passengerId?: string | undefined;
+    consentStatus?: "pending" | "required" | "revoked" | "granted" | "denied" | "not_required" | undefined;
+    driverPhone?: string | undefined;
+    recordingStatus?: string | undefined;
+    page?: number | undefined;
+    passengerPhone?: string | undefined;
+    vehicleRegistration?: string | undefined;
+    bookingStatus?: string | undefined;
+    uploadHealth?: "healthy" | "unknown" | "delayed" | "missing_segments" | "failed_segments" | "duplicate_segments" | "incomplete" | undefined;
+    processingStatus?: string | undefined;
+    retentionStatus?: "active" | "expired" | "deleted" | "expiring_soon" | undefined;
+    serviceType?: string | undefined;
+    dateFrom?: string | undefined;
+    dateTo?: string | undefined;
+    sortBy?: "createdAt" | "startedAt" | "finalizedAt" | "rideDate" | undefined;
+}, {
+    limit?: number | undefined;
+    bookingId?: string | undefined;
+    sessionId?: string | undefined;
+    search?: string | undefined;
+    driverId?: string | undefined;
+    sortOrder?: "asc" | "desc" | undefined;
+    passengerId?: string | undefined;
+    consentStatus?: "pending" | "required" | "revoked" | "granted" | "denied" | "not_required" | undefined;
+    driverPhone?: string | undefined;
+    recordingStatus?: string | undefined;
+    page?: number | undefined;
+    passengerPhone?: string | undefined;
+    vehicleRegistration?: string | undefined;
+    bookingStatus?: string | undefined;
+    uploadHealth?: "healthy" | "unknown" | "delayed" | "missing_segments" | "failed_segments" | "duplicate_segments" | "incomplete" | undefined;
+    processingStatus?: string | undefined;
+    retentionStatus?: "active" | "expired" | "deleted" | "expiring_soon" | undefined;
+    serviceType?: string | undefined;
+    dateFrom?: string | undefined;
+    dateTo?: string | undefined;
+    sortBy?: "createdAt" | "startedAt" | "finalizedAt" | "rideDate" | undefined;
+}>;
+export declare const adminRideVideoSummaryQuerySchema: z.ZodObject<{
+    dateFrom: z.ZodOptional<z.ZodString>;
+    dateTo: z.ZodOptional<z.ZodString>;
+    driverId: z.ZodOptional<z.ZodString>;
+    passengerId: z.ZodOptional<z.ZodString>;
+}, "strip", z.ZodTypeAny, {
+    driverId?: string | undefined;
+    passengerId?: string | undefined;
+    dateFrom?: string | undefined;
+    dateTo?: string | undefined;
+}, {
+    driverId?: string | undefined;
+    passengerId?: string | undefined;
+    dateFrom?: string | undefined;
+    dateTo?: string | undefined;
+}>;
+export declare const adminRideVideoSegmentsQuerySchema: z.ZodObject<{
+    page: z.ZodOptional<z.ZodNumber>;
+    limit: z.ZodOptional<z.ZodNumber>;
+    sortOrder: z.ZodOptional<z.ZodEnum<["asc", "desc"]>>;
+}, "strip", z.ZodTypeAny, {
+    limit?: number | undefined;
+    sortOrder?: "asc" | "desc" | undefined;
+    page?: number | undefined;
+}, {
+    limit?: number | undefined;
+    sortOrder?: "asc" | "desc" | undefined;
+    page?: number | undefined;
+}>;
+export declare const adminRideVideoAuditQuerySchema: z.ZodObject<{
+    page: z.ZodOptional<z.ZodNumber>;
+    limit: z.ZodOptional<z.ZodNumber>;
+}, "strip", z.ZodTypeAny, {
+    limit?: number | undefined;
+    page?: number | undefined;
+}, {
+    limit?: number | undefined;
+    page?: number | undefined;
+}>;
+export declare const adminRideVideoPlaybackManifestSchema: z.ZodDefault<z.ZodOptional<z.ZodObject<{
+    fromIndex: z.ZodOptional<z.ZodNumber>;
+    fromSegmentIndex: z.ZodOptional<z.ZodNumber>;
+    fromOffsetSeconds: z.ZodOptional<z.ZodNumber>;
+    sinceManifestVersion: z.ZodOptional<z.ZodNumber>;
+    limit: z.ZodOptional<z.ZodNumber>;
+}, "strip", z.ZodTypeAny, {
+    limit?: number | undefined;
+    fromOffsetSeconds?: number | undefined;
+    fromSegmentIndex?: number | undefined;
+    sinceManifestVersion?: number | undefined;
+    fromIndex?: number | undefined;
+}, {
+    limit?: number | undefined;
+    fromOffsetSeconds?: number | undefined;
+    fromSegmentIndex?: number | undefined;
+    sinceManifestVersion?: number | undefined;
+    fromIndex?: number | undefined;
+}>>>;
 /**
  * Middleware factory for validating request data
  *

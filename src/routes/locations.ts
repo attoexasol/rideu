@@ -18,7 +18,7 @@ import { locations } from '../db/schema/locations';
 import { drivers } from '../db/schema/drivers';
 import { driverUtils, locationUtils } from '../db/utils';
 import { eq, lte } from 'drizzle-orm';
-import { realtimeCache, redisPub, PubSubChannels } from '../config/redis';
+import { realtimeCache, PubSubChannels, safeRedisPublish } from '../config/redis';
 import { snapToRoadsBatch } from '../services/mapboxMatching';
 import { findActiveBookingByDriver } from '../repositories/booking.repository';
 import { emitDriverLocationToCustomer } from '../services/bookingNotify.service';
@@ -251,7 +251,7 @@ router.post(
       io.to('admin').emit('location:broadcast', broadcastPayload);
 
       // Also publish to Redis Pub/Sub for multi-server scalability
-      await redisPub.publish(PubSubChannels.LOCATION_UPDATE, JSON.stringify(broadcastPayload));
+      await safeRedisPublish(PubSubChannels.LOCATION_UPDATE, JSON.stringify(broadcastPayload));
 
       console.log(`  📍 Location from ${driver.name} broadcast to admin clients via WebSocket`);
     } catch (error) {

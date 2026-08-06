@@ -77,3 +77,30 @@ export const videoUploadRateLimit = createRateLimiter({
   bucket: rateLimitConfig.videoUpload,
   keyGenerator: keyByDriver,
 });
+
+export function keyByAdmin(req: Request): string {
+  const userId = (req as any).user?.userId || (req as any).user?.auth0Id;
+  return userId ? `admin:${userId}` : keyByIp(req);
+}
+
+export const adminRideVideoListRateLimit = createRateLimiter({
+  name: 'admin_ride_video_list',
+  bucket: rateLimitConfig.adminRideVideoList,
+  keyGenerator: keyByAdmin,
+});
+
+export const adminRideVideoPlaybackRateLimit = createRateLimiter({
+  name: 'admin_ride_video_playback',
+  bucket: rateLimitConfig.adminRideVideoPlayback,
+  keyGenerator: (req: Request) => {
+    const adminKey = keyByAdmin(req);
+    const sessionId = req.params?.sessionId;
+    return sessionId ? `${adminKey}:session:${sessionId}` : adminKey;
+  },
+});
+
+export const adminRideVideoDownloadRateLimit = createRateLimiter({
+  name: 'admin_ride_video_download',
+  bucket: rateLimitConfig.adminRideVideoDownload,
+  keyGenerator: keyByAdmin,
+});

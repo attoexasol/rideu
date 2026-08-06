@@ -134,6 +134,13 @@
       "when": 1785441600000,
       "tag": "0020_ride_video_recording_foundation",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1785800000000,
+      "tag": "0021_ride_video_admin_api",
+      "breakpoints": true
     }
   ]
 }

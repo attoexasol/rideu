@@ -786,25 +786,26 @@ describe('terminal booking behavior', () => {
     mockFindBookingById.mockResolvedValue(makeBooking({ status: BookingStatus.COMPLETED }));
     const active = makeSession({ status: 'active' });
     const finalized = makeSession({
-      status: 'completed',
+      status: 'failed',
       endedAt: new Date('2026-07-30T13:00:00.000Z'),
       finalizedAt: new Date('2026-07-30T13:00:00.000Z'),
     });
     enqueueSelect([active]); // getOwnedSession
-    // finalizeSessionRecord transaction updates (no returning used inside tx)
-    enqueueUpdate([]);
-    enqueueUpdate([]);
-    enqueueUpdate([]);
-    enqueueSelect([finalized]); // reload
+    enqueueUpdate([]); // recording:stop + enter finalizing updates
+    enqueueUpdate([]); // bump manifest
+    enqueueUpdate([]); // bump manifest finalizing
+    enqueueSelect([]); // loadSessionSegments in completeFinalizing
+    enqueueUpdate([]); // terminal status update
+    enqueueUpdate([]); // bump manifest finalized
+    enqueueUpdate([finalized]); // complete session returning
 
     const result = await finalizeRideVideoSession(sessionId, driverId);
-    expect(result.status).toBe('completed');
-    expect(result.finalizedAt).toBe('2026-07-30T13:00:00.000Z');
-    expect(result.endedAt).toBe('2026-07-30T13:00:00.000Z');
+    expect(result.status).toBe('finalizing');
+    expect(result.finalizedAt).toBeNull();
     expect(mockEmitToDriver).toHaveBeenCalledWith(
       driverId,
       'recording:session_finalized',
-      expect.objectContaining({ status: 'completed' })
+      expect.objectContaining({ status: 'finalizing' })
     );
   });
 
@@ -813,7 +814,7 @@ describe('terminal booking behavior', () => {
     mockFindBookingById.mockResolvedValue(makeBooking({ status: BookingStatus.CANCELLED }));
     const active = makeSession({ status: 'active' });
     const cancelled = makeSession({
-      status: 'cancelled',
+      status: 'partial',
       endedAt: new Date('2026-07-30T13:05:00.000Z'),
       finalizedAt: new Date('2026-07-30T13:05:00.000Z'),
     });
@@ -821,12 +822,15 @@ describe('terminal booking behavior', () => {
     enqueueUpdate([]);
     enqueueUpdate([]);
     enqueueUpdate([]);
-    enqueueSelect([cancelled]);
+    enqueueSelect([]);
+    enqueueUpdate([]);
+    enqueueUpdate([]);
+    enqueueUpdate([cancelled]);
 
     await finalizeRideVideoSessionsForBooking(bookingId, 'Booking cancelled by driver');
     expect(mockEmitToAdmins).toHaveBeenCalledWith(
       'recording:session_finalized',
-      expect.objectContaining({ status: 'cancelled' })
+      expect.objectContaining({ status: 'finalizing' })
     );
   });
 

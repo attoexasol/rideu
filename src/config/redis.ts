@@ -1,4 +1,72 @@
 import Redis, { RedisOptions } from 'ioredis';
+import { withRedisTimeout } from '../utils/redisTimeout';
+
+export function isRedisRequired(): boolean {
+  return (
+    process.env.USE_REDIS === 'true' ||
+    process.env.NODE_ENV === 'production' ||
+    process.env.NODE_ENV === 'staging'
+  );
+}
+
+/** Cache/session reads and writes (maps, driver location, sessions). */
+export function isRedisCacheEnabled(): boolean {
+  if (process.env.USE_REDIS === 'false') return false;
+  if (redisCircuitOpen) {
+    if (Date.now() - redisCircuitOpenedAt < CIRCUIT_RESET_MS) return false;
+    redisCircuitOpen = false;
+  }
+  return true;
+}
+
+/** Pub/Sub adapter and cross-process broadcasts. */
+export function isRedisPubSubEnabled(): boolean {
+  return process.env.USE_REDIS === 'true' || isRedisRequired();
+}
+
+let redisCircuitOpen = false;
+let redisCircuitOpenedAt = 0;
+const CIRCUIT_RESET_MS = 30_000;
+
+function markRedisUnavailable(): void {
+  redisCircuitOpen = true;
+  redisCircuitOpenedAt = Date.now();
+}
+
+function getCommandTimeoutMs(): number {
+  return isRedisRequired()
+    ? REDIS_COMMAND_TIMEOUT_MS
+    : Math.min(REDIS_COMMAND_TIMEOUT_MS, 500);
+}
+
+async function safeRedisRead<T>(operation: Promise<T | null>): Promise<T | null> {
+  if (!isRedisCacheEnabled()) return null;
+  try {
+    return await withRedisTimeout(operation, getCommandTimeoutMs());
+  } catch {
+    markRedisUnavailable();
+    return null;
+  }
+}
+
+async function safeRedisWrite(operation: Promise<unknown>): Promise<void> {
+  if (!isRedisCacheEnabled()) return;
+  try {
+    await withRedisTimeout(operation, getCommandTimeoutMs());
+  } catch {
+    markRedisUnavailable();
+  }
+}
+
+/** Non-blocking publish for optional Redis pub/sub (fail-open). */
+export async function safeRedisPublish(channel: string, message: string): Promise<void> {
+  if (!isRedisPubSubEnabled()) return;
+  try {
+    await withRedisTimeout(redisPub.publish(channel, message), getCommandTimeoutMs());
+  } catch {
+    markRedisUnavailable();
+  }
+}
 
 /**
  * Redis client configuration for session caching and real-time data
@@ -8,27 +76,46 @@ import Redis, { RedisOptions } from 'ioredis';
 const REDIS_HOST = process.env.REDIS_HOST || 'localhost';
 const REDIS_PORT = parseInt(process.env.REDIS_PORT || '6379', 10);
 const REDIS_URL = process.env.REDIS_URL;
+const REDIS_COMMAND_TIMEOUT_MS = parseInt(process.env.REDIS_COMMAND_TIMEOUT_MS || '2000', 10);
+const redisExplicitlyDisabled = process.env.USE_REDIS === 'false';
 
-const redisOptions: RedisOptions = {
-  host: REDIS_HOST,
-  port: REDIS_PORT,
+const baseRedisOptions: RedisOptions = {
   retryStrategy: (times: number) => {
     const delay = Math.min(times * 50, 5000);
     return delay;
   },
-  maxRetriesPerRequest: null,
   enableReadyCheck: true,
-  lazyConnect: false,
+  lazyConnect: redisExplicitlyDisabled,
+  connectTimeout: 5000,
+};
+
+/** General-purpose client: bounded retries/timeouts so HTTP handlers cannot hang forever. */
+const commandRedisOptions: RedisOptions = {
+  ...baseRedisOptions,
+  maxRetriesPerRequest: redisExplicitlyDisabled ? 0 : 2,
+  commandTimeout: redisExplicitlyDisabled ? 500 : REDIS_COMMAND_TIMEOUT_MS,
+};
+
+/** Pub/Sub clients must not limit retries on blocking commands. */
+const pubSubRedisOptions: RedisOptions = {
+  ...baseRedisOptions,
+  maxRetriesPerRequest: null,
 };
 
 // Main Redis client for general operations
-export const redis = REDIS_URL ? new Redis(REDIS_URL, redisOptions) : new Redis(redisOptions);
+export const redis = REDIS_URL
+  ? new Redis(REDIS_URL, commandRedisOptions)
+  : new Redis({ ...commandRedisOptions, host: REDIS_HOST, port: REDIS_PORT });
 
 // Publisher client for Pub/Sub (WebSocket broadcasting)
-export const redisPub = REDIS_URL ? new Redis(REDIS_URL, redisOptions) : new Redis(redisOptions);
+export const redisPub = REDIS_URL
+  ? new Redis(REDIS_URL, pubSubRedisOptions)
+  : new Redis({ ...pubSubRedisOptions, host: REDIS_HOST, port: REDIS_PORT });
 
 // Subscriber client for Pub/Sub (WebSocket broadcasting)
-export const redisSub = REDIS_URL ? new Redis(REDIS_URL, redisOptions) : new Redis(redisOptions);
+export const redisSub = REDIS_URL
+  ? new Redis(REDIS_URL, pubSubRedisOptions)
+  : new Redis({ ...pubSubRedisOptions, host: REDIS_HOST, port: REDIS_PORT });
 
 // Connection event handlers
 redis.on('connect', () => {
@@ -118,45 +205,25 @@ export async function closeRedisConnections(): Promise<void> {
  * Session cache helper functions
  */
 export const sessionCache = {
-  /**
-   * Store session data in Redis
-   * @param sessionId - Unique session identifier
-   * @param data - Session data to store
-   * @param ttl - Time to live in seconds (default: 24 hours)
-   */
   async set(sessionId: string, data: any, ttl: number = 86400): Promise<void> {
     const key = `session:${sessionId}`;
-    await redis.setex(key, ttl, JSON.stringify(data));
+    await safeRedisWrite(redis.setex(key, ttl, JSON.stringify(data)));
   },
 
-  /**
-   * Retrieve session data from Redis
-   * @param sessionId - Unique session identifier
-   * @returns Session data or null if not found
-   */
   async get(sessionId: string): Promise<any> {
     const key = `session:${sessionId}`;
-    const data = await redis.get(key);
+    const data = await safeRedisRead(redis.get(key));
     return data ? JSON.parse(data) : null;
   },
 
-  /**
-   * Delete session from Redis
-   * @param sessionId - Unique session identifier
-   */
   async delete(sessionId: string): Promise<void> {
     const key = `session:${sessionId}`;
-    await redis.del(key);
+    await safeRedisWrite(redis.del(key));
   },
 
-  /**
-   * Check if session exists
-   * @param sessionId - Unique session identifier
-   * @returns Boolean indicating if session exists
-   */
   async exists(sessionId: string): Promise<boolean> {
     const key = `session:${sessionId}`;
-    const result = await redis.exists(key);
+    const result = await safeRedisRead(redis.exists(key));
     return result === 1;
   },
 };
@@ -165,90 +232,60 @@ export const sessionCache = {
  * Real-time data cache helper functions
  */
 export const realtimeCache = {
-  /**
-   * Store driver's latest location in Redis
-   * @param driverId - Driver unique identifier
-   * @param location - Location data
-   * @param ttl - Time to live in seconds (default: 5 minutes)
-   */
   async setDriverLocation(driverId: string, location: any, ttl: number = 300): Promise<void> {
     const key = `location:driver:${driverId}`;
-    await redis.setex(key, ttl, JSON.stringify(location));
+    await safeRedisWrite(redis.setex(key, ttl, JSON.stringify(location)));
   },
 
-  /**
-   * Get driver's latest location from Redis
-   * @param driverId - Driver unique identifier
-   * @returns Location data or null
-   */
   async getDriverLocation(driverId: string): Promise<any> {
     const key = `location:driver:${driverId}`;
-    const data = await redis.get(key);
+    const data = await safeRedisRead(redis.get(key));
     return data ? JSON.parse(data) : null;
   },
 
-  /**
-   * Store driver status in Redis
-   * @param driverId - Driver unique identifier
-   * @param status - Driver status (online, offline)
-   * @param ttl - Time to live in seconds (default: 10 minutes)
-   */
   async setDriverStatus(driverId: string, status: string, ttl: number = 600): Promise<void> {
     const key = `status:driver:${driverId}`;
-    await redis.setex(key, ttl, status);
+    await safeRedisWrite(redis.setex(key, ttl, status));
   },
 
-  /**
-   * Get driver status from Redis
-   * @param driverId - Driver unique identifier
-   * @returns Driver status or null
-   */
   async getDriverStatus(driverId: string): Promise<string | null> {
     const key = `status:driver:${driverId}`;
-    return await redis.get(key);
+    return safeRedisRead(redis.get(key));
   },
 
-  /**
-   * Store driver heartbeat (refreshed on every valid location post).
-   */
   async setDriverHeartbeat(driverId: string, timestamp?: string, ttl: number = 600): Promise<void> {
     const key = `heartbeat:driver:${driverId}`;
-    await redis.setex(key, ttl, timestamp ?? new Date().toISOString());
+    await safeRedisWrite(redis.setex(key, ttl, timestamp ?? new Date().toISOString()));
   },
 
-  /**
-   * Get driver heartbeat ISO timestamp.
-   */
   async getDriverHeartbeat(driverId: string): Promise<string | null> {
     const key = `heartbeat:driver:${driverId}`;
-    return await redis.get(key);
+    return safeRedisRead(redis.get(key));
   },
 
-  /**
-   * Get all active drivers (with recent location updates)
-   * Uses SCAN instead of KEYS to avoid blocking
-   * @returns Array of driver IDs
-   */
   async getActiveDrivers(): Promise<string[]> {
-    const drivers: string[] = [];
-    let cursor = '0';
+    if (!isRedisCacheEnabled()) return [];
+    try {
+      const drivers: string[] = [];
+      let cursor = '0';
 
-    do {
-      const [newCursor, keys] = await redis.scan(
-        cursor,
-        'MATCH',
-        'location:driver:*',
-        'COUNT',
-        100
-      );
-      cursor = newCursor;
+      do {
+        const [newCursor, keys] = await withRedisTimeout(
+          redis.scan(cursor, 'MATCH', 'location:driver:*', 'COUNT', 100),
+          getCommandTimeoutMs()
+        );
+        cursor = newCursor;
 
-      for (const key of keys) {
-        drivers.push(key.replace('location:driver:', ''));
-      }
-    } while (cursor !== '0');
+        for (const key of keys) {
+          drivers.push(key.replace('location:driver:', ''));
+        }
+      } while (cursor !== '0');
 
-    return drivers;
+      return drivers;
+    } catch {
+      markRedisUnavailable();
+      return [];
+    }
   },
 };
 
@@ -270,20 +307,12 @@ export const PubSubChannels = {
  */
 export const mapsCache = {
   async get<T>(key: string): Promise<T | null> {
-    try {
-      const data = await redis.get(`maps:${key}`);
-      return data ? (JSON.parse(data) as T) : null;
-    } catch {
-      return null;
-    }
+    const data = await safeRedisRead(redis.get(`maps:${key}`));
+    return data ? (JSON.parse(data) as T) : null;
   },
 
   async set(key: string, value: unknown, ttl: number): Promise<void> {
-    try {
-      await redis.setex(`maps:${key}`, ttl, JSON.stringify(value));
-    } catch {
-      // Cache failures must not break requests
-    }
+    await safeRedisWrite(redis.setex(`maps:${key}`, ttl, JSON.stringify(value)));
   },
 };
 

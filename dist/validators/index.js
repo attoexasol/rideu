@@ -6,7 +6,7 @@
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.passengerForgotPasswordSchema = exports.passengerLoginSchema = exports.passengerRegisterSchema = exports.updateAdminUserSchema = exports.createAdminUserSchema = exports.getReportQuerySchema = exports.exportReportQuerySchema = exports.videoIdParamSchema = exports.videoUploadBodySchema = exports.scanPassengerSchema = exports.tripQrImageQuerySchema = exports.tripIdParamSchema = exports.getTripsQuerySchema = exports.updateTripSchema = exports.createTripSchema = exports.getLocationsQuerySchema = exports.submitLocationSchema = exports.cancelExchangeSchema = exports.confirmExchangeSchema = exports.initiateExchangeSchema = exports.exchangeIdParamSchema = exports.forceEndDutySchema = exports.assignDriverFleetSchema = exports.vehicleQrTokenIdParamSchema = exports.patchAdminFleetVehicleSchema = exports.listAdminFleetVehiclesQuerySchema = exports.fleetIdParamSchema = exports.dutyEndSchema = exports.dutyStartSchema = exports.dutyLocationSchema = exports.driverIdPathSchema = exports.checkOutSchema = exports.checkInSchema = exports.scanVehicleSchema = exports.createVehicleSchema = exports.companyCheckInQrQuerySchema = exports.vehicleScanSchema = exports.vehicleQrImageQuerySchema = exports.vehicleQrCodeParamSchema = exports.vehicleIdParamSchema = exports.driverIdParamSchema = exports.driverQrImageQuerySchema = exports.driverQrCodeParamSchema = exports.getDriversQuerySchema = exports.updateDriverStatusSchema = exports.updateDriverSchema = exports.createDriverSchema = exports.refreshTokenSchema = exports.loginSchema = exports.updateCabIdentifierSchema = void 0;
-exports.validate = exports.videoSegmentListQuerySchema = exports.failVideoSegmentSchema = exports.completeVideoSegmentSchema = exports.registerVideoSegmentSchema = exports.videoSegmentIdParamSchema = exports.videoSegmentParamSchema = exports.videoSessionParamSchema = exports.recordingConsentSchema = exports.liveVideoChunkSchema = exports.placeSuggestionsQuerySchema = exports.nearbyDriversQuerySchema = exports.placeIdParamSchema = exports.updatePlaceSchema = exports.savePlaceSchema = exports.routePreviewSchema = exports.pickupSpotsQuerySchema = exports.reverseGeocodeQuerySchema = exports.placeDetailsQuerySchema = exports.placesAutocompleteQuerySchema = exports.assignDriverCategorySchema = exports.driverBookingStatusSchema = exports.driverCancelBookingSchema = exports.declineOfferSchema = exports.offerIdParamSchema = exports.bookingIdParamSchema = exports.cancelBookingSchema = exports.createBookingSchema = exports.bookingQuoteSchema = exports.longitudeQuerySchema = exports.latitudeQuerySchema = exports.longitudeSchema = exports.latitudeSchema = void 0;
+exports.validate = exports.adminRideVideoPlaybackManifestSchema = exports.adminRideVideoAuditQuerySchema = exports.adminRideVideoSegmentsQuerySchema = exports.adminRideVideoSummaryQuerySchema = exports.adminRideVideoListQuerySchema = exports.videoSegmentListQuerySchema = exports.failVideoSegmentSchema = exports.completeVideoSegmentSchema = exports.registerVideoSegmentSchema = exports.videoSegmentIdParamSchema = exports.videoSegmentParamSchema = exports.videoSessionParamSchema = exports.recordingConsentSchema = exports.liveVideoChunkSchema = exports.placeSuggestionsQuerySchema = exports.nearbyDriversQuerySchema = exports.placeIdParamSchema = exports.updatePlaceSchema = exports.savePlaceSchema = exports.routePreviewSchema = exports.pickupSpotsQuerySchema = exports.reverseGeocodeQuerySchema = exports.placeDetailsQuerySchema = exports.placesAutocompleteQuerySchema = exports.assignDriverCategorySchema = exports.driverBookingStatusSchema = exports.driverCancelBookingSchema = exports.declineOfferSchema = exports.offerIdParamSchema = exports.bookingIdParamSchema = exports.cancelBookingSchema = exports.createBookingSchema = exports.bookingQuoteSchema = exports.longitudeQuerySchema = exports.latitudeQuerySchema = exports.longitudeSchema = exports.latitudeSchema = void 0;
 const zod_1 = require("zod");
 const cabIdentifier_1 = require("../utils/cabIdentifier");
 Object.defineProperty(exports, "updateCabIdentifierSchema", { enumerable: true, get: function () { return cabIdentifier_1.updateCabIdentifierSchema; } });
@@ -555,6 +555,66 @@ exports.failVideoSegmentSchema = zod_1.z.object({
 exports.videoSegmentListQuerySchema = zod_1.z.object({
     status: zod_1.z.enum(['pending', 'uploading', 'uploaded', 'verified', 'failed']).optional(),
 });
+exports.adminRideVideoListQuerySchema = zod_1.z.object({
+    page: zod_1.z.coerce.number().int().min(1).optional(),
+    limit: zod_1.z.coerce.number().int().min(1).max(100).optional(),
+    search: zod_1.z.string().trim().max(200).optional(),
+    bookingId: zod_1.z.string().uuid().optional(),
+    sessionId: zod_1.z.string().uuid().optional(),
+    driverId: zod_1.z.string().uuid().optional(),
+    passengerId: zod_1.z.string().uuid().optional(),
+    driverPhone: zod_1.z.string().trim().max(50).optional(),
+    passengerPhone: zod_1.z.string().trim().max(50).optional(),
+    vehicleRegistration: zod_1.z.string().trim().max(50).optional(),
+    bookingStatus: zod_1.z.string().trim().max(50).optional(),
+    recordingStatus: zod_1.z.string().trim().max(50).optional(),
+    consentStatus: zod_1.z
+        .enum(['not_required', 'pending', 'granted', 'denied', 'revoked', 'required'])
+        .optional(),
+    uploadHealth: zod_1.z
+        .enum([
+        'healthy',
+        'delayed',
+        'missing_segments',
+        'failed_segments',
+        'duplicate_segments',
+        'incomplete',
+        'unknown',
+    ])
+        .optional(),
+    processingStatus: zod_1.z.string().trim().max(50).optional(),
+    retentionStatus: zod_1.z.enum(['active', 'expiring_soon', 'expired', 'deleted']).optional(),
+    serviceType: zod_1.z.string().trim().max(100).optional(),
+    dateFrom: zod_1.z.string().datetime({ offset: true }).optional(),
+    dateTo: zod_1.z.string().datetime({ offset: true }).optional(),
+    sortBy: zod_1.z.enum(['createdAt', 'finalizedAt', 'startedAt', 'rideDate']).optional(),
+    sortOrder: zod_1.z.enum(['asc', 'desc']).optional(),
+});
+exports.adminRideVideoSummaryQuerySchema = zod_1.z.object({
+    dateFrom: zod_1.z.string().datetime({ offset: true }).optional(),
+    dateTo: zod_1.z.string().datetime({ offset: true }).optional(),
+    driverId: zod_1.z.string().uuid().optional(),
+    passengerId: zod_1.z.string().uuid().optional(),
+});
+exports.adminRideVideoSegmentsQuerySchema = zod_1.z.object({
+    page: zod_1.z.coerce.number().int().min(1).optional(),
+    limit: zod_1.z.coerce.number().int().min(1).max(200).optional(),
+    sortOrder: zod_1.z.enum(['asc', 'desc']).optional(),
+});
+exports.adminRideVideoAuditQuerySchema = zod_1.z.object({
+    page: zod_1.z.coerce.number().int().min(1).optional(),
+    limit: zod_1.z.coerce.number().int().min(1).max(100).optional(),
+});
+exports.adminRideVideoPlaybackManifestSchema = zod_1.z
+    .object({
+    fromIndex: zod_1.z.coerce.number().int().min(0).optional(),
+    fromSegmentIndex: zod_1.z.coerce.number().int().min(0).optional(),
+    fromOffsetSeconds: zod_1.z.coerce.number().int().min(0).optional(),
+    sinceManifestVersion: zod_1.z.coerce.number().int().min(0).optional(),
+    limit: zod_1.z.coerce.number().int().min(1).max(30).optional(),
+})
+    .optional()
+    .default({});
 const response_1 = require("../utils/response");
 const validate = (schema, source = 'body') => {
     return (req, res, next) => {

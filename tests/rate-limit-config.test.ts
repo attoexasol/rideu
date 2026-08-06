@@ -140,6 +140,18 @@ describe('global rate limit skip paths', () => {
     expect(shouldSkipGlobalRateLimit('/api/auth/refresh')).toBe(true);
   });
 
+  it('skips admin ride-video endpoints with dedicated limiters', () => {
+    expect(shouldSkipGlobalRateLimit('/api/v1/admin/ride-videos')).toBe(true);
+    expect(
+      shouldSkipGlobalRateLimit('/api/v1/admin/ride-videos/11111111-1111-1111-1111-111111111111')
+    ).toBe(true);
+    expect(
+      shouldSkipGlobalRateLimit(
+        '/api/v1/admin/bookings/11111111-1111-1111-1111-111111111111/ride-video'
+      )
+    ).toBe(true);
+  });
+
   it('does not skip unrelated admin endpoints', () => {
     expect(shouldSkipGlobalRateLimit('/api/admin/users')).toBe(false);
   });
@@ -189,6 +201,8 @@ describe('429 response contract', () => {
       error: {
         code: 'RATE_LIMITED',
         message: 'Too many requests. Please try again shortly.',
+        retryable: true,
+        details: null,
       },
     });
   });
@@ -255,10 +269,15 @@ describe('429 Retry-After header', () => {
     await request(app).get('/ping').expect(200);
     const limited = await request(app).get('/ping').expect(429);
 
-    expect(limited.body).toEqual(RATE_LIMIT_RESPONSE);
+    expect(limited.body.success).toBe(false);
+    expect(limited.body.error.code).toBe('RATE_LIMITED');
+    expect(limited.body.error.retryable).toBe(true);
     expect(limited.headers['retry-after']).toBeDefined();
     expect(Number(limited.headers['retry-after'])).toBeGreaterThan(0);
     expect(limited.headers['ratelimit-limit']).toBeDefined();
+    if (limited.body.error.details?.retryAfterSeconds != null) {
+      expect(limited.body.error.details.retryAfterSeconds).toBeGreaterThan(0);
+    }
 
     process.env.RATE_LIMIT_ENABLED = previousEnabled;
     process.env.NODE_ENV = previousNodeEnv;

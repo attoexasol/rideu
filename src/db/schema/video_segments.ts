@@ -49,6 +49,7 @@ export const videoSegments = pgTable(
     sessionIdx: index('idx_video_segments_session').on(table.sessionId, table.sequenceNumber),
     bookingIdx: index('idx_video_segments_booking').on(table.bookingId),
     statusIdx: index('idx_video_segments_upload_status').on(table.uploadStatus),
+    retentionDeletedIdx: index('idx_video_segments_retention_deleted').on(table.retentionDeletedAt),
     sequenceUnique: uniqueIndex('uq_video_segments_session_sequence').on(
       table.sessionId,
       table.sequenceNumber

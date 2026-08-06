@@ -1,4 +1,11 @@
 import Redis from 'ioredis';
+export declare function isRedisRequired(): boolean;
+/** Cache/session reads and writes (maps, driver location, sessions). */
+export declare function isRedisCacheEnabled(): boolean;
+/** Pub/Sub adapter and cross-process broadcasts. */
+export declare function isRedisPubSubEnabled(): boolean;
+/** Non-blocking publish for optional Redis pub/sub (fail-open). */
+export declare function safeRedisPublish(channel: string, message: string): Promise<void>;
 export declare const redis: Redis;
 export declare const redisPub: Redis;
 export declare const redisSub: Redis;
@@ -15,74 +22,21 @@ export declare function closeRedisConnections(): Promise<void>;
  * Session cache helper functions
  */
 export declare const sessionCache: {
-    /**
-     * Store session data in Redis
-     * @param sessionId - Unique session identifier
-     * @param data - Session data to store
-     * @param ttl - Time to live in seconds (default: 24 hours)
-     */
     set(sessionId: string, data: any, ttl?: number): Promise<void>;
-    /**
-     * Retrieve session data from Redis
-     * @param sessionId - Unique session identifier
-     * @returns Session data or null if not found
-     */
     get(sessionId: string): Promise<any>;
-    /**
-     * Delete session from Redis
-     * @param sessionId - Unique session identifier
-     */
     delete(sessionId: string): Promise<void>;
-    /**
-     * Check if session exists
-     * @param sessionId - Unique session identifier
-     * @returns Boolean indicating if session exists
-     */
     exists(sessionId: string): Promise<boolean>;
 };
 /**
  * Real-time data cache helper functions
  */
 export declare const realtimeCache: {
-    /**
-     * Store driver's latest location in Redis
-     * @param driverId - Driver unique identifier
-     * @param location - Location data
-     * @param ttl - Time to live in seconds (default: 5 minutes)
-     */
     setDriverLocation(driverId: string, location: any, ttl?: number): Promise<void>;
-    /**
-     * Get driver's latest location from Redis
-     * @param driverId - Driver unique identifier
-     * @returns Location data or null
-     */
     getDriverLocation(driverId: string): Promise<any>;
-    /**
-     * Store driver status in Redis
-     * @param driverId - Driver unique identifier
-     * @param status - Driver status (online, offline)
-     * @param ttl - Time to live in seconds (default: 10 minutes)
-     */
     setDriverStatus(driverId: string, status: string, ttl?: number): Promise<void>;
-    /**
-     * Get driver status from Redis
-     * @param driverId - Driver unique identifier
-     * @returns Driver status or null
-     */
     getDriverStatus(driverId: string): Promise<string | null>;
-    /**
-     * Store driver heartbeat (refreshed on every valid location post).
-     */
     setDriverHeartbeat(driverId: string, timestamp?: string, ttl?: number): Promise<void>;
-    /**
-     * Get driver heartbeat ISO timestamp.
-     */
     getDriverHeartbeat(driverId: string): Promise<string | null>;
-    /**
-     * Get all active drivers (with recent location updates)
-     * Uses SCAN instead of KEYS to avoid blocking
-     * @returns Array of driver IDs
-     */
     getActiveDrivers(): Promise<string[]>;
 };
 /**

@@ -7,6 +7,7 @@ import driverDutyRoutes from './driver/duty';
 import driverVehicleExchangeRoutes from './driver/vehicle-exchanges';
 import adminBookingRoutes from './admin/booking';
 import adminFleetRoutes from './admin/fleet';
+import adminRideVideoRoutes from './admin/rideVideos';
 
 const router = express.Router();
 
@@ -17,6 +18,7 @@ router.use('/driver/video', driverVideoRoutes);
 router.use('/driver/duty', driverDutyRoutes);
 router.use('/driver/vehicle-exchanges', driverVehicleExchangeRoutes);
 router.use('/admin', adminBookingRoutes);
+router.use('/admin', adminRideVideoRoutes);
 router.use('/admin/fleet', adminFleetRoutes);
 
 export default router;

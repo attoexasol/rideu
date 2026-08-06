@@ -49,9 +49,14 @@ function setupWebSocketServer(httpServer) {
         pingInterval: 5000, // 5 seconds - frequent heartbeat to detect app quit
         transports: ['websocket', 'polling'],
     });
-    // Setup Redis adapter for horizontal scaling
-    io.adapter((0, redis_adapter_1.createAdapter)(redis_1.redisPub, redis_1.redisSub));
-    console.log('✓ Socket.IO server initialized with Redis adapter');
+    // Redis adapter only when pub/sub is enabled (multi-server / USE_REDIS=true)
+    if ((0, redis_1.isRedisPubSubEnabled)()) {
+        io.adapter((0, redis_adapter_1.createAdapter)(redis_1.redisPub, redis_1.redisSub));
+        console.log('✓ Socket.IO server initialized with Redis adapter');
+    }
+    else {
+        console.log('✓ Socket.IO server initialized (in-memory adapter, USE_REDIS=false)');
+    }
     // Authentication middleware
     io.use(async (socket, next) => {
         try {

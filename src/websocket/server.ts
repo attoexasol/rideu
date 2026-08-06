@@ -7,7 +7,7 @@
 import { Server as HTTPServer } from 'http';
 import { Server, Socket } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
-import { redisPub, redisSub } from '../config/redis';
+import { redisPub, redisSub, isRedisPubSubEnabled } from '../config/redis';
 import { SocketData } from './types';
 import { setupAuthenticationHandler } from './handlers/authentication';
 import { setupLocationHandler } from './handlers/location';
@@ -52,10 +52,13 @@ export function setupWebSocketServer(httpServer: HTTPServer): Server {
     transports: ['websocket', 'polling'],
   });
 
-  // Setup Redis adapter for horizontal scaling
-  io.adapter(createAdapter(redisPub, redisSub));
-
-  console.log('✓ Socket.IO server initialized with Redis adapter');
+  // Redis adapter only when pub/sub is enabled (multi-server / USE_REDIS=true)
+  if (isRedisPubSubEnabled()) {
+    io.adapter(createAdapter(redisPub, redisSub));
+    console.log('✓ Socket.IO server initialized with Redis adapter');
+  } else {
+    console.log('✓ Socket.IO server initialized (in-memory adapter, USE_REDIS=false)');
+  }
 
   // Authentication middleware
   io.use(async (socket: Socket, next) => {

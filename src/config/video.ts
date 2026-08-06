@@ -6,6 +6,11 @@ const maxSegmentSizeBytes = getEnvVarAsNumber('VIDEO_MAX_SEGMENT_SIZE_BYTES', 25
 const uploadUrlTtlSeconds = getEnvVarAsNumber('VIDEO_UPLOAD_URL_TTL_SECONDS', 300);
 const readUrlTtlSeconds = getEnvVarAsNumber('VIDEO_READ_URL_TTL_SECONDS', 300);
 const retentionDays = getEnvVarAsNumber('VIDEO_RETENTION_DAYS', 30);
+const uploadGracePeriodSeconds = getEnvVarAsNumber('VIDEO_UPLOAD_GRACE_PERIOD_SECONDS', 120);
+const staleRegisteredSegmentSeconds = getEnvVarAsNumber('VIDEO_STALE_REGISTERED_SEGMENT_SECONDS', 600);
+const staleUploadingSegmentSeconds = getEnvVarAsNumber('VIDEO_STALE_UPLOADING_SEGMENT_SECONDS', 300);
+const manifestRefreshSeconds = getEnvVarAsNumber('VIDEO_MANIFEST_REFRESH_SECONDS', 5);
+const recoveryPollIntervalSeconds = getEnvVarAsNumber('VIDEO_RECOVERY_POLL_INTERVAL_SECONDS', 30);
 
 for (const [name, value] of Object.entries({
   VIDEO_SEGMENT_DURATION_SECONDS: segmentDurationSeconds,
@@ -13,6 +18,11 @@ for (const [name, value] of Object.entries({
   VIDEO_UPLOAD_URL_TTL_SECONDS: uploadUrlTtlSeconds,
   VIDEO_READ_URL_TTL_SECONDS: readUrlTtlSeconds,
   VIDEO_RETENTION_DAYS: retentionDays,
+  VIDEO_UPLOAD_GRACE_PERIOD_SECONDS: uploadGracePeriodSeconds,
+  VIDEO_STALE_REGISTERED_SEGMENT_SECONDS: staleRegisteredSegmentSeconds,
+  VIDEO_STALE_UPLOADING_SEGMENT_SECONDS: staleUploadingSegmentSeconds,
+  VIDEO_MANIFEST_REFRESH_SECONDS: manifestRefreshSeconds,
+  VIDEO_RECOVERY_POLL_INTERVAL_SECONDS: recoveryPollIntervalSeconds,
 })) {
   if (!Number.isFinite(value) || value <= 0) {
     throw new Error(`${name} must be a positive number`);
@@ -27,6 +37,11 @@ export const videoConfig = {
   uploadUrlTtlSeconds,
   readUrlTtlSeconds,
   retentionDays,
+  uploadGracePeriodSeconds,
+  staleRegisteredSegmentSeconds,
+  staleUploadingSegmentSeconds,
+  manifestRefreshSeconds,
+  recoveryPollIntervalSeconds,
   storageContainer: process.env.VIDEO_STORAGE_CONTAINER || 'ride-recordings',
   storageRoot: path.resolve(process.env.VIDEO_STORAGE_ROOT || 'private-media'),
   allowedMimeTypes: new Set(['video/mp4', 'video/quicktime']),

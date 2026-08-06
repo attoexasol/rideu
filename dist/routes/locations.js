@@ -229,7 +229,7 @@ rate_limiters_1.driverLocationRateLimit, (0, validators_1.validate)(validators_1
         console.log(`  📡 Broadcasting location to ${io.sockets.adapter.rooms.get('admin')?.size || 0} admins in 'admin' room`);
         io.to('admin').emit('location:broadcast', broadcastPayload);
         // Also publish to Redis Pub/Sub for multi-server scalability
-        await redis_1.redisPub.publish(redis_1.PubSubChannels.LOCATION_UPDATE, JSON.stringify(broadcastPayload));
+        await (0, redis_1.safeRedisPublish)(redis_1.PubSubChannels.LOCATION_UPDATE, JSON.stringify(broadcastPayload));
         console.log(`  📍 Location from ${driver.name} broadcast to admin clients via WebSocket`);
     }
     catch (error) {

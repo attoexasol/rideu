@@ -16,10 +16,12 @@ const bookingNotify_service_1 = require("./services/bookingNotify.service");
 const dispatch_service_1 = require("./services/dispatch.service");
 const vehicleExchangeExpiration_service_1 = require("./services/vehicleExchangeExpiration.service");
 const logger_1 = require("./middleware/logger");
+const passenger_location_timing_1 = require("./middleware/passenger-location-timing");
 const error_handler_1 = require("./middleware/error-handler");
 const env_validator_1 = require("./config/env-validator");
 const startup_checks_1 = require("./utils/startup-checks");
 const driver_inactivity_checker_1 = require("./services/driver-inactivity-checker");
+const rideVideoBackground_service_1 = require("./services/rideVideoBackground.service");
 const redis_1 = require("./config/redis");
 const connection_1 = require("./db/connection");
 // Import all route handlers
@@ -64,6 +66,7 @@ try {
         (0, dispatch_service_1.processExpiredOffers)().catch((err) => console.error('[OfferExpiration] Failed to process expired offers:', err));
     }, 15_000);
     vehicleExchangeExpirationInterval = (0, vehicleExchangeExpiration_service_1.startVehicleExchangeExpirationPoller)();
+    (0, rideVideoBackground_service_1.startRideVideoBackgroundJobs)();
 }
 catch (error) {
     console.error('⚠️  Failed to start inactivity checker:', error);
@@ -95,6 +98,7 @@ app.use('/uploads', express_1.default.static(path_1.default.resolve(process.cwd(
 });
 // Request logging middleware
 app.use(logger_1.requestLogger);
+app.use(passenger_location_timing_1.passengerLocationTiming);
 // Health check endpoints
 app.get('/health', (0, startup_checks_1.createHealthCheckHandler)());
 app.get('/api/health', (0, startup_checks_1.createApiHealthCheckHandler)());
@@ -144,6 +148,7 @@ async function gracefulShutdown(signal) {
         clearInterval(vehicleExchangeExpirationInterval);
         console.log('Vehicle exchange expiration checker stopped');
     }
+    (0, rideVideoBackground_service_1.stopRideVideoBackgroundJobs)();
     httpServer.close(async () => {
         console.log('HTTP server closed');
         await Promise.allSettled([(0, redis_1.closeRedisConnections)(), (0, connection_1.closeConnection)()]);

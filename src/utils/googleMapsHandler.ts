@@ -4,6 +4,7 @@ import { GoogleMapsServiceError } from '../services/googleMaps/errors';
 
 export function handleGoogleMapsError(res: Response, error: unknown): Response {
   if (error instanceof GoogleMapsServiceError) {
+    res.locals.errorCode = error.code;
     return sendError(res, error.code, error.message, error.httpStatus);
   }
   if (error instanceof Error && error.message.includes('not configured')) {

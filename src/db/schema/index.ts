@@ -26,6 +26,7 @@ export * from './booking_events';
 export * from './booking_idempotency';
 export * from './video_sessions';
 export * from './video_segments';
+export * from './ride_video_audit_events';
 export * from './organizations';
 export * from './fleets';
 export * from './driver_fleet_memberships';
@@ -60,6 +61,7 @@ import { bookingEvents } from './booking_events';
 import { videoSessions } from './video_sessions';
 import { bookingIdempotencyKeys } from './booking_idempotency';
 import { videoSegments } from './video_segments';
+import { rideVideoAuditEvents } from './ride_video_audit_events';
 import { organizations } from './organizations';
 import { fleets } from './fleets';
 import { driverFleetMemberships } from './driver_fleet_memberships';
@@ -95,6 +97,7 @@ export const schema = {
   bookingIdempotencyKeys,
   videoSessions,
   videoSegments,
+  rideVideoAuditEvents,
   organizations,
   fleets,
   driverFleetMemberships,

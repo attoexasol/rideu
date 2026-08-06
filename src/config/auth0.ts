@@ -87,6 +87,14 @@ export const Auth0Permissions = {
   READ_REPORTS: 'read:reports',
   EXPORT_DATA: 'export:data',
 
+  // Ride video monitoring
+  RIDE_VIDEO_VIEW: 'ride_video.view',
+  RIDE_VIDEO_PLAY: 'ride_video.play',
+  RIDE_VIDEO_DOWNLOAD: 'ride_video.download',
+  RIDE_VIDEO_AUDIT: 'ride_video.audit',
+  RIDE_VIDEO_MANAGE: 'ride_video.manage',
+  RIDE_VIDEO_DELETE: 'ride_video.delete',
+
   // Super admin permissions
   READ_ADMINS: 'read:admins',
   CREATE_ADMINS: 'create:admins',

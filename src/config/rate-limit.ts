@@ -25,6 +25,9 @@ export interface RateLimitConfig {
   driverOffer: RateLimitBucketConfig;
   driverRecovery: RateLimitBucketConfig;
   videoUpload: RateLimitBucketConfig;
+  adminRideVideoList: RateLimitBucketConfig;
+  adminRideVideoPlayback: RateLimitBucketConfig;
+  adminRideVideoDownload: RateLimitBucketConfig;
 }
 
 type TierDefaults = Omit<RateLimitConfig, 'enabled' | 'useRedisStore' | 'tier'>;
@@ -42,6 +45,9 @@ const TIER_DEFAULTS: Record<Exclude<RateLimitTier, 'test'>, TierDefaults> = {
     driverOffer: { windowMs: 60_000, max: 300 },
     driverRecovery: { windowMs: 60_000, max: 300 },
     videoUpload: { windowMs: 60_000, max: 120 },
+    adminRideVideoList: { windowMs: 60_000, max: 300 },
+    adminRideVideoPlayback: { windowMs: 60_000, max: 120 },
+    adminRideVideoDownload: { windowMs: 60_000, max: 20 },
   },
   staging: {
     global: { windowMs: 60_000, max: 500 },
@@ -55,6 +61,9 @@ const TIER_DEFAULTS: Record<Exclude<RateLimitTier, 'test'>, TierDefaults> = {
     driverOffer: { windowMs: 60_000, max: 300 },
     driverRecovery: { windowMs: 60_000, max: 200 },
     videoUpload: { windowMs: 60_000, max: 120 },
+    adminRideVideoList: { windowMs: 60_000, max: 200 },
+    adminRideVideoPlayback: { windowMs: 60_000, max: 90 },
+    adminRideVideoDownload: { windowMs: 60_000, max: 10 },
   },
   production: {
     global: { windowMs: 900_000, max: 100 },
@@ -68,6 +77,9 @@ const TIER_DEFAULTS: Record<Exclude<RateLimitTier, 'test'>, TierDefaults> = {
     driverOffer: { windowMs: 60_000, max: 30 },
     driverRecovery: { windowMs: 60_000, max: 60 },
     videoUpload: { windowMs: 60_000, max: 30 },
+    adminRideVideoList: { windowMs: 60_000, max: 120 },
+    adminRideVideoPlayback: { windowMs: 60_000, max: 60 },
+    adminRideVideoDownload: { windowMs: 60_000, max: 5 },
   },
 };
 
@@ -168,6 +180,21 @@ export function loadRateLimitConfig(): RateLimitConfig {
       process.env.VIDEO_UPLOAD_RATE_LIMIT_WINDOW_MS,
       process.env.VIDEO_UPLOAD_RATE_LIMIT_MAX,
       tierDefaults.videoUpload
+    ),
+    adminRideVideoList: bucket(
+      process.env.ADMIN_RIDE_VIDEO_LIST_RATE_LIMIT_WINDOW_MS,
+      process.env.ADMIN_RIDE_VIDEO_LIST_RATE_LIMIT_MAX,
+      tierDefaults.adminRideVideoList
+    ),
+    adminRideVideoPlayback: bucket(
+      process.env.ADMIN_RIDE_VIDEO_PLAYBACK_RATE_LIMIT_WINDOW_MS,
+      process.env.ADMIN_RIDE_VIDEO_PLAYBACK_RATE_LIMIT_MAX,
+      tierDefaults.adminRideVideoPlayback
+    ),
+    adminRideVideoDownload: bucket(
+      process.env.ADMIN_RIDE_VIDEO_DOWNLOAD_RATE_LIMIT_WINDOW_MS,
+      process.env.ADMIN_RIDE_VIDEO_DOWNLOAD_RATE_LIMIT_MAX,
+      tierDefaults.adminRideVideoDownload
     ),
   };
 }

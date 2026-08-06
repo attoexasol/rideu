@@ -5,6 +5,7 @@ import {
   varchar,
   text,
   timestamp,
+  integer,
   index,
   uniqueIndex,
   check,
@@ -33,6 +34,8 @@ export const videoSessions = pgTable(
     endedAt: timestamp('ended_at', { withTimezone: true }),
     finalizedAt: timestamp('finalized_at', { withTimezone: true }),
     failureReason: text('failure_reason'),
+    manifestVersion: integer('manifest_version').notNull().default(0),
+    lastUploadActivityAt: timestamp('last_upload_activity_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
@@ -40,13 +43,17 @@ export const videoSessions = pgTable(
     tripIdx: index('idx_video_sessions_trip').on(table.tripId),
     bookingIdx: index('idx_video_sessions_booking').on(table.bookingId),
     driverIdx: index('idx_video_sessions_driver').on(table.driverId),
+    passengerIdx: index('idx_video_sessions_passenger').on(table.passengerId),
     statusIdx: index('idx_video_sessions_status').on(table.status),
+    consentIdx: index('idx_video_sessions_consent_status').on(table.consentStatus),
+    createdAtIdx: index('idx_video_sessions_created_at').on(table.createdAt),
+    finalizedAtIdx: index('idx_video_sessions_finalized_at').on(table.finalizedAt),
     oneRecoverableSession: uniqueIndex('uq_video_sessions_booking_driver_recoverable')
       .on(table.bookingId, table.driverId)
       .where(sql`${table.status} in ('pending', 'active', 'paused', 'finalizing')`),
     statusCheck: check(
       'video_sessions_status_check',
-      sql`${table.status} in ('pending', 'active', 'paused', 'finalizing', 'completed', 'cancelled', 'failed')`
+      sql`${table.status} in ('pending', 'active', 'paused', 'finalizing', 'completed', 'partial', 'cancelled', 'failed')`
     ),
     consentCheck: check(
       'video_sessions_consent_status_check',

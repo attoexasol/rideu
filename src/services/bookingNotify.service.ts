@@ -1,4 +1,4 @@
-import { redisPub, PubSubChannels, redisSub } from '../config/redis';
+import { PubSubChannels, redisSub, isRedisPubSubEnabled, safeRedisPublish } from '../config/redis';
 import type { Server } from 'socket.io';
 
 export interface BookingWsPayload {
@@ -23,6 +23,8 @@ export function setupBookingEventSubscriber(io: Server): void {
   ioRef = io;
   subscriberInitialized = true;
 
+  if (!isRedisPubSubEnabled()) return;
+
   redisSub.subscribe(PubSubChannels.BOOKING_UPDATE).catch((err: Error) => {
     console.error('Failed to subscribe to booking updates:', err);
   });
@@ -45,7 +47,18 @@ export function setupBookingEventSubscriber(io: Server): void {
 }
 
 async function publishBookingEvent(message: BookingPubSubMessage): Promise<void> {
-  await redisPub.publish(PubSubChannels.BOOKING_UPDATE, JSON.stringify(message));
+  if (!isRedisPubSubEnabled()) {
+    if (!ioRef) return;
+    if (message.target === 'customer' && message.customerId) {
+      ioRef.to(`customer-${message.customerId}`).emit(message.event, message.data);
+    } else if (message.target === 'driver' && message.driverId) {
+      ioRef.to(`driver-${message.driverId}`).emit(message.event, message.data);
+    } else if (message.target === 'admin') {
+      ioRef.to('admin').emit(message.event, message.data);
+    }
+    return;
+  }
+  await safeRedisPublish(PubSubChannels.BOOKING_UPDATE, JSON.stringify(message));
 }
 
 export async function emitToCustomer(

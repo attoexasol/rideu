@@ -49,6 +49,12 @@ export declare const Auth0Permissions: {
     readonly DELETE_DRIVERS: "delete:drivers";
     readonly READ_REPORTS: "read:reports";
     readonly EXPORT_DATA: "export:data";
+    readonly RIDE_VIDEO_VIEW: "ride_video.view";
+    readonly RIDE_VIDEO_PLAY: "ride_video.play";
+    readonly RIDE_VIDEO_DOWNLOAD: "ride_video.download";
+    readonly RIDE_VIDEO_AUDIT: "ride_video.audit";
+    readonly RIDE_VIDEO_MANAGE: "ride_video.manage";
+    readonly RIDE_VIDEO_DELETE: "ride_video.delete";
     readonly READ_ADMINS: "read:admins";
     readonly CREATE_ADMINS: "create:admins";
     readonly UPDATE_ADMINS: "update:admins";

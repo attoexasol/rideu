@@ -8,13 +8,23 @@ import { logger } from '../middleware/logger';
 import { findBookingById } from '../repositories/booking.repository';
 import {
   createPrivateStorageKey,
-  createReadToken,
   createUploadToken,
   inspectPrivateSegment,
   savePrivateSegment,
   verifyStorageToken,
 } from './ride-video-storage.service';
 import { emitToAdmins, emitToCustomer, emitToDriver } from './bookingNotify.service';
+import { traceRideVideo } from './rideVideoTrace.service';
+import {
+  emitAdminRideVideoSegmentUpdated,
+  emitAdminRideVideoSessionUpdated,
+} from './adminRideVideoNotify.service';
+import {
+  computePlaybackEligibility,
+  computeSegmentCounts,
+  mapAdminRecordingStatus,
+  type SegmentStatInput,
+} from './adminRideVideo.helpers';
 
 const RECORDABLE_BOOKING_STATUSES = [
   BookingStatus.ACCEPTED,
@@ -24,16 +34,11 @@ const RECORDABLE_BOOKING_STATUSES = [
 ] as string[];
 const RECOVERABLE_SESSION_STATUSES = ['pending', 'active', 'paused', 'finalizing'];
 const REGISTERABLE_SESSION_STATUSES = ['active', 'paused'];
+const UPLOADABLE_SESSION_STATUSES = ['active', 'paused', 'finalizing'];
 
-export class RideVideoError extends Error {
-  constructor(
-    public readonly code: string,
-    message: string,
-    public readonly statusCode: number
-  ) {
-    super(message);
-  }
-}
+import { RideVideoError } from './rideVideo.errors';
+
+export { RideVideoError } from './rideVideo.errors';
 
 function consentStatus(booking: Awaited<ReturnType<typeof findBookingById>>) {
   if (!videoConfig.consentRequired) return 'not_required' as const;
@@ -150,6 +155,98 @@ function formatSegment(segment: typeof videoSegments.$inferSelect) {
   };
 }
 
+function segmentStatsFromRows(rows: Array<typeof videoSegments.$inferSelect>): SegmentStatInput[] {
+  return rows.map((segment) => ({
+    sequenceNumber: segment.sequenceNumber,
+    uploadStatus: segment.uploadStatus,
+    durationMs: segment.durationMs,
+    retentionDeletedAt: segment.retentionDeletedAt,
+    uploadedAt: segment.uploadedAt,
+    recordedAt: segment.recordedAt,
+  }));
+}
+
+async function loadSessionSegments(sessionId: string) {
+  return db
+    .select()
+    .from(videoSegments)
+    .where(eq(videoSegments.sessionId, sessionId))
+    .orderBy(asc(videoSegments.sequenceNumber));
+}
+
+async function notifyAdminSessionState(
+  session: typeof videoSessions.$inferSelect,
+  segments: Array<typeof videoSegments.$inferSelect>
+): Promise<void> {
+  const stats = segmentStatsFromRows(segments);
+  const healthInput = {
+    sessionStatus: session.status,
+    consentStatus: session.consentStatus,
+    finalizedAt: session.finalizedAt,
+    retentionDays: videoConfig.retentionDays,
+    segmentDurationSeconds: videoConfig.segmentDurationSeconds,
+    segments: stats,
+  };
+  const playback = computePlaybackEligibility(healthInput);
+  const counts = computeSegmentCounts(stats);
+  const lastActivityAt =
+    stats
+      .map((s) => s.uploadedAt ?? s.recordedAt)
+      .filter(Boolean)
+      .sort()
+      .reverse()[0]?.toString() ?? session.updatedAt.toISOString();
+
+  await emitAdminRideVideoSessionUpdated({
+    sessionId: session.id,
+    bookingId: session.bookingId,
+    sessionStatus: session.status,
+    recordingStatus: mapAdminRecordingStatus(healthInput),
+    playbackAvailable: playback.playbackAvailable,
+    availableSegmentCount: playback.availableSegmentCount,
+    readySegmentCount: counts.readySegmentCount,
+    latestSegmentIndex: playback.latestSegmentIndex,
+    finalized: playback.finalized,
+    lastActivityAt,
+  });
+}
+
+async function notifyAdminSegmentState(
+  session: typeof videoSessions.$inferSelect,
+  segment: typeof videoSegments.$inferSelect,
+  segments: Array<typeof videoSegments.$inferSelect>
+): Promise<void> {
+  const stats = segmentStatsFromRows(segments);
+  const counts = computeSegmentCounts(stats);
+  const playback = computePlaybackEligibility({
+    sessionStatus: session.status,
+    consentStatus: session.consentStatus,
+    finalizedAt: session.finalizedAt,
+    retentionDays: videoConfig.retentionDays,
+    segmentDurationSeconds: videoConfig.segmentDurationSeconds,
+    segments: stats,
+  });
+
+  await emitAdminRideVideoSegmentUpdated({
+    sessionId: session.id,
+    bookingId: session.bookingId,
+    sessionStatus: session.status,
+    segmentId: segment.id,
+    segmentIndex: segment.sequenceNumber,
+    uploadStatus: segment.uploadStatus,
+    availableSegmentCount: playback.availableSegmentCount,
+    readySegmentCount: counts.readySegmentCount,
+    latestSegmentIndex: segment.sequenceNumber,
+    lastActivityAt: segment.uploadedAt?.toISOString() ?? segment.recordedAt?.toISOString(),
+  });
+}
+
+async function tryCompleteFinalizingSession(
+  sessionId: string
+): Promise<typeof videoSessions.$inferSelect | null> {
+  const { completeFinalizingSession } = await import('./rideVideoDvr.service');
+  return completeFinalizingSession(sessionId);
+}
+
 function uploadDetails(segment: typeof videoSegments.$inferSelect) {
   if (!segment.storageKey) {
     throw new RideVideoError('VIDEO_STORAGE_ERROR', 'Segment storage key is missing', 500);
@@ -223,6 +320,13 @@ export async function createOrRestoreRideVideoSession(bookingId: string, driverI
   }
 
   logger.info({ event: 'recording.session_created', bookingId, sessionId: session.id, driverId });
+  traceRideVideo({
+    stage: 'session_created',
+    bookingId,
+    sessionId: session.id,
+    driverId,
+    sessionStatus: session.status,
+  });
   const payload = {
     bookingId,
     sessionId: session.id,
@@ -233,6 +337,7 @@ export async function createOrRestoreRideVideoSession(bookingId: string, driverI
     emitToDriver(driverId, 'recording:session_started', payload),
     emitToCustomer(booking.customerId, 'recording:session_started', payload),
     emitToAdmins('recording:session_started', payload),
+    notifyAdminSessionState(session, []),
   ]);
   return formatSession(session);
 }
@@ -436,6 +541,26 @@ export async function registerRideVideoSegment(
     driverId,
     sequenceNumber: input.sequenceNumber,
   });
+  traceRideVideo({
+    stage: 'segment_registered',
+    bookingId: session.bookingId,
+    sessionId,
+    segmentId: segment.id,
+    segmentIndex: input.sequenceNumber,
+    driverId,
+    sessionStatus: session.status,
+    segmentStatus: segment.uploadStatus,
+  });
+  traceRideVideo({
+    stage: 'upload_url_issued',
+    bookingId: session.bookingId,
+    sessionId,
+    segmentId: segment.id,
+    segmentIndex: input.sequenceNumber,
+    driverId,
+  });
+  const allSegments = await loadSessionSegments(sessionId);
+  await notifyAdminSegmentState(session, segment, allSegments);
   return uploadDetails(segment);
 }
 
@@ -459,7 +584,7 @@ export async function uploadRideVideoSegment(params: {
     throw new RideVideoError('FORBIDDEN', 'Video segment belongs to another driver', 403);
   }
   const session = await getOwnedSession(segment.sessionId, params.driverId);
-  if (!REGISTERABLE_SESSION_STATUSES.includes(session.status)) {
+  if (!UPLOADABLE_SESSION_STATUSES.includes(session.status)) {
     throw new RideVideoError('VIDEO_SESSION_NOT_ACTIVE', 'Session cannot accept uploads', 409);
   }
   await assertRecordableBooking(segment.bookingId, params.driverId);
@@ -510,6 +635,20 @@ export async function uploadRideVideoSegment(params: {
     })
     .where(eq(videoSegments.id, segment.id))
     .returning();
+  traceRideVideo({
+    stage: 'segment_uploaded',
+    bookingId: segment.bookingId,
+    sessionId: segment.sessionId,
+    segmentId: segment.id,
+    segmentIndex: segment.sequenceNumber,
+    driverId: params.driverId,
+    segmentStatus: 'uploaded',
+    storageExists: true,
+  });
+  const allSegments = await loadSessionSegments(segment.sessionId);
+  const { touchUploadActivity, onSegmentBecamePlayable } = await import('./rideVideoDvr.service');
+  await touchUploadActivity(segment.sessionId);
+  await onSegmentBecamePlayable({ session, segment: updated[0], allSegments });
   return formatSegment(updated[0]);
 }
 
@@ -519,7 +658,10 @@ export async function completeRideVideoSegment(
   driverId: string,
   confirmation: { checksum?: string; fileSizeBytes?: number }
 ) {
-  await getOwnedSession(sessionId, driverId);
+  const session = await getOwnedSession(sessionId, driverId);
+  if (!UPLOADABLE_SESSION_STATUSES.includes(session.status)) {
+    throw new RideVideoError('VIDEO_SESSION_NOT_ACTIVE', 'Session cannot accept segment completion', 409);
+  }
   const rows = await db
     .select()
     .from(videoSegments)
@@ -565,6 +707,20 @@ export async function completeRideVideoSegment(
     driverId,
     sequenceNumber: segment.sequenceNumber,
   });
+  traceRideVideo({
+    stage: 'segment_ready',
+    bookingId: segment.bookingId,
+    sessionId,
+    segmentId,
+    segmentIndex: segment.sequenceNumber,
+    driverId,
+    sessionStatus: session.status,
+    segmentStatus: 'verified',
+    storageExists: true,
+  });
+  const allSegments = await loadSessionSegments(sessionId);
+  const { onSegmentBecamePlayable } = await import('./rideVideoDvr.service');
+  await onSegmentBecamePlayable({ session, segment: updated[0], allSegments });
   return formatSegment(updated[0]);
 }
 
@@ -601,6 +757,26 @@ export async function failRideVideoSegment(
     driverId,
     sequenceNumber: updated[0].sequenceNumber,
   });
+  traceRideVideo({
+    stage: 'segment_failed',
+    bookingId: updated[0].bookingId,
+    sessionId,
+    segmentId,
+    driverId,
+    segmentIndex: updated[0].sequenceNumber,
+    segmentStatus: 'failed',
+  });
+  const sessionRows = await db
+    .select()
+    .from(videoSessions)
+    .where(eq(videoSessions.id, sessionId))
+    .limit(1);
+  const session = sessionRows[0];
+  if (session) {
+    const allSegments = await loadSessionSegments(sessionId);
+    await notifyAdminSegmentState(session, updated[0], allSegments);
+    await tryCompleteFinalizingSession(sessionId);
+  }
   return uploadDetails(updated[0]);
 }
 
@@ -707,52 +883,37 @@ export async function resumeRideVideoSession(sessionId: string, driverId: string
 
 async function finalizeSessionRecord(
   session: typeof videoSessions.$inferSelect,
-  terminalStatus: 'completed' | 'cancelled',
+  _terminalStatus: 'completed' | 'cancelled',
   reason: string
 ) {
-  if (['completed', 'cancelled', 'failed'].includes(session.status)) return session;
-  const now = new Date();
-  await db.transaction(async (tx) => {
-    await tx
-      .update(videoSessions)
-      .set({ status: 'finalizing', endedAt: now, updatedAt: now })
-      .where(eq(videoSessions.id, session.id));
-    await tx
-      .update(videoSegments)
-      .set({
-        uploadStatus: 'failed',
-        failureReason: sql`COALESCE(${videoSegments.failureReason}, ${reason})`,
-        updatedAt: now,
-      })
-      .where(
-        and(
-          eq(videoSegments.sessionId, session.id),
-          inArray(videoSegments.uploadStatus, ['pending', 'uploading'])
-        )
-      );
-    await tx
-      .update(videoSessions)
-      .set({ status: terminalStatus, finalizedAt: now, endedAt: now, updatedAt: now })
-      .where(eq(videoSessions.id, session.id));
-  });
-  const updated = await db
-    .select()
-    .from(videoSessions)
-    .where(eq(videoSessions.id, session.id))
-    .limit(1);
-  logger.info({
-    event: 'recording.session_finalized',
+  if (['completed', 'partial', 'cancelled', 'failed'].includes(session.status)) return session;
+
+  traceRideVideo({
+    stage: 'session_finalize_requested',
     bookingId: session.bookingId,
     sessionId: session.id,
     driverId: session.driverId,
-    status: terminalStatus,
+    sessionStatus: session.status,
+    reason,
   });
+
+  const { enterSessionFinalizing, completeFinalizingSession, emitRecordingStopInstruction } =
+    await import('./rideVideoDvr.service');
+
+  await emitRecordingStopInstruction({
+    bookingId: session.bookingId,
+    sessionId: session.id,
+    driverId: session.driverId,
+    reason,
+  });
+
+  const finalizing = await enterSessionFinalizing(session, reason);
   const payload = {
     bookingId: session.bookingId,
     sessionId: session.id,
     driverId: session.driverId,
-    status: terminalStatus,
-    timestamp: now.toISOString(),
+    status: 'finalizing',
+    timestamp: new Date().toISOString(),
   };
   await Promise.allSettled([
     emitToDriver(session.driverId, 'recording:session_finalized', payload),
@@ -761,7 +922,9 @@ async function finalizeSessionRecord(
       : Promise.resolve(),
     emitToAdmins('recording:session_finalized', payload),
   ]);
-  return updated[0];
+
+  const completed = await completeFinalizingSession(session.id, reason);
+  return completed ?? finalizing;
 }
 
 export async function finalizeRideVideoSession(sessionId: string, driverId: string) {
@@ -836,53 +999,7 @@ export async function getAdminRideVideoMetadata(bookingId: string) {
   };
 }
 
-export async function createAdminSegmentReadUrl(segmentId: string) {
-  const rows = await db
-    .select()
-    .from(videoSegments)
-    .where(eq(videoSegments.id, segmentId))
-    .limit(1);
-  const segment = rows[0];
-  if (!segment?.storageKey || !['uploaded', 'verified'].includes(segment.uploadStatus)) {
-    throw new RideVideoError('VIDEO_SEGMENT_NOT_FOUND', 'Readable video segment not found', 404);
-  }
-  const authorization = createReadToken({
-    segmentId: segment.id,
-    storageKey: segment.storageKey,
-  });
-  return {
-    url: `/api/v1/admin/video/segments/${segment.id}/content?token=${authorization.token}`,
-    expiresAt: authorization.expiresAt.toISOString(),
-  };
-}
-
-export async function resolveAdminSegmentReadPath(segmentId: string, token: string) {
-  const rows = await db
-    .select()
-    .from(videoSegments)
-    .where(eq(videoSegments.id, segmentId))
-    .limit(1);
-  const segment = rows[0];
-  if (!segment?.storageKey) {
-    throw new RideVideoError('VIDEO_SEGMENT_NOT_FOUND', 'Video segment not found', 404);
-  }
-  try {
-    verifyStorageToken(token, {
-      purpose: 'read',
-      segmentId: segment.id,
-      storageKey: segment.storageKey,
-    });
-  } catch {
-    throw new RideVideoError(
-      'INVALID_VIDEO_READ_AUTHORIZATION',
-      'Video read authorization is invalid or expired',
-      403
-    );
-  }
-  const object = await inspectPrivateSegment(segment.storageKey);
-  if (!object) throw new RideVideoError('VIDEO_OBJECT_NOT_FOUND', 'Video object not found', 404);
-  return { absolutePath: object.absolutePath, mimeType: segment.mimeType };
-}
+export { createAdminSegmentReadUrl, resolveAdminSegmentReadPath } from './rideVideoRead.service';
 
 export async function updateSessionsForConsent(
   bookingId: string,

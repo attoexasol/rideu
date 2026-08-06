@@ -95,13 +95,14 @@ async function runStartupHealthChecks() {
     // Check Redis
     console.log('  Checking Redis...');
     const redisHealth = await (0, redis_1.redisHealthCheck)();
+    const redisRequired = (0, redis_1.isRedisRequired)();
     services.push({
         name: 'Redis',
-        status: redisHealth.healthy ? 'healthy' : 'unhealthy',
+        status: redisHealth.healthy ? 'healthy' : redisRequired ? 'unhealthy' : 'degraded',
         latency: redisHealth.latency,
         error: redisHealth.error,
     });
-    console.log(`    ✓ Redis: ${redisHealth.healthy ? 'Connected' : '✗ Failed'}`);
+    console.log(`    ${redisHealth.healthy ? '✓' : redisRequired ? '✗' : '⚠'} Redis: ${redisHealth.healthy ? 'Connected' : redisRequired ? 'Failed' : 'Unavailable (optional)'}`);
     // Check Auth0 (only in production/staging)
     const nodeEnv = process.env.NODE_ENV?.trim();
     const bypassAuth = process.env.BYPASS_AUTH === 'true';
@@ -155,7 +156,9 @@ async function runStartupHealthChecks() {
 async function verifyCriticalServices() {
     const healthCheck = await runStartupHealthChecks();
     // Check for critical service failures
-    const criticalServices = ['PostgreSQL', 'Redis'];
+    const criticalServices = (0, redis_1.isRedisRequired)()
+        ? ['PostgreSQL', 'Redis']
+        : ['PostgreSQL'];
     const failedCritical = healthCheck.services.filter((s) => criticalServices.includes(s.name) && s.status === 'unhealthy');
     if (failedCritical.length > 0) {
         console.error('\n❌ Critical services are unavailable:');

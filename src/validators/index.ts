@@ -710,6 +710,71 @@ export const videoSegmentListQuerySchema = z.object({
   status: z.enum(['pending', 'uploading', 'uploaded', 'verified', 'failed']).optional(),
 });
 
+export const adminRideVideoListQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+  search: z.string().trim().max(200).optional(),
+  bookingId: z.string().uuid().optional(),
+  sessionId: z.string().uuid().optional(),
+  driverId: z.string().uuid().optional(),
+  passengerId: z.string().uuid().optional(),
+  driverPhone: z.string().trim().max(50).optional(),
+  passengerPhone: z.string().trim().max(50).optional(),
+  vehicleRegistration: z.string().trim().max(50).optional(),
+  bookingStatus: z.string().trim().max(50).optional(),
+  recordingStatus: z.string().trim().max(50).optional(),
+  consentStatus: z
+    .enum(['not_required', 'pending', 'granted', 'denied', 'revoked', 'required'])
+    .optional(),
+  uploadHealth: z
+    .enum([
+      'healthy',
+      'delayed',
+      'missing_segments',
+      'failed_segments',
+      'duplicate_segments',
+      'incomplete',
+      'unknown',
+    ])
+    .optional(),
+  processingStatus: z.string().trim().max(50).optional(),
+  retentionStatus: z.enum(['active', 'expiring_soon', 'expired', 'deleted']).optional(),
+  serviceType: z.string().trim().max(100).optional(),
+  dateFrom: z.string().datetime({ offset: true }).optional(),
+  dateTo: z.string().datetime({ offset: true }).optional(),
+  sortBy: z.enum(['createdAt', 'finalizedAt', 'startedAt', 'rideDate']).optional(),
+  sortOrder: z.enum(['asc', 'desc']).optional(),
+});
+
+export const adminRideVideoSummaryQuerySchema = z.object({
+  dateFrom: z.string().datetime({ offset: true }).optional(),
+  dateTo: z.string().datetime({ offset: true }).optional(),
+  driverId: z.string().uuid().optional(),
+  passengerId: z.string().uuid().optional(),
+});
+
+export const adminRideVideoSegmentsQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).optional(),
+  limit: z.coerce.number().int().min(1).max(200).optional(),
+  sortOrder: z.enum(['asc', 'desc']).optional(),
+});
+
+export const adminRideVideoAuditQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+});
+
+export const adminRideVideoPlaybackManifestSchema = z
+  .object({
+    fromIndex: z.coerce.number().int().min(0).optional(),
+    fromSegmentIndex: z.coerce.number().int().min(0).optional(),
+    fromOffsetSeconds: z.coerce.number().int().min(0).optional(),
+    sinceManifestVersion: z.coerce.number().int().min(0).optional(),
+    limit: z.coerce.number().int().min(1).max(30).optional(),
+  })
+  .optional()
+  .default({});
+
 // ============================================================================
 // Validation Helper
 // ============================================================================

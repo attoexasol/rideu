@@ -10,10 +10,12 @@ import { setupBookingEventSubscriber } from './services/bookingNotify.service';
 import { processExpiredOffers } from './services/dispatch.service';
 import { startVehicleExchangeExpirationPoller } from './services/vehicleExchangeExpiration.service';
 import { requestLogger } from './middleware/logger';
+import { passengerLocationTiming } from './middleware/passenger-location-timing';
 import { errorHandler, notFoundHandler } from './middleware/error-handler';
 import { validateEnvironment, printEnvironmentInfo } from './config/env-validator';
 import { verifyCriticalServices, createHealthCheckHandler, createApiHealthCheckHandler } from './utils/startup-checks';
 import { startInactivityChecker } from './services/driver-inactivity-checker';
+import { startRideVideoBackgroundJobs, stopRideVideoBackgroundJobs } from './services/rideVideoBackground.service';
 import { closeRedisConnections } from './config/redis';
 import { closeConnection } from './db/connection';
 
@@ -62,6 +64,7 @@ try {
     );
   }, 15_000);
   vehicleExchangeExpirationInterval = startVehicleExchangeExpirationPoller();
+  startRideVideoBackgroundJobs();
 } catch (error) {
   console.error('⚠️  Failed to start inactivity checker:', error);
   // Non-fatal - server can continue without this background job
@@ -101,6 +104,7 @@ ensureUploadDirectories().catch((err) => {
 
 // Request logging middleware
 app.use(requestLogger);
+app.use(passengerLocationTiming);
 
 // Health check endpoints
 app.get('/health', createHealthCheckHandler());
@@ -157,6 +161,7 @@ async function gracefulShutdown(signal: string) {
     clearInterval(vehicleExchangeExpirationInterval);
     console.log('Vehicle exchange expiration checker stopped');
   }
+  stopRideVideoBackgroundJobs();
   httpServer.close(async () => {
     console.log('HTTP server closed');
     await Promise.allSettled([closeRedisConnections(), closeConnection()]);

@@ -13,6 +13,8 @@ export const RATE_LIMIT_RESPONSE = {
   error: {
     code: 'RATE_LIMITED',
     message: 'Too many requests. Please try again shortly.',
+    retryable: true,
+    details: null,
   },
 } as const;
 
@@ -69,11 +71,23 @@ export function createRateLimiter(options: CreateRateLimiterOptions): RateLimitR
     handler: ((req, res, _next, handlerOptions) => {
       logRateLimitExceeded(name, req, handlerOptions);
       const resetTime = (handlerOptions as { resetTime?: Date }).resetTime;
+      let retryAfterSeconds: number | undefined;
       if (resetTime instanceof Date) {
-        const retryAfter = Math.max(1, Math.ceil((resetTime.getTime() - Date.now()) / 1000));
-        res.setHeader('Retry-After', String(retryAfter));
+        retryAfterSeconds = Math.max(1, Math.ceil((resetTime.getTime() - Date.now()) / 1000));
+      } else {
+        // Fallback to window length when resetTime is unavailable.
+        retryAfterSeconds = Math.max(1, Math.ceil(bucket.windowMs / 1000));
       }
-      res.status(429).json(RATE_LIMIT_RESPONSE);
+      res.setHeader('Retry-After', String(retryAfterSeconds));
+      res.status(429).json({
+        success: false,
+        error: {
+          code: 'RATE_LIMITED',
+          message: 'Too many requests. Please try again shortly.',
+          retryable: true,
+          details: { retryAfterSeconds },
+        },
+      });
     }) as RateLimitExceededEventHandler,
   };
 

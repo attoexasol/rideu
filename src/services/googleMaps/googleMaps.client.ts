@@ -49,11 +49,11 @@ function handleAxiosError(error: unknown, operation: string): never {
   if (axios.isAxiosError(error)) {
     const axErr = error as AxiosError;
     if (axErr.code === 'ECONNABORTED' || axErr.code === 'ETIMEDOUT') {
-      logger.warn({ operation, err: axErr.code }, 'Google Maps request timeout');
+      logger.warn({ operation, err: axErr.code, durationMs: axErr.config?.timeout }, 'Google Maps request timeout');
       throw new GoogleMapsServiceError(
         'GOOGLE_MAPS_TIMEOUT',
         'Map services timed out. Please try again.',
-        503
+        504
       );
     }
     const status = axErr.response?.status;
@@ -80,13 +80,26 @@ function handleAxiosError(error: unknown, operation: string): never {
 async function getLegacy<T>(url: string, params: Record<string, string>): Promise<T> {
   assertConfigured();
   const config = getGoogleMapsConfig();
+  const startedAt = Date.now();
   try {
     const { data } = await axios.get<T>(url, {
       params: { ...params, key: config.apiKey },
       timeout: getTimeout(),
     });
+    logger.info({
+      event: 'google_maps.external',
+      operation: url,
+      durationMs: Date.now() - startedAt,
+      status: 'success',
+    });
     return data;
   } catch (error) {
+    logger.warn({
+      event: 'google_maps.external',
+      operation: url,
+      durationMs: Date.now() - startedAt,
+      status: 'error',
+    });
     handleAxiosError(error, url);
   }
 }
@@ -313,6 +326,7 @@ export async function computeRoute(input: {
     }>;
   };
 
+  const startedAt = Date.now();
   try {
     const response = await axios.post(
       'https://routes.googleapis.com/directions/v2:computeRoutes',
@@ -326,8 +340,20 @@ export async function computeRoute(input: {
         timeout: getTimeout(),
       }
     );
+    logger.info({
+      event: 'google_maps.external',
+      operation: 'computeRoutes',
+      durationMs: Date.now() - startedAt,
+      status: 'success',
+    });
     data = response.data;
   } catch (error) {
+    logger.warn({
+      event: 'google_maps.external',
+      operation: 'computeRoutes',
+      durationMs: Date.now() - startedAt,
+      status: 'error',
+    });
     handleAxiosError(error, 'computeRoutes');
   }
 

@@ -42,6 +42,7 @@ __exportStar(require("./booking_events"), exports);
 __exportStar(require("./booking_idempotency"), exports);
 __exportStar(require("./video_sessions"), exports);
 __exportStar(require("./video_segments"), exports);
+__exportStar(require("./ride_video_audit_events"), exports);
 __exportStar(require("./organizations"), exports);
 __exportStar(require("./fleets"), exports);
 __exportStar(require("./driver_fleet_memberships"), exports);
@@ -75,6 +76,7 @@ const booking_events_1 = require("./booking_events");
 const video_sessions_1 = require("./video_sessions");
 const booking_idempotency_1 = require("./booking_idempotency");
 const video_segments_1 = require("./video_segments");
+const ride_video_audit_events_1 = require("./ride_video_audit_events");
 const organizations_1 = require("./organizations");
 const fleets_1 = require("./fleets");
 const driver_fleet_memberships_1 = require("./driver_fleet_memberships");
@@ -109,6 +111,7 @@ exports.schema = {
     bookingIdempotencyKeys: booking_idempotency_1.bookingIdempotencyKeys,
     videoSessions: video_sessions_1.videoSessions,
     videoSegments: video_segments_1.videoSegments,
+    rideVideoAuditEvents: ride_video_audit_events_1.rideVideoAuditEvents,
     organizations: organizations_1.organizations,
     fleets: fleets_1.fleets,
     driverFleetMemberships: driver_fleet_memberships_1.driverFleetMemberships,

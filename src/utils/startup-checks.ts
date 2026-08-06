@@ -3,7 +3,7 @@
  * Verifies all required services are available before starting the server
  */
 
-import { redisHealthCheck, verifyRedisRealtimeCache, verifyRedisPubSub } from '../config/redis';
+import { redisHealthCheck, verifyRedisRealtimeCache, verifyRedisPubSub, isRedisRequired } from '../config/redis';
 import { healthCheck as dbHealthCheck } from '../db/connection';
 import { sendSuccess, sendError } from './response';
 import axios from 'axios';
@@ -113,13 +113,16 @@ export async function runStartupHealthChecks(): Promise<HealthCheckResult> {
   // Check Redis
   console.log('  Checking Redis...');
   const redisHealth = await redisHealthCheck();
+  const redisRequired = isRedisRequired();
   services.push({
     name: 'Redis',
-    status: redisHealth.healthy ? 'healthy' : 'unhealthy',
+    status: redisHealth.healthy ? 'healthy' : redisRequired ? 'unhealthy' : 'degraded',
     latency: redisHealth.latency,
     error: redisHealth.error,
   });
-  console.log(`    ✓ Redis: ${redisHealth.healthy ? 'Connected' : '✗ Failed'}`);
+  console.log(
+    `    ${redisHealth.healthy ? '✓' : redisRequired ? '✗' : '⚠'} Redis: ${redisHealth.healthy ? 'Connected' : redisRequired ? 'Failed' : 'Unavailable (optional)'}`
+  );
 
   // Check Auth0 (only in production/staging)
   const nodeEnv = process.env.NODE_ENV?.trim();
@@ -183,7 +186,9 @@ export async function verifyCriticalServices(): Promise<void> {
   const healthCheck = await runStartupHealthChecks();
 
   // Check for critical service failures
-  const criticalServices = ['PostgreSQL', 'Redis'];
+  const criticalServices = isRedisRequired()
+    ? ['PostgreSQL', 'Redis']
+    : ['PostgreSQL'];
   const failedCritical = healthCheck.services.filter(
     (s) => criticalServices.includes(s.name) && s.status === 'unhealthy'
   );
