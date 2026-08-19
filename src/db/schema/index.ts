@@ -37,6 +37,8 @@ export * from './fleet_audit_events';
 export * from './vehicle_exchange_requests';
 export * from './vehicle_exchange_events';
 export * from './vehicle_exchange_resource_locks';
+export * from './driver_push_tokens';
+export * from './passenger_push_tokens';
 
 import { drivers } from './drivers';
 import { locations } from './locations';
@@ -72,6 +74,8 @@ import { fleetAuditEvents } from './fleet_audit_events';
 import { vehicleExchangeRequests } from './vehicle_exchange_requests';
 import { vehicleExchangeEvents } from './vehicle_exchange_events';
 import { vehicleExchangeResourceLocks } from './vehicle_exchange_resource_locks';
+import { driverPushTokens } from './driver_push_tokens';
+import { passengerPushTokens } from './passenger_push_tokens';
 
 export const schema = {
   drivers,
@@ -108,4 +112,6 @@ export const schema = {
   vehicleExchangeRequests,
   vehicleExchangeEvents,
   vehicleExchangeResourceLocks,
+  driverPushTokens,
+  passengerPushTokens,
 };

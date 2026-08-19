@@ -43,10 +43,13 @@ exports.drivers = (0, pg_core_1.pgTable)('drivers', {
     activeDeviceId: (0, pg_core_1.varchar)('active_device_id', { length: 255 }), // Device UUID
     activeDeviceInfo: (0, pg_core_1.varchar)('active_device_info', { length: 500 }), // Device name/model (e.g., "iPhone 15 Pro")
     lastLoginAt: (0, pg_core_1.timestamp)('last_login_at'), // Last successful login timestamp (for Auth0 token iat comparison)
+    profileImageUrl: (0, pg_core_1.varchar)('profile_image_url', { length: 500 }),
+    accountStatus: (0, pg_core_1.varchar)('account_status', { length: 30 }).default('active').notNull(),
     createdAt: (0, pg_core_1.timestamp)('created_at').defaultNow().notNull(),
     updatedAt: (0, pg_core_1.timestamp)('updated_at').defaultNow().notNull(),
 }, (table) => ({
     statusIdx: (0, pg_core_1.index)('idx_drivers_status').on(table.status),
+    accountStatusIdx: (0, pg_core_1.index)('idx_drivers_account_status').on(table.accountStatus),
     auth0IdIdx: (0, pg_core_1.index)('idx_drivers_auth0_id').on(table.auth0Id),
     vehicleTypeIdx: (0, pg_core_1.index)('idx_drivers_vehicle_type').on(table.vehicleType),
     activeSessionIdx: (0, pg_core_1.index)('idx_drivers_active_session').on(table.activeSessionId),

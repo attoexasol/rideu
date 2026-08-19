@@ -15,6 +15,7 @@ build/
 
 # Uploads / media
 uploads/videos/
+uploads/avatars/
 uploads/**/*.mp4
 uploads/**/*.mov
 uploads/**/*.webm
@@ -49,3 +50,7 @@ Desktop.ini
 .temp/
 .cache/
 .eslintcache
+
+# Secrets
+secrets/
+*.firebase-admin.json

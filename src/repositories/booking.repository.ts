@@ -9,6 +9,7 @@ import {
   vehicles,
   customers,
   serviceCategories,
+  paymentMethods,
 } from '../db/schema';
 import { eq, and, desc, inArray, sql, gt, lte } from 'drizzle-orm';
 import {
@@ -98,6 +99,7 @@ export async function findActiveBookingByDriver(driverId: string) {
         inArray(bookings.status, ACTIVE_BOOKING_STATUSES)
       )
     )
+    .orderBy(desc(bookings.createdAt), desc(bookings.id))
     .limit(1);
   return rows[0] ?? null;
 }
@@ -314,26 +316,110 @@ export async function insertBookingEvent(data: typeof bookingEvents.$inferInsert
   return row;
 }
 
+/** True when the booking has at least one playable stored segment. */
+const recordingAvailableSql = sql<boolean>`exists (
+  select 1
+  from video_sessions vs
+  inner join video_segments seg on seg.session_id = vs.id
+  where vs.booking_id = ${bookings.id}
+    and seg.upload_status in ('uploaded', 'verified')
+    and seg.storage_key is not null
+    and seg.retention_deleted_at is null
+)`;
+
+const rideHistorySelect = {
+  booking: bookings,
+  customerName: customers.name,
+  customerEmail: customers.email,
+  driverName: drivers.name,
+  driverPhone: drivers.phone,
+  driverVehicleColor: drivers.vehicleColor,
+  vehicleId: vehicles.id,
+  vehicleMake: vehicles.make,
+  vehicleModel: vehicles.model,
+  vehicleColor: vehicles.color,
+  vehiclePlate: vehicles.plateNumber,
+  serviceName: serviceCategories.name,
+  serviceCode: serviceCategories.code,
+  paymentMethodCode: paymentMethods.code,
+  paymentMethodName: paymentMethods.name,
+  recordingAvailable: recordingAvailableSql,
+};
+
 export async function getBookingDetail(id: string) {
   const rows = await db
-    .select({
-      booking: bookings,
-      customerName: customers.name,
-      customerEmail: customers.email,
-      driverName: drivers.name,
-      driverPhone: drivers.phone,
-      vehiclePlate: vehicles.plateNumber,
-      serviceName: serviceCategories.name,
-      serviceCode: serviceCategories.code,
-    })
+    .select(rideHistorySelect)
     .from(bookings)
     .innerJoin(customers, eq(bookings.customerId, customers.id))
     .innerJoin(serviceCategories, eq(bookings.serviceCategoryId, serviceCategories.id))
     .leftJoin(drivers, eq(bookings.assignedDriverId, drivers.id))
     .leftJoin(vehicles, eq(bookings.assignedVehicleId, vehicles.id))
+    .leftJoin(paymentMethods, eq(bookings.paymentMethodId, paymentMethods.id))
     .where(eq(bookings.id, id))
     .limit(1);
   return rows[0] ?? null;
+}
+
+export type RideHistoryRow = NonNullable<Awaited<ReturnType<typeof getBookingDetail>>>;
+
+export async function listRideHistoryByCustomer(
+  customerId: string,
+  statuses: string[],
+  limit = 20,
+  offset = 0
+) {
+  if (statuses.length === 0) return [];
+  return db
+    .select(rideHistorySelect)
+    .from(bookings)
+    .innerJoin(customers, eq(bookings.customerId, customers.id))
+    .innerJoin(serviceCategories, eq(bookings.serviceCategoryId, serviceCategories.id))
+    .leftJoin(drivers, eq(bookings.assignedDriverId, drivers.id))
+    .leftJoin(vehicles, eq(bookings.assignedVehicleId, vehicles.id))
+    .leftJoin(paymentMethods, eq(bookings.paymentMethodId, paymentMethods.id))
+    .where(and(eq(bookings.customerId, customerId), inArray(bookings.status, statuses)))
+    .orderBy(desc(bookings.createdAt), desc(bookings.id))
+    .limit(limit)
+    .offset(offset);
+}
+
+export async function countRideHistoryByCustomer(customerId: string, statuses: string[]) {
+  if (statuses.length === 0) return 0;
+  const rows = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(bookings)
+    .where(and(eq(bookings.customerId, customerId), inArray(bookings.status, statuses)));
+  return rows[0]?.count ?? 0;
+}
+
+export async function listRideHistoryByDriver(
+  driverId: string,
+  statuses: string[],
+  limit = 20,
+  offset = 0
+) {
+  if (statuses.length === 0) return [];
+  return db
+    .select(rideHistorySelect)
+    .from(bookings)
+    .innerJoin(customers, eq(bookings.customerId, customers.id))
+    .innerJoin(serviceCategories, eq(bookings.serviceCategoryId, serviceCategories.id))
+    .leftJoin(drivers, eq(bookings.assignedDriverId, drivers.id))
+    .leftJoin(vehicles, eq(bookings.assignedVehicleId, vehicles.id))
+    .leftJoin(paymentMethods, eq(bookings.paymentMethodId, paymentMethods.id))
+    .where(and(eq(bookings.assignedDriverId, driverId), inArray(bookings.status, statuses)))
+    .orderBy(desc(bookings.createdAt), desc(bookings.id))
+    .limit(limit)
+    .offset(offset);
+}
+
+export async function countRideHistoryByDriver(driverId: string, statuses: string[]) {
+  if (statuses.length === 0) return 0;
+  const rows = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(bookings)
+    .where(and(eq(bookings.assignedDriverId, driverId), inArray(bookings.status, statuses)));
+  return rows[0]?.count ?? 0;
 }
 
 export async function countCustomerBookings(customerId: string) {

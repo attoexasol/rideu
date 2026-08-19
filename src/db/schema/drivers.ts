@@ -44,11 +44,14 @@ export const drivers = pgTable(
     activeDeviceId: varchar('active_device_id', { length: 255 }), // Device UUID
     activeDeviceInfo: varchar('active_device_info', { length: 500 }), // Device name/model (e.g., "iPhone 15 Pro")
     lastLoginAt: timestamp('last_login_at'), // Last successful login timestamp (for Auth0 token iat comparison)
+    profileImageUrl: varchar('profile_image_url', { length: 500 }),
+    accountStatus: varchar('account_status', { length: 30 }).default('active').notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
   (table) => ({
     statusIdx: index('idx_drivers_status').on(table.status),
+    accountStatusIdx: index('idx_drivers_account_status').on(table.accountStatus),
     auth0IdIdx: index('idx_drivers_auth0_id').on(table.auth0Id),
     vehicleTypeIdx: index('idx_drivers_vehicle_type').on(table.vehicleType),
     activeSessionIdx: index('idx_drivers_active_session').on(table.activeSessionId),

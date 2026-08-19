@@ -1,6 +1,6 @@
 import { db } from '../db/connection';
 import { customers, customerPlaces } from '../db/schema';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, or, ilike, sql } from 'drizzle-orm';
 
 const PLACE_TYPES = ['home', 'work', 'favorite', 'recent'] as const;
 export type CustomerPlaceType = (typeof PLACE_TYPES)[number];
@@ -53,6 +53,76 @@ export async function clearCustomerSession(customerId: string) {
       updatedAt: new Date(),
     })
     .where(eq(customers.id, customerId));
+}
+
+export async function updateCustomerProfile(
+  customerId: string,
+  patch: {
+    name?: string;
+    phoneCountryCode?: string | null;
+    phoneNumber?: string | null;
+    profileImageUrl?: string | null;
+    status?: string;
+  }
+) {
+  const [row] = await db
+    .update(customers)
+    .set({ ...patch, updatedAt: new Date() })
+    .where(eq(customers.id, customerId))
+    .returning();
+  return row ?? null;
+}
+
+export async function listCustomersForAdmin(params: {
+  page: number;
+  limit: number;
+  search?: string;
+}) {
+  const { page, limit, search } = params;
+  const offset = (page - 1) * limit;
+  const pattern = search ? `%${search}%` : null;
+  const where = pattern
+    ? or(ilike(customers.name, pattern), ilike(customers.email, pattern))
+    : undefined;
+
+  const [totalRow] = where
+    ? await db.select({ count: sql<number>`count(*)` }).from(customers).where(where)
+    : await db.select({ count: sql<number>`count(*)` }).from(customers);
+
+  const rows = where
+    ? await db
+        .select({
+          id: customers.id,
+          name: customers.name,
+          email: customers.email,
+          phoneCountryCode: customers.phoneCountryCode,
+          phoneNumber: customers.phoneNumber,
+          profileImageUrl: customers.profileImageUrl,
+          status: customers.status,
+          createdAt: customers.createdAt,
+        })
+        .from(customers)
+        .where(where)
+        .orderBy(desc(customers.createdAt))
+        .limit(limit)
+        .offset(offset)
+    : await db
+        .select({
+          id: customers.id,
+          name: customers.name,
+          email: customers.email,
+          phoneCountryCode: customers.phoneCountryCode,
+          phoneNumber: customers.phoneNumber,
+          profileImageUrl: customers.profileImageUrl,
+          status: customers.status,
+          createdAt: customers.createdAt,
+        })
+        .from(customers)
+        .orderBy(desc(customers.createdAt))
+        .limit(limit)
+        .offset(offset);
+
+  return { rows, total: Number(totalRow?.count ?? 0) };
 }
 
 export async function listCustomerPlaces(customerId: string, limit = 20) {

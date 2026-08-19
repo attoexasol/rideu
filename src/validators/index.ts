@@ -28,6 +28,16 @@ export const refreshTokenSchema = z.object({
   refreshToken: z.string().min(1, 'Refresh token is required'),
 });
 
+export const registerDriverPushTokenSchema = z.object({
+  token: z.string().min(8, 'FCM registration token is required').max(4096),
+  deviceId: z.string().min(1).max(255).optional(),
+});
+
+export const registerPassengerPushTokenSchema = z.object({
+  token: z.string().min(8, 'FCM registration token is required').max(4096),
+  deviceId: z.string().min(1).max(255).optional(),
+});
+
 // ============================================================================
 // Driver Schemas
 // ============================================================================
@@ -547,6 +557,12 @@ export const cancelBookingSchema = z.object({
 
 export const bookingIdParamSchema = z.object({
   bookingId: z.string().uuid(),
+});
+
+export const bookingHistoryQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).optional().default(1),
+  limit: z.coerce.number().int().min(1).max(50).optional().default(20),
+  filter: z.enum(['all', 'completed', 'cancelled']).optional().default('all'),
 });
 
 export const offerIdParamSchema = z.object({

@@ -3,7 +3,7 @@ import { getEnvVarAsBoolean, getEnvVarAsNumber } from './env-validator';
 
 const segmentDurationSeconds = getEnvVarAsNumber('VIDEO_SEGMENT_DURATION_SECONDS', 10);
 const maxSegmentSizeBytes = getEnvVarAsNumber('VIDEO_MAX_SEGMENT_SIZE_BYTES', 25_000_000);
-const uploadUrlTtlSeconds = getEnvVarAsNumber('VIDEO_UPLOAD_URL_TTL_SECONDS', 300);
+const uploadUrlTtlSeconds = getEnvVarAsNumber('VIDEO_UPLOAD_URL_TTL_SECONDS', 1800);
 const readUrlTtlSeconds = getEnvVarAsNumber('VIDEO_READ_URL_TTL_SECONDS', 300);
 const retentionDays = getEnvVarAsNumber('VIDEO_RETENTION_DAYS', 30);
 const uploadGracePeriodSeconds = getEnvVarAsNumber('VIDEO_UPLOAD_GRACE_PERIOD_SECONDS', 120);
@@ -44,5 +44,9 @@ export const videoConfig = {
   recoveryPollIntervalSeconds,
   storageContainer: process.env.VIDEO_STORAGE_CONTAINER || 'ride-recordings',
   storageRoot: path.resolve(process.env.VIDEO_STORAGE_ROOT || 'private-media'),
+  /** Optional absolute base for signed upload/read URLs (LAN/public host reachable from Driver device). */
+  apiPublicBaseUrl: (process.env.VIDEO_API_PUBLIC_BASE_URL || process.env.API_PUBLIC_BASE_URL || '')
+    .trim()
+    .replace(/\/$/, ''),
   allowedMimeTypes: new Set(['video/mp4', 'video/quicktime']),
 } as const;

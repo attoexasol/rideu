@@ -78,6 +78,7 @@ const driverCabIdentifier_1 = require("../services/driverCabIdentifier");
 const cabIdentifier_1 = require("../utils/cabIdentifier");
 const driverQrCode_service_1 = require("../services/driverQrCode.service");
 const vehicleQrCode_service_1 = require("../services/vehicleQrCode.service");
+const accountStatus_service_1 = require("../services/accountStatus.service");
 const router = express_1.default.Router();
 /**
  * GET /api/drivers/me
@@ -192,6 +193,8 @@ router.get('/', auth_1.requireAuth, auth_1.extractUserInfo, rbac_1.requireAdmin,
         vehicleModel: drivers_1.drivers.vehicleModel,
         vehicleYear: drivers_1.drivers.vehicleYear,
         vehicleColor: drivers_1.drivers.vehicleColor,
+        profileImageUrl: drivers_1.drivers.profileImageUrl,
+        accountStatus: drivers_1.drivers.accountStatus,
         lastSeen: drivers_1.drivers.lastSeen,
         createdAt: drivers_1.drivers.createdAt,
         updatedAt: drivers_1.drivers.updatedAt,
@@ -470,6 +473,9 @@ router.patch('/:id/status', auth_1.requireAuth, auth_1.extractUserInfo, device_t
     const isAdmin = user.role?.toLowerCase() === 'admin' || user.role?.toLowerCase() === 'super_admin';
     if (!isOwnProfile && !isAdmin) {
         return (0, response_1.sendError)(res, 'UNAUTHORIZED', 'You can only update your own status', 403);
+    }
+    if (status === 'online' && (0, accountStatus_service_1.isDeactivatedAccount)(driver.accountStatus)) {
+        return (0, response_1.sendError)(res, 'ACCOUNT_DEACTIVATED', 'This account has been deactivated', 403);
     }
     if (duty_1.qrDutyRequired && status === 'online' && isOwnProfile) {
         try {

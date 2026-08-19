@@ -11,10 +11,12 @@ import {
   createUploadToken,
   inspectPrivateSegment,
   savePrivateSegment,
+  StorageTokenError,
   verifyStorageToken,
 } from './ride-video-storage.service';
 import { emitToAdmins, emitToCustomer, emitToDriver } from './bookingNotify.service';
 import { traceRideVideo } from './rideVideoTrace.service';
+import { parseUploadUrlForTrace } from './rideVideoSegmentTrace.service';
 import {
   emitAdminRideVideoSegmentUpdated,
   emitAdminRideVideoSessionUpdated,
@@ -88,6 +90,16 @@ async function assertRecordableBooking(bookingId: string, driverId: string) {
   return { booking, consentStatus: authoritativeConsent };
 }
 
+/** Allow finishing upload for segments registered during an active session. */
+async function assertSegmentUploadAllowed(bookingId: string, driverId: string) {
+  const booking = await findBookingById(bookingId);
+  if (!booking) throw new RideVideoError('BOOKING_NOT_FOUND', 'Booking not found', 404);
+  if (booking.assignedDriverId !== driverId) {
+    logger.warn({ event: 'recording.unauthorized', bookingId, driverId });
+    throw new RideVideoError('FORBIDDEN', 'Driver is not assigned to this booking', 403);
+  }
+}
+
 async function findRecoverableSession(bookingId: string, driverId?: string) {
   const conditions = [
     eq(videoSessions.bookingId, bookingId),
@@ -141,6 +153,7 @@ function formatSegment(segment: typeof videoSegments.$inferSelect) {
     bookingId: segment.bookingId,
     sequenceNumber: segment.sequenceNumber,
     clientSegmentId: segment.clientSegmentId,
+    storageKey: segment.storageKey,
     uploadStatus: segment.uploadStatus,
     durationMs: segment.durationMs,
     fileSizeBytes: segment.fileSizeBytes,
@@ -256,11 +269,26 @@ function uploadDetails(segment: typeof videoSegments.$inferSelect) {
     driverId: segment.driverId,
     storageKey: segment.storageKey,
   });
+  const relativePath = `/api/v1/driver/video/segments/${segment.id}/upload?token=${authorization.token}`;
+  const url = videoConfig.apiPublicBaseUrl
+    ? `${videoConfig.apiPublicBaseUrl}${relativePath}`
+    : relativePath;
+  const urlTrace = parseUploadUrlForTrace(url);
+  logger.info({
+    event: 'recording.upload_url_issued',
+    bookingId: segment.bookingId,
+    sessionId: segment.sessionId,
+    segmentId: segment.id,
+    segmentIndex: segment.sequenceNumber,
+    uploadUrlHost: urlTrace.uploadUrlHost,
+    uploadUrlPath: urlTrace.uploadUrlPath,
+    urlIsAbsolute: Boolean(videoConfig.apiPublicBaseUrl),
+  });
   return {
     segment: formatSegment(segment),
     upload: {
       method: 'PUT',
-      url: `/api/v1/driver/video/segments/${segment.id}/upload?token=${authorization.token}`,
+      url,
       storageKey: segment.storageKey,
       expiresAt: authorization.expiresAt.toISOString(),
       requiredHeaders: { 'Content-Type': segment.mimeType },
@@ -570,6 +598,8 @@ export async function uploadRideVideoSegment(params: {
   token: string;
   mimeType: string;
   buffer: Buffer;
+  tokenValidAt?: number;
+  tokenPreValidated?: boolean;
 }) {
   const rows = await db
     .select()
@@ -587,7 +617,7 @@ export async function uploadRideVideoSegment(params: {
   if (!UPLOADABLE_SESSION_STATUSES.includes(session.status)) {
     throw new RideVideoError('VIDEO_SESSION_NOT_ACTIVE', 'Session cannot accept uploads', 409);
   }
-  await assertRecordableBooking(segment.bookingId, params.driverId);
+  await assertSegmentUploadAllowed(segment.bookingId, params.driverId);
   if (params.mimeType.split(';')[0].trim() !== segment.mimeType) {
     throw new RideVideoError(
       'INVALID_VIDEO_MIME_TYPE',
@@ -605,19 +635,34 @@ export async function uploadRideVideoSegment(params: {
       409
     );
   }
-  try {
-    verifyStorageToken(params.token, {
-      purpose: 'upload',
-      segmentId: segment.id,
-      storageKey: segment.storageKey,
-      driverId: params.driverId,
-    });
-  } catch {
-    throw new RideVideoError(
-      'INVALID_VIDEO_UPLOAD_AUTHORIZATION',
-      'Video upload authorization is invalid or expired',
-      403
-    );
+  if (!params.tokenPreValidated) {
+    try {
+      verifyStorageToken(params.token, {
+        purpose: 'upload',
+        segmentId: segment.id,
+        storageKey: segment.storageKey,
+        driverId: params.driverId,
+        validAt: params.tokenValidAt,
+      });
+    } catch (error) {
+      const reason = error instanceof StorageTokenError ? error.reason : 'malformed';
+      logger.warn({
+        event: 'recording.upload_token_rejected',
+        segmentId: segment.id,
+        sessionId: segment.sessionId,
+        bookingId: segment.bookingId,
+        segmentIndex: segment.sequenceNumber,
+        tokenFailureReason: reason,
+        uploadRequestStartedAt: params.tokenValidAt ?? null,
+      });
+      throw new RideVideoError(
+        reason === 'expired' ? 'VIDEO_UPLOAD_TOKEN_EXPIRED' : 'INVALID_VIDEO_UPLOAD_AUTHORIZATION',
+        reason === 'expired'
+          ? 'Video upload authorization expired before upload could start; re-register the segment for a fresh URL'
+          : 'Video upload authorization is invalid or expired',
+        403
+      );
+    }
   }
   const stored = await savePrivateSegment(segment.storageKey, params.buffer);
   if (segment.checksum && segment.checksum.toLowerCase() !== stored.checksum) {

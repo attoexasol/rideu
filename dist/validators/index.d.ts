@@ -26,6 +26,26 @@ export declare const refreshTokenSchema: z.ZodObject<{
 }, {
     refreshToken: string;
 }>;
+export declare const registerDriverPushTokenSchema: z.ZodObject<{
+    token: z.ZodString;
+    deviceId: z.ZodOptional<z.ZodString>;
+}, "strip", z.ZodTypeAny, {
+    token: string;
+    deviceId?: string | undefined;
+}, {
+    token: string;
+    deviceId?: string | undefined;
+}>;
+export declare const registerPassengerPushTokenSchema: z.ZodObject<{
+    token: z.ZodString;
+    deviceId: z.ZodOptional<z.ZodString>;
+}, "strip", z.ZodTypeAny, {
+    token: string;
+    deviceId?: string | undefined;
+}, {
+    token: string;
+    deviceId?: string | undefined;
+}>;
 export declare const createDriverSchema: z.ZodEffects<z.ZodEffects<z.ZodObject<{
     cabNumber: z.ZodEffects<z.ZodOptional<z.ZodString>, string | undefined, unknown>;
     vehicleMake: z.ZodEffects<z.ZodOptional<z.ZodString>, string | undefined, unknown>;
@@ -1020,6 +1040,7 @@ export declare const createBookingSchema: z.ZodEffects<z.ZodObject<{
 }, "strip", z.ZodTypeAny, {
     serviceCategoryId: string;
     schedulingType: "instant" | "scheduled";
+    paymentMethodCode: string;
     pickup: {
         latitude: number;
         longitude: number;
@@ -1038,7 +1059,6 @@ export declare const createBookingSchema: z.ZodEffects<z.ZodObject<{
         address: string;
         placeId?: string | undefined;
     }[];
-    paymentMethodCode: string;
     scheduledPickupAt?: string | undefined;
 }, {
     serviceCategoryId: string;
@@ -1056,16 +1076,17 @@ export declare const createBookingSchema: z.ZodEffects<z.ZodObject<{
     };
     schedulingType?: "instant" | "scheduled" | undefined;
     scheduledPickupAt?: string | undefined;
+    paymentMethodCode?: unknown;
     stops?: {
         latitude: number;
         longitude: number;
         address: string;
         placeId?: unknown;
     }[] | undefined;
-    paymentMethodCode?: unknown;
 }>, {
     serviceCategoryId: string;
     schedulingType: "instant" | "scheduled";
+    paymentMethodCode: string;
     pickup: {
         latitude: number;
         longitude: number;
@@ -1084,7 +1105,6 @@ export declare const createBookingSchema: z.ZodEffects<z.ZodObject<{
         address: string;
         placeId?: string | undefined;
     }[];
-    paymentMethodCode: string;
     scheduledPickupAt?: string | undefined;
 }, {
     serviceCategoryId: string;
@@ -1102,13 +1122,13 @@ export declare const createBookingSchema: z.ZodEffects<z.ZodObject<{
     };
     schedulingType?: "instant" | "scheduled" | undefined;
     scheduledPickupAt?: string | undefined;
+    paymentMethodCode?: unknown;
     stops?: {
         latitude: number;
         longitude: number;
         address: string;
         placeId?: unknown;
     }[] | undefined;
-    paymentMethodCode?: unknown;
 }>;
 export declare const cancelBookingSchema: z.ZodObject<{
     reasonCode: z.ZodOptional<z.ZodString>;
@@ -1126,6 +1146,19 @@ export declare const bookingIdParamSchema: z.ZodObject<{
     bookingId: string;
 }, {
     bookingId: string;
+}>;
+export declare const bookingHistoryQuerySchema: z.ZodObject<{
+    page: z.ZodDefault<z.ZodOptional<z.ZodNumber>>;
+    limit: z.ZodDefault<z.ZodOptional<z.ZodNumber>>;
+    filter: z.ZodDefault<z.ZodOptional<z.ZodEnum<["all", "completed", "cancelled"]>>>;
+}, "strip", z.ZodTypeAny, {
+    filter: "completed" | "cancelled" | "all";
+    limit: number;
+    page: number;
+}, {
+    filter?: "completed" | "cancelled" | "all" | undefined;
+    limit?: number | undefined;
+    page?: number | undefined;
 }>;
 export declare const offerIdParamSchema: z.ZodObject<{
     offerId: z.ZodString;

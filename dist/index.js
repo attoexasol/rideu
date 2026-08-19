@@ -19,6 +19,7 @@ const logger_1 = require("./middleware/logger");
 const passenger_location_timing_1 = require("./middleware/passenger-location-timing");
 const error_handler_1 = require("./middleware/error-handler");
 const env_validator_1 = require("./config/env-validator");
+const fcmAdmin_service_1 = require("./services/fcmAdmin.service");
 const startup_checks_1 = require("./utils/startup-checks");
 const driver_inactivity_checker_1 = require("./services/driver-inactivity-checker");
 const rideVideoBackground_service_1 = require("./services/rideVideoBackground.service");
@@ -37,10 +38,12 @@ const videos_1 = __importDefault(require("./routes/videos"));
 const v1_1 = __importDefault(require("./routes/v1"));
 const path_1 = __importDefault(require("path"));
 const video_storage_service_1 = require("./services/video-storage.service");
+const avatar_storage_service_1 = require("./services/avatar-storage.service");
 // Validate environment variables on startup
 try {
     (0, env_validator_1.validateEnvironment)();
     (0, env_validator_1.printEnvironmentInfo)();
+    (0, fcmAdmin_service_1.logFcmStartupState)();
 }
 catch (error) {
     console.error('❌ Environment validation failed:', error);
@@ -95,6 +98,9 @@ app.use(express_1.default.urlencoded({ extended: true }));
 app.use('/uploads', express_1.default.static(path_1.default.resolve(process.cwd(), 'uploads')));
 (0, video_storage_service_1.ensureUploadDirectories)().catch((err) => {
     console.error('Failed to create upload directories:', err);
+});
+(0, avatar_storage_service_1.ensureAvatarDirectories)().catch((err) => {
+    console.error('Failed to create avatar directories:', err);
 });
 // Request logging middleware
 app.use(logger_1.requestLogger);

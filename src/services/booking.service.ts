@@ -41,6 +41,11 @@ import { scopeCancelIdempotencyKey } from '../utils/booking-idempotency';
 import { bookingOffers } from '../db/schema/booking_offers';
 import { withTransactionTimeout, isTransactionTimeoutError } from '../utils/db-transaction';
 import { realtimeCache } from '../config/redis';
+import {
+  formatPassengerRideSnapshot,
+  type PassengerRideSnapshot,
+} from './rideHistory.service';
+import { notifyPassengerOfRideEvent } from './passengerRideNotify.service';
 
 export class BookingCancellationError extends Error {
   constructor(
@@ -53,101 +58,12 @@ export class BookingCancellationError extends Error {
   }
 }
 
-export interface PassengerBookingSnapshot {
-  id: string;
-  status: string;
-  bookingNumber: string;
-  pickup: {
-    latitude: number;
-    longitude: number;
-    address: string;
-    spotLabel: string | null;
-  };
-  dropoff: {
-    latitude: number;
-    longitude: number;
-    address: string;
-    placeId: string | null;
-  };
-  service: {
-    serviceCategoryId: string;
-    serviceCode: string | null;
-    serviceName: string | null;
-  };
-  fare: {
-    amount: number | null;
-    currency: string;
-    estimatedAmount: number | null;
-    discountAmount: number | null;
-  };
-  route: {
-    encodedPolyline: string | null;
-    distanceKm: number | null;
-    durationMin: number | null;
-  };
-  driver: {
-    id: string;
-    name: string | null;
-    phone: string | null;
-    plateNumber: string | null;
-  } | null;
-  createdAt: string;
-  cancelledAt?: string | null;
-  schedulingType?: string;
-  searchStartedAt?: string | null;
-  acceptedAt?: string | null;
-}
+export type PassengerBookingSnapshot = PassengerRideSnapshot;
 
 export function formatPassengerBookingSnapshot(
   detail: NonNullable<Awaited<ReturnType<typeof getBookingDetail>>>
 ): PassengerBookingSnapshot {
-  const booking = detail.booking;
-  return {
-    id: booking.id,
-    status: booking.status,
-    bookingNumber: booking.bookingNumber,
-    pickup: {
-      latitude: parseFloat(booking.pickupLatitude),
-      longitude: parseFloat(booking.pickupLongitude),
-      address: booking.pickupAddress,
-      spotLabel: booking.pickupSpotLabel,
-    },
-    dropoff: {
-      latitude: parseFloat(booking.dropoffLatitude),
-      longitude: parseFloat(booking.dropoffLongitude),
-      address: booking.dropoffAddress,
-      placeId: booking.dropoffPlaceId,
-    },
-    service: {
-      serviceCategoryId: booking.serviceCategoryId,
-      serviceCode: detail.serviceCode,
-      serviceName: detail.serviceName,
-    },
-    fare: {
-      amount: booking.finalFare ? parseFloat(booking.finalFare) : null,
-      currency: 'BDT',
-      estimatedAmount: booking.estimatedFare ? parseFloat(booking.estimatedFare) : null,
-      discountAmount: booking.discountAmount ? parseFloat(booking.discountAmount) : null,
-    },
-    route: {
-      encodedPolyline: booking.routeEncodedPolyline,
-      distanceKm: booking.estimatedDistanceKm ? parseFloat(booking.estimatedDistanceKm) : null,
-      durationMin: booking.estimatedDurationMin,
-    },
-    driver: booking.assignedDriverId
-      ? {
-          id: booking.assignedDriverId,
-          name: detail.driverName,
-          phone: detail.driverPhone,
-          plateNumber: detail.vehiclePlate,
-        }
-      : null,
-    createdAt: booking.createdAt.toISOString(),
-    cancelledAt: booking.cancelledAt?.toISOString?.() ?? null,
-    schedulingType: booking.schedulingType,
-    searchStartedAt: booking.searchStartedAt?.toISOString?.() ?? null,
-    acceptedAt: booking.acceptedAt?.toISOString?.() ?? null,
-  };
+  return formatPassengerRideSnapshot(detail);
 }
 
 export function formatPassengerCancelResponse(booking: {
@@ -669,6 +585,18 @@ export async function updateBookingStatusByDriver(
 
   await emitBookingStatus(bookingId, booking.customerId, driverId, newStatus);
 
+  if (
+    newStatus === BookingStatus.ARRIVED ||
+    newStatus === BookingStatus.IN_PROGRESS ||
+    newStatus === BookingStatus.COMPLETED
+  ) {
+    notifyPassengerOfRideEvent({
+      customerId: booking.customerId,
+      bookingId,
+      event: newStatus,
+    });
+  }
+
   if (newStatus === BookingStatus.IN_PROGRESS) {
     const session = await (
       await import('./liveVideo.service')
@@ -718,6 +646,12 @@ export async function cancelBookingByDriver(bookingId: string, driverId: string,
 
   await emitBookingStatus(bookingId, booking.customerId, driverId, BookingStatus.CANCELLED, {
     reason,
+    cancelledBy: 'driver',
+  });
+  notifyPassengerOfRideEvent({
+    customerId: booking.customerId,
+    bookingId,
+    event: BookingStatus.CANCELLED,
     cancelledBy: 'driver',
   });
 

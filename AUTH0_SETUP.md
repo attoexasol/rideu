@@ -14,7 +14,7 @@ Creating admin and super_admin users is failing because the Auth0 Management API
 5. Select the **Auth0 Management API**
 6. Grant these scopes (permissions):
    - `create:users`
-   - `update:users`
+   - `update:users` (also required for profile display-name updates)
    - `delete:users`
    - `update:users_app_metadata`
    - `create:users_app_metadata`

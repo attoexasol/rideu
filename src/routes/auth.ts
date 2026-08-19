@@ -16,6 +16,7 @@ import { authRateLimiter } from '../middleware/rate-limiters';
 import { driverUtils, adminUtils, sessionUtils } from '../db/utils';
 import jwt from 'jsonwebtoken';
 import { verifyAuth0Token, isAuth0Configured } from '../utils/jwt-verifier';
+import { isDeactivatedAccount } from '../services/accountStatus.service';
 
 const router = express.Router();
 
@@ -75,6 +76,13 @@ router.post(
         return sendError(res, 'NOT_FOUND', 'User not found in database', 404);
       }
 
+      if (userType === 'driver' && isDeactivatedAccount(user.accountStatus)) {
+        return sendError(res, 'ACCOUNT_DEACTIVATED', 'This account has been deactivated', 403);
+      }
+      if (userType === 'customer' && isDeactivatedAccount(user.status)) {
+        return sendError(res, 'ACCOUNT_DEACTIVATED', 'This account has been deactivated', 403);
+      }
+
       // Generate session ID and local JWT token FIRST (before session cleanup)
       const sessionId = `sess_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
       const tokenToCreate = jwt.sign(
@@ -106,15 +114,22 @@ router.post(
         if (existingSessionId && existingDeviceId && existingDeviceId !== deviceId) {
           console.log(`[Auth] Driver ${user.id} has active session on device ${existingDeviceId}`);
           console.log(`[Auth] Terminating old session and logging in on new device ${deviceId}`);
-
-          // Delete all existing database sessions for this driver
           await sessionUtils.deleteAllForUser(user.id);
+        }
 
-          // TODO: Send push notification to old device
-          // await sendPushNotification(existingDeviceId, {
-          //   title: "Session Ended",
-          //   message: "You've been logged in from another device"
-          // });
+        try {
+          const { onDriverSessionReplaced } = await import('../services/driverPushToken.service');
+          await onDriverSessionReplaced({
+            driverId: user.id,
+            newDeviceId: deviceId || 'unknown',
+            newSessionId: sessionId,
+            previousDeviceId: existingDeviceId,
+          });
+        } catch (error) {
+          console.warn('[Auth] Failed to update driver push targets', {
+            driverId: user.id,
+            message: error instanceof Error ? error.message : 'unknown',
+          });
         }
 
         // Update driver's session info with new device
@@ -229,6 +244,15 @@ router.post(
       // For drivers, clear session info from driver record
       if (user && user.role === 'driver') {
         await driverUtils.clearSessionInfo(user.userId);
+        try {
+          const { invalidateDriverPushTargets } = await import('../services/driverPushToken.service');
+          await invalidateDriverPushTargets(user.userId);
+        } catch (error) {
+          console.warn('[Auth] Failed to invalidate driver push targets on logout', {
+            driverId: user.userId,
+            message: error instanceof Error ? error.message : 'unknown',
+          });
+        }
         console.log(`[Auth] Cleared session info for driver ${user.userId}`);
       }
 

@@ -8,6 +8,7 @@
 import { Response, NextFunction } from 'express';
 import { driverUtils } from '../db/utils';
 import { AuthenticatedRequest } from './auth';
+import { isDeactivatedAccount } from '../services/accountStatus.service';
 
 function getAuthPayload(req: AuthenticatedRequest) {
   return req.auth?.payload || req.auth;
@@ -96,6 +97,17 @@ export const trackDriverDevice = async (
         error: {
           code: 'NOT_FOUND',
           message: 'Driver not found',
+        },
+      });
+      return;
+    }
+
+    if (isDeactivatedAccount(driver.accountStatus)) {
+      res.status(403).json({
+        success: false,
+        error: {
+          code: 'ACCOUNT_DEACTIVATED',
+          message: 'This account has been deactivated',
         },
       });
       return;

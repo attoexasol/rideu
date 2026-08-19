@@ -47,6 +47,7 @@ import {
   userFriendlyPlaybackReason,
 } from './rideVideoDvr.helpers';
 import { buildDvrPlaybackManifest } from './rideVideoDvr.service';
+import { logManifestBlockedDiagnostics } from './rideVideoSegmentTrace.service';
 import {
   insertRideVideoAuditEvent,
   listRideVideoAuditEvents,
@@ -1230,6 +1231,21 @@ export async function createAdminPlaybackManifest(
 ) {
   const bundle = await getSessionBundle(sessionId);
   const view = buildSessionView(bundle);
+  if (!view.playbackAvailable) {
+    await logManifestBlockedDiagnostics({
+      sessionId,
+      playbackReason: view.playbackReason,
+      manifestVersion: view.manifestVersion,
+      segments: bundle.segments.map((segment) => ({
+        id: segment.id,
+        uploadStatus: segment.uploadStatus,
+        storageKey: segment.storageKey,
+        retentionDeletedAt: segment.retentionDeletedAt,
+      })),
+      uploadedCount: view.uploadedSegmentCount,
+      verifiedCount: view.readySegmentCount,
+    });
+  }
   assertPlaybackAllowed(view);
 
   const built = await buildDvrPlaybackManifest(bundle.session, bundle.segments, options);

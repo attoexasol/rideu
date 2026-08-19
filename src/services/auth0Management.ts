@@ -423,6 +423,40 @@ class Auth0ManagementService {
   }
 
   /**
+   * Update Auth0 display name. Call before persisting name to Postgres.
+   * Requires Management API scope: update:users
+   */
+  async updateUserName(auth0UserId: string, name: string): Promise<void> {
+    const token = await this.getManagementToken();
+    const domain = process.env.AUTH0_DOMAIN;
+    const trimmed = name.trim();
+
+    try {
+      await axios.patch(
+        `https://${domain}/api/v2/users/${encodeURIComponent(auth0UserId)}`,
+        {
+          name: trimmed,
+          user_metadata: {
+            name: trimmed,
+          },
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+    } catch (error) {
+      const axiosError = error as AxiosError<Auth0ErrorResponse>;
+      console.error('Failed to update user name in Auth0:', axiosError.response?.data);
+      throw new Error(
+        axiosError.response?.data?.message || 'Failed to update user name in Auth0'
+      );
+    }
+  }
+
+  /**
    * Delete user from Auth0
    */
   async deleteUser(auth0UserId: string): Promise<void> {

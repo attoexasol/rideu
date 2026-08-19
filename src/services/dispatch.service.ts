@@ -37,6 +37,8 @@ import {
   isDriverAcceptingOffer,
 } from './driverAcceptanceLock.service';
 import { buildOfferEventPayload } from './driverBooking.service';
+import { notifyDriverOfPersistedOffer } from './driverOfferNotify.service';
+import { notifyPassengerOfRideEvent } from './passengerRideNotify.service';
 import { logger } from '../middleware/logger';
 
 interface DriverCandidate {
@@ -146,6 +148,11 @@ export async function startDispatch(bookingId: string): Promise<void> {
       status: BookingStatus.NO_DRIVERS,
       reason: 'no_drivers',
     });
+    notifyPassengerOfRideEvent({
+      customerId: booking.customerId,
+      bookingId,
+      event: BookingStatus.NO_DRIVERS,
+    });
     clearDispatchTimer(bookingId);
     return;
   }
@@ -191,6 +198,11 @@ export async function startDispatch(bookingId: string): Promise<void> {
         status: BookingStatus.NO_DRIVERS,
         reason: 'no_drivers',
       });
+      notifyPassengerOfRideEvent({
+        customerId: booking.customerId,
+        bookingId,
+        event: BookingStatus.NO_DRIVERS,
+      });
       clearDispatchTimer(bookingId);
     } else {
       await updateBooking(bookingId, { dispatchBatch: batch });
@@ -225,20 +237,33 @@ export async function startDispatch(bookingId: string): Promise<void> {
       candidate.distanceKm
     );
 
-    await emitToDriver(
-      candidate.driverId,
-      'booking:offer',
-      payload ?? {
-        offerId: offer.id,
+    try {
+      await notifyDriverOfPersistedOffer({
+        driverId: candidate.driverId,
         bookingId,
-        bookingNumber: booking.bookingNumber,
-        expiresAt: offerExpiresAt.toISOString(),
-        pickupAddress: booking.pickupAddress,
-        dropoffAddress: booking.dropoffAddress,
-        finalFare: booking.finalFare,
-        distanceToPickupKm: candidate.distanceKm,
-      }
-    );
+        offerId: offer.id,
+        expiresAt: offerExpiresAt,
+        socketPayload:
+          payload ?? {
+            offerId: offer.id,
+            bookingId,
+            bookingNumber: booking.bookingNumber,
+            expiresAt: offerExpiresAt.toISOString(),
+            pickupAddress: booking.pickupAddress,
+            dropoffAddress: booking.dropoffAddress,
+            finalFare: booking.finalFare,
+            distanceToPickupKm: candidate.distanceKm,
+          },
+      });
+    } catch (error) {
+      logger.warn({
+        event: 'dispatch.offer_notify_failed',
+        bookingId,
+        offerId: offer.id,
+        driverId: candidate.driverId,
+        message: error instanceof Error ? error.message : 'unknown',
+      });
+    }
 
     console.info('[Dispatch] booking:offer emitted', {
       bookingId,
@@ -673,6 +698,11 @@ async function acceptBookingOfferInternal(
     vehicle: vehiclePayload,
     etaMinutes: etaMin,
   });
+  notifyPassengerOfRideEvent({
+    customerId: booking.customerId,
+    bookingId,
+    event: BookingStatus.DRIVER_EN_ROUTE,
+  });
 
   await emitToAdmins('booking:accepted', {
     bookingId,
@@ -708,7 +738,18 @@ async function acceptBookingOfferInternal(
   });
 
   const { getDriverBookingDetailForDriver } = await import('./driverBooking.service');
-  const detail = await getDriverBookingDetailForDriver(bookingId, driverId);
+  let detail = null;
+  try {
+    detail = await getDriverBookingDetailForDriver(bookingId, driverId);
+  } catch (error) {
+    logger.warn({
+      event: 'driver.accept.response_build_failed',
+      bookingId,
+      driverId,
+      message: error instanceof Error ? error.message : 'unknown',
+      pgCode: (error as { cause?: { code?: string } })?.cause?.code ?? null,
+    });
+  }
   return { success: true, booking: detail };
 }
 

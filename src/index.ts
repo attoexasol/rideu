@@ -13,6 +13,7 @@ import { requestLogger } from './middleware/logger';
 import { passengerLocationTiming } from './middleware/passenger-location-timing';
 import { errorHandler, notFoundHandler } from './middleware/error-handler';
 import { validateEnvironment, printEnvironmentInfo } from './config/env-validator';
+import { logFcmStartupState } from './services/fcmAdmin.service';
 import { verifyCriticalServices, createHealthCheckHandler, createApiHealthCheckHandler } from './utils/startup-checks';
 import { startInactivityChecker } from './services/driver-inactivity-checker';
 import { startRideVideoBackgroundJobs, stopRideVideoBackgroundJobs } from './services/rideVideoBackground.service';
@@ -32,11 +33,13 @@ import videoRoutes from './routes/videos';
 import v1Routes from './routes/v1';
 import path from 'path';
 import { ensureUploadDirectories } from './services/video-storage.service';
+import { ensureAvatarDirectories } from './services/avatar-storage.service';
 
 // Validate environment variables on startup
 try {
   validateEnvironment();
   printEnvironmentInfo();
+  logFcmStartupState();
 } catch (error) {
   console.error('❌ Environment validation failed:', error);
   process.exit(1);
@@ -100,6 +103,9 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')));
 ensureUploadDirectories().catch((err) => {
   console.error('Failed to create upload directories:', err);
+});
+ensureAvatarDirectories().catch((err) => {
+  console.error('Failed to create avatar directories:', err);
 });
 
 // Request logging middleware

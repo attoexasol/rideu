@@ -12,6 +12,7 @@ import {
 } from '../../../controllers/rideVideo.controller';
 import { requireAuth, extractUserInfo } from '../../../middleware/auth';
 import { asyncHandler } from '../../../middleware/error-handler';
+import { validateUploadTokenBeforeBody } from '../../../middleware/videoUploadToken';
 import { videoUploadRateLimit } from '../../../middleware/rate-limiters';
 import { requireDriver } from '../../../middleware/rbac';
 import {
@@ -42,6 +43,7 @@ router.put(
   ...driverAuth,
   videoUploadRateLimit,
   validate(videoSegmentIdParamSchema, 'params'),
+  asyncHandler(validateUploadTokenBeforeBody),
   express.raw({
     type: ['video/mp4', 'video/quicktime'],
     limit: videoConfig.maxSegmentSizeBytes,

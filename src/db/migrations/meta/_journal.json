@@ -141,6 +141,41 @@
       "when": 1785800000000,
       "tag": "0021_ride_video_admin_api",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1786000000000,
+      "tag": "0022_ride_video_dvr_foundation",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1786800000000,
+      "tag": "0023_bookings_driver_created_at",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1787000000000,
+      "tag": "0024_driver_push_tokens",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1787500000000,
+      "tag": "0025_driver_profile_account",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1788000000000,
+      "tag": "0026_passenger_push_tokens",
+      "breakpoints": true
     }
   ]
 }

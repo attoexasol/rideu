@@ -87,6 +87,11 @@ declare class Auth0ManagementService {
     findUserByEmail(email: string): Promise<Auth0UserWithIdentities | null>;
     getUser(auth0UserId: string): Promise<Auth0User>;
     /**
+     * Update Auth0 display name. Call before persisting name to Postgres.
+     * Requires Management API scope: update:users
+     */
+    updateUserName(auth0UserId: string, name: string): Promise<void>;
+    /**
      * Delete user from Auth0
      */
     deleteUser(auth0UserId: string): Promise<void>;

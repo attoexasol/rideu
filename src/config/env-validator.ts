@@ -68,6 +68,10 @@ const envConfigs: Record<string, EnvConfig> = {
       'VIDEO_STORAGE_ROOT',
       'VIDEO_SIGNING_SECRET',
       'QR_DUTY_REQUIRED',
+      'FCM_ENABLED',
+      'GOOGLE_APPLICATION_CREDENTIALS',
+      'FIREBASE_SERVICE_ACCOUNT_JSON',
+      'FIREBASE_PROJECT_ID',
     ],
   },
   staging: {
@@ -114,6 +118,10 @@ const envConfigs: Record<string, EnvConfig> = {
       'VIDEO_STORAGE_ROOT',
       'VIDEO_SIGNING_SECRET',
       'LOG_LEVEL',
+      'FCM_ENABLED',
+      'GOOGLE_APPLICATION_CREDENTIALS',
+      'FIREBASE_SERVICE_ACCOUNT_JSON',
+      'FIREBASE_PROJECT_ID',
     ],
   },
   development: {
@@ -165,6 +173,10 @@ const envConfigs: Record<string, EnvConfig> = {
       'VIDEO_STORAGE_CONTAINER',
       'VIDEO_STORAGE_ROOT',
       'VIDEO_SIGNING_SECRET',
+      'FCM_ENABLED',
+      'GOOGLE_APPLICATION_CREDENTIALS',
+      'FIREBASE_SERVICE_ACCOUNT_JSON',
+      'FIREBASE_PROJECT_ID',
     ],
   },
   test: {
@@ -354,6 +366,16 @@ export function printEnvironmentInfo(): void {
     `  - AUTH0_PASSENGER_CLIENT_ID: ${process.env.AUTH0_PASSENGER_CLIENT_ID ? '[SET] (forgot-password emails)' : '[NOT SET — uses AUTH0_CLIENT_ID]'}`
   );
   console.log(`  - LOG_LEVEL: ${process.env.LOG_LEVEL || 'info'}`);
+  console.log(`  - FCM_ENABLED: ${process.env.FCM_ENABLED || 'false'}`);
+  console.log(
+    `  - FIREBASE_CREDENTIALS: ${
+      process.env.FIREBASE_SERVICE_ACCOUNT_JSON
+        ? '[SET] (FIREBASE_SERVICE_ACCOUNT_JSON)'
+        : process.env.GOOGLE_APPLICATION_CREDENTIALS
+          ? '[SET] (GOOGLE_APPLICATION_CREDENTIALS)'
+          : '[NOT SET]'
+    }`
+  );
 
   if (nodeEnv === 'production') {
     console.log(`  - SENTRY_DSN: ${process.env.SENTRY_DSN ? '[SET]' : '[NOT SET]'}`);

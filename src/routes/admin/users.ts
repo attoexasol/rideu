@@ -87,6 +87,8 @@ router.get(
       vehicleModel: d.vehicleModel,
       vehicleYear: d.vehicleYear,
       vehicleColor: d.vehicleColor,
+      profileImageUrl: d.profileImageUrl,
+      accountStatus: d.accountStatus,
       createdAt: d.createdAt,
       updatedAt: d.updatedAt,
     });

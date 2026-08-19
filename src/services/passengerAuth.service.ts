@@ -9,11 +9,13 @@ import {
   clearCustomerSession,
 } from '../repositories/customer.repository';
 import { sessionUtils } from '../db/utils';
+import { AccountDeactivatedError, assertAccountActive } from './accountStatus.service';
+import { logger } from '../middleware/logger';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-jwt-secret-key';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
 
-export { PasswordResetError };
+export { PasswordResetError, AccountDeactivatedError };
 
 export async function registerPassenger(input: { email: string; password: string; name: string }) {
   const email = input.email.trim().toLowerCase();
@@ -82,7 +84,10 @@ export async function loginPassenger(input: {
     throw new Error('Customer not found in database');
   }
 
+  assertAccountActive(customer.status);
+
   const sessionId = `sess_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+  const previousDeviceId = customer.activeDeviceId;
   const token = jwt.sign(
     {
       userId: customer.id,
@@ -97,6 +102,25 @@ export async function loginPassenger(input: {
     JWT_SECRET as jwt.Secret,
     { expiresIn: JWT_EXPIRES_IN, algorithm: 'HS256' } as jwt.SignOptions
   );
+
+  try {
+    const { onPassengerSessionReplaced } = await import('./passengerPushToken.service');
+    await onPassengerSessionReplaced({
+      customerId: customer.id,
+      newDeviceId: input.deviceId,
+      newSessionId: sessionId,
+      previousDeviceId,
+    });
+  } catch (error) {
+    logger.warn({
+      event: 'passenger.push.failed',
+      customerId: customer.id,
+      pushAttempted: false,
+      pushSent: false,
+      pushFailureCode: 'ISOLATED_EXCEPTION',
+      message: error instanceof Error ? error.message : 'unknown',
+    });
+  }
 
   await updateCustomerSession(customer.id, {
     activeSessionId: sessionId,
@@ -129,6 +153,19 @@ export async function logoutPassenger(userId: string, token?: string) {
     await sessionUtils.deleteByToken(token);
   }
   await clearCustomerSession(userId);
+  try {
+    const { invalidatePassengerPushTargets } = await import('./passengerPushToken.service');
+    await invalidatePassengerPushTargets(userId);
+  } catch (error) {
+    logger.warn({
+      event: 'passenger.push.failed',
+      customerId: userId,
+      pushAttempted: false,
+      pushSent: false,
+      pushFailureCode: 'ISOLATED_EXCEPTION',
+      message: error instanceof Error ? error.message : 'unknown',
+    });
+  }
 }
 
 export async function requestPasswordReset(email: string): Promise<{ message: string }> {

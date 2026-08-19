@@ -82,6 +82,11 @@ export const bookings = pgTable(
       table.createdAt
     ),
     driverStatusIdx: index('idx_bookings_driver_status').on(table.assignedDriverId, table.status),
+    driverCreatedAtIdx: index('idx_bookings_driver_created_at').on(
+      table.assignedDriverId,
+      table.createdAt.desc(),
+      table.id.desc()
+    ),
     statusIdx: index('idx_bookings_status').on(table.status),
     scheduledIdx: index('idx_bookings_scheduled').on(table.scheduledPickupAt),
     shareTokenIdx: index('idx_bookings_share_token').on(table.shareToken),

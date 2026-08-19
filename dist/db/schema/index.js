@@ -53,6 +53,8 @@ __exportStar(require("./fleet_audit_events"), exports);
 __exportStar(require("./vehicle_exchange_requests"), exports);
 __exportStar(require("./vehicle_exchange_events"), exports);
 __exportStar(require("./vehicle_exchange_resource_locks"), exports);
+__exportStar(require("./driver_push_tokens"), exports);
+__exportStar(require("./passenger_push_tokens"), exports);
 const drivers_1 = require("./drivers");
 const locations_1 = require("./locations");
 const trips_1 = require("./trips");
@@ -87,6 +89,8 @@ const fleet_audit_events_1 = require("./fleet_audit_events");
 const vehicle_exchange_requests_1 = require("./vehicle_exchange_requests");
 const vehicle_exchange_events_1 = require("./vehicle_exchange_events");
 const vehicle_exchange_resource_locks_1 = require("./vehicle_exchange_resource_locks");
+const driver_push_tokens_1 = require("./driver_push_tokens");
+const passenger_push_tokens_1 = require("./passenger_push_tokens");
 exports.schema = {
     drivers: drivers_1.drivers,
     locations: locations_1.locations,
@@ -122,5 +126,7 @@ exports.schema = {
     vehicleExchangeRequests: vehicle_exchange_requests_1.vehicleExchangeRequests,
     vehicleExchangeEvents: vehicle_exchange_events_1.vehicleExchangeEvents,
     vehicleExchangeResourceLocks: vehicle_exchange_resource_locks_1.vehicleExchangeResourceLocks,
+    driverPushTokens: driver_push_tokens_1.driverPushTokens,
+    passengerPushTokens: passenger_push_tokens_1.passengerPushTokens,
 };
 //# sourceMappingURL=index.js.map

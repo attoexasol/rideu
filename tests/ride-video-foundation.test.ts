@@ -28,6 +28,7 @@ const videoConfigState = {
   retentionDays: 30,
   storageContainer: 'ride-recordings',
   storageRoot: path.join(os.tmpdir(), 'ride-video-foundation-tests'),
+  apiPublicBaseUrl: '',
   allowedMimeTypes: new Set(['video/mp4', 'video/quicktime']),
 };
 
@@ -530,6 +531,35 @@ describe('upload token TTL and binding', () => {
     }
   });
 
+  it('accepts token at upload request start even if it expires before body finishes', async () => {
+    const { createUploadToken, verifyStorageToken } = await loadStorage();
+    jest.useFakeTimers();
+    try {
+      const startedAt = Math.floor(Date.now() / 1000);
+      const { token } = createUploadToken({ segmentId, driverId, storageKey });
+      jest.advanceTimersByTime(videoConfigState.uploadUrlTtlSeconds * 1000 + 1000);
+      expect(() =>
+        verifyStorageToken(token, {
+          purpose: 'upload',
+          segmentId,
+          storageKey,
+          driverId,
+        })
+      ).toThrow(/expired/);
+      expect(
+        verifyStorageToken(token, {
+          purpose: 'upload',
+          segmentId,
+          storageKey,
+          driverId,
+          validAt: startedAt,
+        }).segmentId
+      ).toBe(segmentId);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('rejects forged signatures', async () => {
     const { verifyStorageToken } = await loadStorage();
     const payload = Buffer.from(
@@ -587,6 +617,40 @@ describe('upload completion storage metadata', () => {
     expect(result.checksum).toBe(checksum);
     expect(result.fileSizeBytes).toBe(buffer.length);
     expect(result.uploadedAt).toBe('2026-07-30T12:10:00.000Z');
+  });
+
+  it('allows PUT upload when booking is cancelled but session is finalizing', async () => {
+    const { uploadRideVideoSegment } = await loadService();
+    const { createUploadToken } = await loadStorage();
+    const buffer = Buffer.from('ride-video-bytes-late-upload');
+    const checksum = createHash('sha256').update(buffer).digest('hex');
+    const segment = makeSegment({ fileSizeBytes: buffer.length, checksum: null });
+    const uploaded = makeSegment({
+      uploadStatus: 'uploaded',
+      fileSizeBytes: buffer.length,
+      checksum,
+      uploadedAt: new Date('2026-07-30T12:10:00.000Z'),
+    });
+    mockFindBookingById.mockResolvedValue(makeBooking({ status: BookingStatus.CANCELLED }));
+    enqueueSelect([segment], [makeSession({ status: 'finalizing' })]);
+    enqueueUpdate([uploaded]);
+    mockSavePrivateSegment.mockResolvedValue({ fileSizeBytes: buffer.length, checksum });
+    const { token } = createUploadToken({
+      segmentId: segment.id as string,
+      driverId,
+      storageKey: segment.storageKey as string,
+    });
+
+    const result = await uploadRideVideoSegment({
+      segmentId: segment.id as string,
+      driverId,
+      token,
+      mimeType: 'video/mp4',
+      buffer,
+    });
+
+    expect(result.uploadStatus).toBe('uploaded');
+    expect(mockFindBookingById).toHaveBeenCalled();
   });
 
   it('verifies stored object metadata on complete', async () => {

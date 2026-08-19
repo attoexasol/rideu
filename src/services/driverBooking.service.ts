@@ -10,6 +10,8 @@ import {
 } from '../repositories/booking.repository';
 import { findActiveSessionByBooking } from './liveVideo.service';
 import { resolveBookingRoute, type BookingRouteDto } from './bookingRoute.service';
+import { historyDetailFields } from './rideHistory.service';
+import { logger } from '../middleware/logger';
 
 const DRIVER_ACTIVE_STATUSES = [
   BookingStatus.ACCEPTED,
@@ -44,6 +46,47 @@ export async function getDriverBookingDetailForDriver(bookingId: string, driverI
   }
 
   return buildDriverBookingPayload(bookingId, driverId, isAssigned);
+}
+
+type DriverVideoMetadata = {
+  required: boolean;
+  sessionId: string | null;
+  nextSegmentIndex: number;
+  segmentDurationSeconds: number;
+  active: boolean;
+};
+
+async function loadOptionalVideoMetadata(
+  bookingId: string,
+  bookingStatus: string
+): Promise<DriverVideoMetadata | null> {
+  try {
+    const session = await findActiveSessionByBooking(bookingId);
+    const segments = session
+      ? await (await import('./liveVideo.service')).listLiveSegments(session.id)
+      : [];
+    const nextSegmentIndex =
+      segments.length > 0 ? Math.max(...segments.map((s) => s.sequenceNumber)) + 1 : 0;
+
+    return {
+      required: videoConfig.enabled,
+      sessionId: session?.id ?? null,
+      nextSegmentIndex,
+      segmentDurationSeconds: videoConfig.segmentDurationSeconds,
+      active:
+        videoConfig.enabled &&
+        DRIVER_ACTIVE_STATUSES.includes(bookingStatus as (typeof DRIVER_ACTIVE_STATUSES)[number]) &&
+        session?.status === 'active',
+    };
+  } catch (error) {
+    logger.warn({
+      event: 'driver.booking.video_metadata_failed',
+      bookingId,
+      message: error instanceof Error ? error.message : 'unknown',
+      pgCode: (error as { cause?: { code?: string } })?.cause?.code ?? null,
+    });
+    return null;
+  }
 }
 
 async function loadRouteForBooking(
@@ -86,17 +129,25 @@ async function buildDriverBookingPayload(
     : [];
 
   const vehicle = vehicleRows[0] ?? vehicleFromDriver[0] ?? null;
-  const session = await findActiveSessionByBooking(bookingId);
-  const segments = session
-    ? await (await import('./liveVideo.service')).listLiveSegments(session.id)
-    : [];
+  const video = await loadOptionalVideoMetadata(bookingId, booking.status);
+  const historyFields = historyDetailFields(detail);
+  const isActiveAssigned =
+    includePassengerContact &&
+    DRIVER_ACTIVE_STATUSES.includes(booking.status as (typeof DRIVER_ACTIVE_STATUSES)[number]);
 
-  const nextSegmentIndex =
-    segments.length > 0 ? Math.max(...segments.map((s) => s.sequenceNumber)) + 1 : 0;
+  // Assigned/active: allow one-shot Google fill. Historical and offer preview: stored only.
+  const route = await loadRouteForBooking(booking, isActiveAssigned);
 
-  // Assigned/active: allow one-shot Google fill. Offer preview: prefer stored only
-  // so offer list/accept path never hangs on Maps; accept still uses assigned=true after commit.
-  const route = await loadRouteForBooking(booking, includePassengerContact);
+  const vehicleSnapshot = vehicle
+    ? {
+        id: vehicle.id,
+        make: vehicle.make ?? driverRows[0]?.vehicleMake ?? historyFields.vehicle?.make ?? null,
+        model: vehicle.model ?? driverRows[0]?.vehicleModel ?? historyFields.vehicle?.model ?? null,
+        color:
+          vehicle.color ?? driverRows[0]?.vehicleColor ?? historyFields.vehicle?.color ?? null,
+        plateNumber: vehicle.plateNumber ?? historyFields.vehicle?.plateNumber ?? null,
+      }
+    : historyFields.vehicle;
 
   return {
     booking: {
@@ -120,9 +171,20 @@ async function buildDriverBookingPayload(
         amount: booking.finalFare ? parseFloat(booking.finalFare) : null,
         currency: 'BDT',
       },
+      createdAt: historyFields.createdAt,
+      acceptedAt: historyFields.acceptedAt,
+      arrivedAt: historyFields.arrivedAt,
+      startedAt: historyFields.startedAt,
+      completedAt: historyFields.completedAt,
+      cancelledAt: historyFields.cancelledAt,
+      cancelledBy: historyFields.cancelledBy,
+      cancellationReason: historyFields.cancellationReason,
+      payment: historyFields.payment,
+      recording: historyFields.recording,
     },
     passenger: includePassengerContact
       ? {
+          id: booking.customerId,
           name: detail.customerName,
           phone: null,
           rating: null,
@@ -131,30 +193,14 @@ async function buildDriverBookingPayload(
           displayName: detail.customerName,
           rating: null,
         },
-    vehicle: vehicle
-      ? {
-          id: vehicle.id,
-          make: vehicle.make ?? driverRows[0]?.vehicleMake ?? null,
-          model: vehicle.model ?? driverRows[0]?.vehicleModel ?? null,
-          color: driverRows[0]?.vehicleColor ?? null,
-          plateNumber: vehicle.plateNumber,
-        }
-      : null,
+    vehicle: vehicleSnapshot,
     service: {
       serviceCategoryId: booking.serviceCategoryId,
       serviceCode: detail.serviceCode,
       serviceName: detail.serviceName,
     },
-    video: {
-      required: videoConfig.enabled,
-      sessionId: session?.id ?? null,
-      nextSegmentIndex,
-      segmentDurationSeconds: videoConfig.segmentDurationSeconds,
-      active:
-        videoConfig.enabled &&
-        DRIVER_ACTIVE_STATUSES.includes(booking.status as any) &&
-        session?.status === 'active',
-    },
+    recording: historyFields.recording,
+    video,
   };
 }
 

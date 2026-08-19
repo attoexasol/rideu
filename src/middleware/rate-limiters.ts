@@ -78,6 +78,30 @@ export const videoUploadRateLimit = createRateLimiter({
   keyGenerator: keyByDriver,
 });
 
+export function keyByAccount(req: Request): string {
+  const userId = (req as any).user?.userId || (req as any).user?.auth0Id;
+  const role = (req as any).user?.role || 'user';
+  return userId ? `profile:${role}:${userId}` : keyByIp(req);
+}
+
+export const profilePatchRateLimit = createRateLimiter({
+  name: 'profile_patch',
+  bucket: rateLimitConfig.profilePatch,
+  keyGenerator: keyByAccount,
+});
+
+export const avatarUploadRateLimit = createRateLimiter({
+  name: 'avatar_upload',
+  bucket: rateLimitConfig.avatarUpload,
+  keyGenerator: keyByAccount,
+});
+
+export const profileDeactivateRateLimit = createRateLimiter({
+  name: 'profile_deactivate',
+  bucket: rateLimitConfig.profileDeactivate,
+  keyGenerator: keyByAccount,
+});
+
 export function keyByAdmin(req: Request): string {
   const userId = (req as any).user?.userId || (req as any).user?.auth0Id;
   return userId ? `admin:${userId}` : keyByIp(req);

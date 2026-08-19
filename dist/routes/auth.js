@@ -53,6 +53,7 @@ const rate_limiters_1 = require("../middleware/rate-limiters");
 const utils_1 = require("../db/utils");
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const jwt_verifier_1 = require("../utils/jwt-verifier");
+const accountStatus_service_1 = require("../services/accountStatus.service");
 const router = express_1.default.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'your-jwt-secret-key';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
@@ -100,6 +101,12 @@ router.post('/login', rate_limiters_1.authRateLimiter, (0, validators_1.validate
         if (!user) {
             return (0, response_1.sendError)(res, 'NOT_FOUND', 'User not found in database', 404);
         }
+        if (userType === 'driver' && (0, accountStatus_service_1.isDeactivatedAccount)(user.accountStatus)) {
+            return (0, response_1.sendError)(res, 'ACCOUNT_DEACTIVATED', 'This account has been deactivated', 403);
+        }
+        if (userType === 'customer' && (0, accountStatus_service_1.isDeactivatedAccount)(user.status)) {
+            return (0, response_1.sendError)(res, 'ACCOUNT_DEACTIVATED', 'This account has been deactivated', 403);
+        }
         // Generate session ID and local JWT token FIRST (before session cleanup)
         const sessionId = `sess_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
         const tokenToCreate = jsonwebtoken_1.default.sign({
@@ -124,13 +131,22 @@ router.post('/login', rate_limiters_1.authRateLimiter, (0, validators_1.validate
             if (existingSessionId && existingDeviceId && existingDeviceId !== deviceId) {
                 console.log(`[Auth] Driver ${user.id} has active session on device ${existingDeviceId}`);
                 console.log(`[Auth] Terminating old session and logging in on new device ${deviceId}`);
-                // Delete all existing database sessions for this driver
                 await utils_1.sessionUtils.deleteAllForUser(user.id);
-                // TODO: Send push notification to old device
-                // await sendPushNotification(existingDeviceId, {
-                //   title: "Session Ended",
-                //   message: "You've been logged in from another device"
-                // });
+            }
+            try {
+                const { onDriverSessionReplaced } = await Promise.resolve().then(() => __importStar(require('../services/driverPushToken.service')));
+                await onDriverSessionReplaced({
+                    driverId: user.id,
+                    newDeviceId: deviceId || 'unknown',
+                    newSessionId: sessionId,
+                    previousDeviceId: existingDeviceId,
+                });
+            }
+            catch (error) {
+                console.warn('[Auth] Failed to update driver push targets', {
+                    driverId: user.id,
+                    message: error instanceof Error ? error.message : 'unknown',
+                });
             }
             // Update driver's session info with new device
             await utils_1.driverUtils.updateSessionInfo(user.id, {
@@ -213,6 +229,16 @@ router.post('/logout', auth_1.requireAuth, auth_1.extractUserInfo, (0, error_han
         // For drivers, clear session info from driver record
         if (user && user.role === 'driver') {
             await utils_1.driverUtils.clearSessionInfo(user.userId);
+            try {
+                const { invalidateDriverPushTargets } = await Promise.resolve().then(() => __importStar(require('../services/driverPushToken.service')));
+                await invalidateDriverPushTargets(user.userId);
+            }
+            catch (error) {
+                console.warn('[Auth] Failed to invalidate driver push targets on logout', {
+                    driverId: user.userId,
+                    message: error instanceof Error ? error.message : 'unknown',
+                });
+            }
             console.log(`[Auth] Cleared session info for driver ${user.userId}`);
         }
         return (0, response_1.sendSuccess)(res, { message: 'Logged out successfully' });

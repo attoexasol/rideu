@@ -41,6 +41,37 @@ export const PASSENGER_ONGOING_BOOKING_STATUSES: BookingStatusType[] = [
   ...ACTIVE_BOOKING_STATUSES,
 ];
 
+/** Terminal passenger history statuses. Excludes quoted and unused booking status `expired`. */
+export const PASSENGER_HISTORY_STATUSES: BookingStatusType[] = [
+  BookingStatus.COMPLETED,
+  BookingStatus.CANCELLED,
+  BookingStatus.NO_DRIVERS,
+];
+
+/** Driver history: assigned rides that are no longer active. Unassigned states are excluded. */
+export const DRIVER_HISTORY_STATUSES: BookingStatusType[] = [
+  BookingStatus.COMPLETED,
+  BookingStatus.CANCELLED,
+];
+
+export type RideHistoryFilter = 'all' | 'completed' | 'cancelled';
+
+export function resolvePassengerHistoryStatuses(
+  filter: RideHistoryFilter = 'all'
+): BookingStatusType[] {
+  if (filter === 'completed') return [BookingStatus.COMPLETED];
+  if (filter === 'cancelled') return [BookingStatus.CANCELLED, BookingStatus.NO_DRIVERS];
+  return [...PASSENGER_HISTORY_STATUSES];
+}
+
+export function resolveDriverHistoryStatuses(
+  filter: RideHistoryFilter = 'all'
+): BookingStatusType[] {
+  if (filter === 'completed') return [BookingStatus.COMPLETED];
+  if (filter === 'cancelled') return [BookingStatus.CANCELLED];
+  return [...DRIVER_HISTORY_STATUSES];
+}
+
 export const BookingOfferStatus = {
   PENDING: 'pending',
   ACCEPTED: 'accepted',

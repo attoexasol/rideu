@@ -27,6 +27,7 @@ export const customers = pgTable(
     auth0IdIdx: index('idx_customers_auth0_id').on(table.auth0Id),
     emailIdx: index('idx_customers_email').on(table.email),
     phoneIdx: index('idx_customers_phone').on(table.phoneCountryCode, table.phoneNumber),
+    statusIdx: index('idx_customers_status').on(table.status),
   })
 );
 

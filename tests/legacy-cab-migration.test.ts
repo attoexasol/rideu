@@ -30,6 +30,8 @@ function driver(partial: Partial<Driver> & { id: string; name: string }): Driver
     activeDeviceId: null,
     activeDeviceInfo: null,
     lastLoginAt: null,
+    profileImageUrl: null,
+    accountStatus: 'active',
     createdAt: new Date(),
     updatedAt: new Date(),
     ...partial,

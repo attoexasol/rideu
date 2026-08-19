@@ -11,6 +11,7 @@ import { driverServesCategory } from './vehicleEligibility.service';
 import { hasPendingExchange } from './vehicleExchange.service';
 import { isDriverAcceptingOffer, isDispatchSuspended } from './driverAcceptanceLock.service';
 import { haversineKm } from '../utils/geo';
+import { isDeactivatedAccount } from './accountStatus.service';
 
 export type VehicleEligibilitySource = 'active_assignment' | 'legacy_driver_vehicle';
 export type CategoryEligibilitySource = 'active_assignment' | 'legacy_driver_vehicle';
@@ -34,6 +35,17 @@ export async function setDriverBusy(driverId: string): Promise<void> {
 }
 
 export async function releaseDriverAvailability(driverId: string): Promise<void> {
+  const driverRows = await db.select().from(drivers).where(eq(drivers.id, driverId)).limit(1);
+  const driver = driverRows[0];
+  if (driver && isDeactivatedAccount(driver.accountStatus)) {
+    await db
+      .update(drivers)
+      .set({ status: 'offline', updatedAt: new Date() })
+      .where(eq(drivers.id, driverId));
+    await realtimeCache.setDriverStatus(driverId, 'offline');
+    return;
+  }
+
   await db
     .update(drivers)
     .set({ status: 'online', updatedAt: new Date() })
@@ -90,6 +102,10 @@ export async function checkDriverEligibility(
   const driver = driverRows[0];
   if (!driver) {
     return { eligible: false, code: 'DRIVER_NOT_ELIGIBLE', message: 'Driver not found' };
+  }
+
+  if (isDeactivatedAccount(driver.accountStatus)) {
+    return { eligible: false, code: 'DRIVER_NOT_ELIGIBLE', message: 'Driver account is deactivated' };
   }
 
   const busyIds = new Set(await listDriversWithActiveBookings());

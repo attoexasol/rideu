@@ -9,6 +9,7 @@ import {
   offerIdParamSchema,
   declineOfferSchema,
   driverCancelBookingSchema,
+  bookingHistoryQuerySchema,
 } from '../../../validators';
 import { driverOfferRateLimit, driverRecoveryRateLimit } from '../../../middleware/rate-limiters';
 import {
@@ -16,6 +17,7 @@ import {
   listPendingOffersHandler,
   getOfferHandler,
   activeBookingHandler,
+  listBookingsHandler,
   getBookingHandler,
   acceptOfferHandler,
   rejectOfferHandler,
@@ -32,6 +34,13 @@ const router = express.Router();
 const driverAuth = [requireAuth, extractUserInfo, ...requireDriver];
 
 router.get('/active', ...driverAuth, driverRecoveryRateLimit, asyncHandler(activeBookingHandler));
+
+router.get(
+  '/',
+  ...driverAuth,
+  validate(bookingHistoryQuerySchema, 'query'),
+  asyncHandler(listBookingsHandler)
+);
 
 router.get(
   '/offers/pending',

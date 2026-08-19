@@ -16,6 +16,11 @@ import {
   resumeRideVideoSession,
   uploadRideVideoSegment,
 } from '../services/rideVideo.service';
+import { RideVideoError } from '../services/rideVideo.errors';
+import {
+  logSegmentRouteTrace,
+  parseUploadUrlForTrace,
+} from '../services/rideVideoSegmentTrace.service';
 import { sendSuccess } from '../utils/response';
 
 async function resolveDriverId(req: Request): Promise<string> {
@@ -28,6 +33,24 @@ async function resolveDriverId(req: Request): Promise<string> {
     throw error;
   }
   return driver.id;
+}
+
+function traceRouteError(
+  route: Parameters<typeof logSegmentRouteTrace>[0]['route'],
+  method: string,
+  req: Request,
+  error: unknown
+) {
+  const rideError = error as RideVideoError;
+  logSegmentRouteTrace({
+    route,
+    method,
+    httpStatus: rideError.statusCode ?? 500,
+    bookingId: req.params.bookingId ?? null,
+    sessionId: req.params.sessionId ?? null,
+    segmentId: req.params.segmentId ?? null,
+    errorCode: rideError.code ?? (error instanceof Error ? error.message : 'unknown'),
+  });
 }
 
 export async function createVideoSessionHandler(req: Request, res: Response) {
@@ -43,11 +66,34 @@ export async function getVideoSessionStatusHandler(req: Request, res: Response) 
 
 export async function registerVideoSegmentHandler(req: Request, res: Response) {
   const driverId = await resolveDriverId(req);
-  const result = await registerRideVideoSegment(req.params.sessionId, driverId, {
-    ...req.body,
-    recordedAt: req.body.recordedAt ? new Date(req.body.recordedAt) : undefined,
-  });
-  return sendSuccess(res, result, 201);
+  try {
+    const result = await registerRideVideoSegment(req.params.sessionId, driverId, {
+      ...req.body,
+      recordedAt: req.body.recordedAt ? new Date(req.body.recordedAt) : undefined,
+    });
+    const urlTrace = parseUploadUrlForTrace(result.upload.url);
+    logSegmentRouteTrace({
+      route: 'segment_register',
+      method: 'POST',
+      httpStatus: 201,
+      bookingId: result.segment.bookingId,
+      sessionId: req.params.sessionId,
+      segmentId: result.segment.id,
+      segmentIndex: result.segment.sequenceNumber,
+      uploadStatusBefore: null,
+      uploadStatusAfter: result.segment.uploadStatus,
+      storageKey: result.upload.storageKey,
+      storageExists: false,
+      fileSizeBytes: result.segment.fileSizeBytes,
+      durationMs: result.segment.durationMs,
+      uploadUrlHost: urlTrace.uploadUrlHost,
+      uploadUrlPath: urlTrace.uploadUrlPath,
+    });
+    return sendSuccess(res, result, 201);
+  } catch (error) {
+    traceRouteError('segment_register', 'POST', req, error);
+    throw error;
+  }
 }
 
 export async function uploadRegisteredVideoSegmentHandler(req: Request, res: Response) {
@@ -61,38 +107,95 @@ export async function uploadRegisteredVideoSegmentHandler(req: Request, res: Res
     error.statusCode = 400;
     throw error;
   }
-  const segment = await uploadRideVideoSegment({
-    segmentId: req.params.segmentId,
-    driverId,
-    token: String(req.query.token || ''),
-    mimeType: req.header('content-type') || '',
-    buffer: req.body,
-  });
-  return sendSuccess(res, { segment });
+  try {
+    const segment = await uploadRideVideoSegment({
+      segmentId: req.params.segmentId,
+      driverId,
+      token: String(req.query.token || ''),
+      mimeType: req.header('content-type') || '',
+      buffer: req.body,
+      tokenValidAt: req.uploadRequestStartedAt,
+      tokenPreValidated: req.uploadTokenValidated,
+    });
+    logSegmentRouteTrace({
+      route: 'segment_upload',
+      method: 'PUT',
+      httpStatus: 200,
+      bookingId: segment.bookingId,
+      sessionId: segment.sessionId,
+      segmentId: segment.id,
+      segmentIndex: segment.sequenceNumber,
+      uploadStatusAfter: segment.uploadStatus,
+      storageKey: segment.storageKey,
+      storageExists: true,
+      fileSizeBytes: segment.fileSizeBytes,
+      durationMs: segment.durationMs,
+    });
+    logger.info({
+      event: 'recording.storage_write_complete',
+      segmentId: segment.id,
+      sessionId: segment.sessionId,
+      fileSizeBytes: segment.fileSizeBytes,
+    });
+    return sendSuccess(res, { segment });
+  } catch (error) {
+    traceRouteError('segment_upload', 'PUT', req, error);
+    throw error;
+  }
 }
 
 export async function completeVideoSegmentHandler(req: Request, res: Response) {
   const driverId = await resolveDriverId(req);
-  const segment = await completeRideVideoSegment(
-    req.params.sessionId,
-    req.params.segmentId,
-    driverId,
-    req.body
-  );
-  return sendSuccess(res, { segment });
+  try {
+    const segment = await completeRideVideoSegment(
+      req.params.sessionId,
+      req.params.segmentId,
+      driverId,
+      req.body
+    );
+    logSegmentRouteTrace({
+      route: 'segment_complete',
+      method: 'POST',
+      httpStatus: 200,
+      bookingId: segment.bookingId,
+      sessionId: req.params.sessionId,
+      segmentId: segment.id,
+      segmentIndex: segment.sequenceNumber,
+      uploadStatusAfter: segment.uploadStatus,
+      storageKey: segment.storageKey,
+      storageExists: true,
+      fileSizeBytes: segment.fileSizeBytes,
+      durationMs: segment.durationMs,
+    });
+    return sendSuccess(res, { segment });
+  } catch (error) {
+    traceRouteError('segment_complete', 'POST', req, error);
+    throw error;
+  }
 }
 
 export async function failVideoSegmentHandler(req: Request, res: Response) {
   const driverId = await resolveDriverId(req);
-  return sendSuccess(
-    res,
-    await failRideVideoSegment(
+  try {
+    const result = await failRideVideoSegment(
       req.params.sessionId,
       req.params.segmentId,
       driverId,
       req.body.reason
-    )
-  );
+    );
+    logSegmentRouteTrace({
+      route: 'segment_failed',
+      method: 'POST',
+      httpStatus: 200,
+      sessionId: req.params.sessionId,
+      segmentId: req.params.segmentId,
+      uploadStatusAfter: result.segment.uploadStatus,
+    });
+    return sendSuccess(res, result);
+  } catch (error) {
+    traceRouteError('segment_failed', 'POST', req, error);
+    throw error;
+  }
 }
 
 export async function listVideoSegmentsHandler(req: Request, res: Response) {
@@ -102,6 +205,12 @@ export async function listVideoSegmentsHandler(req: Request, res: Response) {
     driverId,
     req.query.status as string | undefined
   );
+  logSegmentRouteTrace({
+    route: 'segment_list',
+    method: 'GET',
+    httpStatus: 200,
+    sessionId: req.params.sessionId,
+  });
   return sendSuccess(res, { segments });
 }
 
@@ -121,9 +230,20 @@ export async function resumeVideoSessionHandler(req: Request, res: Response) {
 
 export async function finalizeVideoSessionHandler(req: Request, res: Response) {
   const driverId = await resolveDriverId(req);
-  return sendSuccess(res, {
-    session: await finalizeRideVideoSession(req.params.sessionId, driverId),
-  });
+  try {
+    const session = await finalizeRideVideoSession(req.params.sessionId, driverId);
+    logSegmentRouteTrace({
+      route: 'session_finalize',
+      method: 'POST',
+      httpStatus: 200,
+      sessionId: req.params.sessionId,
+      bookingId: session.bookingId,
+    });
+    return sendSuccess(res, { session });
+  } catch (error) {
+    traceRouteError('session_finalize', 'POST', req, error);
+    throw error;
+  }
 }
 
 export async function adminBookingVideoHandler(req: Request, res: Response) {

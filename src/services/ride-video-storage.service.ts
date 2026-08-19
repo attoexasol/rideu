@@ -14,10 +14,28 @@ interface StorageTokenPayload {
 }
 
 const developmentSigningSecret = randomBytes(32).toString('hex');
+let warnedUnstableVideoSigningSecret = false;
 
 function signingSecret(): string {
-  return process.env.VIDEO_SIGNING_SECRET || process.env.JWT_SECRET || developmentSigningSecret;
+  const configured = process.env.VIDEO_SIGNING_SECRET || process.env.JWT_SECRET;
+  if (configured) return configured;
+  if (!warnedUnstableVideoSigningSecret) {
+    warnedUnstableVideoSigningSecret = true;
+    console.warn(
+      '[ride-video] VIDEO_SIGNING_SECRET/JWT_SECRET unset — using ephemeral dev secret; upload tokens invalidate on server restart'
+    );
+  }
+  return developmentSigningSecret;
 }
+
+export type StorageTokenFailureReason =
+  | 'malformed'
+  | 'bad_signature'
+  | 'purpose_mismatch'
+  | 'segment_mismatch'
+  | 'storage_key_mismatch'
+  | 'driver_mismatch'
+  | 'expired';
 
 function signature(encodedPayload: string): string {
   return createHmac('sha256', signingSecret()).update(encodedPayload).digest('base64url');
@@ -32,10 +50,15 @@ export function verifyStorageToken(
   token: string,
   expected: Pick<StorageTokenPayload, 'purpose' | 'segmentId' | 'storageKey'> & {
     driverId?: string;
+    /** Unix seconds — token must not expire before this instant (defaults to now). */
+    validAt?: number;
   }
 ): StorageTokenPayload {
+  const validAt = expected.validAt ?? Math.floor(Date.now() / 1000);
   const [encodedPayload, providedSignature] = token.split('.');
-  if (!encodedPayload || !providedSignature) throw new Error('Invalid video storage token');
+  if (!encodedPayload || !providedSignature) {
+    throw new StorageTokenError('malformed', 'Invalid video storage token');
+  }
 
   const expectedSignature = signature(encodedPayload);
   const providedBuffer = Buffer.from(providedSignature);
@@ -44,28 +67,41 @@ export function verifyStorageToken(
     providedBuffer.length !== expectedBuffer.length ||
     !timingSafeEqual(providedBuffer, expectedBuffer)
   ) {
-    throw new Error('Invalid video storage token');
+    throw new StorageTokenError('bad_signature', 'Invalid video storage token');
   }
 
   let payload: StorageTokenPayload;
   try {
     payload = JSON.parse(Buffer.from(encodedPayload, 'base64url').toString('utf8'));
   } catch {
-    throw new Error('Invalid video storage token');
+    throw new StorageTokenError('malformed', 'Invalid video storage token');
   }
 
-  if (
-    payload.purpose !== expected.purpose ||
-    payload.segmentId !== expected.segmentId ||
-    payload.storageKey !== expected.storageKey ||
-    (expected.driverId && payload.driverId !== expected.driverId)
-  ) {
-    throw new Error('Video storage token does not match this resource');
+  if (payload.purpose !== expected.purpose) {
+    throw new StorageTokenError('purpose_mismatch', 'Video storage token does not match this resource');
   }
-  if (!Number.isFinite(payload.exp) || payload.exp <= Math.floor(Date.now() / 1000)) {
-    throw new Error('Video storage token has expired');
+  if (payload.segmentId !== expected.segmentId) {
+    throw new StorageTokenError('segment_mismatch', 'Video storage token does not match this resource');
+  }
+  if (payload.storageKey !== expected.storageKey) {
+    throw new StorageTokenError('storage_key_mismatch', 'Video storage token does not match this resource');
+  }
+  if (expected.driverId && payload.driverId !== expected.driverId) {
+    throw new StorageTokenError('driver_mismatch', 'Video storage token does not match this resource');
+  }
+  if (!Number.isFinite(payload.exp) || payload.exp <= validAt) {
+    throw new StorageTokenError('expired', 'Video storage token has expired');
   }
   return payload;
+}
+
+export class StorageTokenError extends Error {
+  constructor(
+    public readonly reason: StorageTokenFailureReason,
+    message: string
+  ) {
+    super(message);
+  }
 }
 
 export function createPrivateStorageKey(params: {

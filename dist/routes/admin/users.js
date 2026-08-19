@@ -72,6 +72,8 @@ router.get('/', auth_1.verifyJWT, auth_1.extractUserInfo, rbac_1.requireAdmin, /
         vehicleModel: d.vehicleModel,
         vehicleYear: d.vehicleYear,
         vehicleColor: d.vehicleColor,
+        profileImageUrl: d.profileImageUrl,
+        accountStatus: d.accountStatus,
         createdAt: d.createdAt,
         updatedAt: d.updatedAt,
     });

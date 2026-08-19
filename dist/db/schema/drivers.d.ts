@@ -419,6 +419,44 @@ export declare const drivers: import("drizzle-orm/pg-core").PgTableWithColumns<{
             identity: undefined;
             generated: undefined;
         }, {}, {}>;
+        profileImageUrl: import("drizzle-orm/pg-core").PgColumn<{
+            name: "profile_image_url";
+            tableName: "drivers";
+            dataType: "string";
+            columnType: "PgVarchar";
+            data: string;
+            driverParam: string;
+            notNull: false;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {
+            length: 500;
+        }>;
+        accountStatus: import("drizzle-orm/pg-core").PgColumn<{
+            name: "account_status";
+            tableName: "drivers";
+            dataType: "string";
+            columnType: "PgVarchar";
+            data: string;
+            driverParam: string;
+            notNull: true;
+            hasDefault: true;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {
+            length: 30;
+        }>;
         createdAt: import("drizzle-orm/pg-core").PgColumn<{
             name: "created_at";
             tableName: "drivers";

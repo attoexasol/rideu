@@ -32,6 +32,7 @@ import { generateQrImage } from '../utils/qrImage';
 import { realtimeCache } from '../config/redis';
 import { emitDutyEnded, emitDutyStarted } from './dutyNotify.service';
 import { APPROVED_VEHICLE_STATUSES, ACTIVE_DUTY_STATUS } from '../config/duty';
+import { isDeactivatedAccount } from './accountStatus.service';
 
 export class DutyError extends Error {
   constructor(
@@ -130,6 +131,10 @@ export async function startDuty(input: DutyStartInput): Promise<DutyStartResult>
   const driver = driverRows[0];
   if (!driver) {
     throw new DutyError('DRIVER_NOT_FOUND', 'Driver not found', 404);
+  }
+
+  if (isDeactivatedAccount(driver.accountStatus)) {
+    throw new DutyError('ACCOUNT_DEACTIVATED', 'This account has been deactivated', 403);
   }
 
   const membership = await findActiveFleetMembershipForDriver(input.driverId);

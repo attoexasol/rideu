@@ -192,4 +192,115 @@ describe('driver booking route authorization and payload', () => {
       expect.objectContaining({ allowGenerate: false })
     );
   });
+
+  it('historical assigned detail includes timestamps, payment, vehicle, recording', async () => {
+    const { getDriverBookingDetailForDriver } = await import(
+      '../src/services/driverBooking.service'
+    );
+    mockFindBookingById.mockResolvedValue({
+      id: bookingId,
+      assignedDriverId: driverId,
+      status: BookingStatus.COMPLETED,
+    });
+    mockGetBookingDetail.mockResolvedValue({
+      booking: {
+        id: bookingId,
+        customerId: 'cust-1',
+        bookingNumber: 'BK1',
+        status: BookingStatus.COMPLETED,
+        recordingConsentedAt: null,
+        pickupLatitude: '23.81',
+        pickupLongitude: '90.41',
+        pickupAddress: 'A',
+        pickupSpotLabel: null,
+        dropoffLatitude: '23.75',
+        dropoffLongitude: '90.38',
+        dropoffAddress: 'B',
+        finalFare: '120.00',
+        paymentStatus: 'paid',
+        assignedVehicleId: null,
+        serviceCategoryId: 'cat-1',
+        routeEncodedPolyline: 'abc123',
+        estimatedDistanceKm: '11.05',
+        estimatedDurationMin: 26,
+        createdAt: new Date('2026-08-01T10:00:00.000Z'),
+        acceptedAt: new Date('2026-08-01T10:02:00.000Z'),
+        arrivedAt: new Date('2026-08-01T10:10:00.000Z'),
+        startedAt: new Date('2026-08-01T10:12:00.000Z'),
+        completedAt: new Date('2026-08-01T10:40:00.000Z'),
+        cancelledAt: null,
+        cancelledBy: null,
+        cancellationReason: null,
+      },
+      customerName: 'Rider',
+      serviceCode: 'ride',
+      serviceName: 'Ride',
+      paymentMethodCode: 'cash',
+      paymentMethodName: 'Cash',
+      recordingAvailable: true,
+      vehicleId: 'veh-1',
+      vehicleMake: 'Toyota',
+      vehicleModel: 'Axio',
+      vehicleColor: 'Silver',
+      vehiclePlate: 'DHK-1234',
+    });
+
+    const result = await getDriverBookingDetailForDriver(bookingId, driverId);
+    expect(result?.booking.createdAt).toBe('2026-08-01T10:00:00.000Z');
+    expect(result?.booking.completedAt).toBe('2026-08-01T10:40:00.000Z');
+    expect(result?.booking.payment).toEqual({
+      methodCode: 'cash',
+      methodName: 'Cash',
+      status: 'paid',
+    });
+    expect(result?.recording).toEqual({ available: true });
+    expect(result?.passenger).toMatchObject({ id: 'cust-1', name: 'Rider' });
+    expect(mockResolveBookingRoute).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ allowGenerate: false })
+    );
+  });
+
+  it('preserves pending-offer detail access for live dispatch', async () => {
+    const { getDriverBookingDetailForDriver } = await import(
+      '../src/services/driverBooking.service'
+    );
+    mockFindBookingById.mockResolvedValue({
+      id: bookingId,
+      assignedDriverId: null,
+      status: BookingStatus.OFFERED,
+    });
+    mockFindPendingOfferForDriver.mockResolvedValue({ id: 'offer-1' });
+    mockGetBookingDetail.mockResolvedValue({
+      booking: {
+        id: bookingId,
+        customerId: 'cust-1',
+        bookingNumber: 'BK1',
+        status: BookingStatus.OFFERED,
+        recordingConsentedAt: null,
+        pickupLatitude: '23.81',
+        pickupLongitude: '90.41',
+        pickupAddress: 'A',
+        pickupSpotLabel: null,
+        dropoffLatitude: '23.75',
+        dropoffLongitude: '90.38',
+        dropoffAddress: 'B',
+        finalFare: '120.00',
+        assignedVehicleId: null,
+        serviceCategoryId: 'cat-1',
+        routeEncodedPolyline: 'abc123',
+        estimatedDistanceKm: '11.05',
+        estimatedDurationMin: 26,
+        createdAt: new Date('2026-08-01T10:00:00.000Z'),
+      },
+      customerName: 'Rider',
+      serviceCode: 'ride',
+      serviceName: 'Ride',
+    });
+
+    const result = await getDriverBookingDetailForDriver(bookingId, driverId);
+    expect(result).not.toBeNull();
+    expect(result?.passenger).toMatchObject({ displayName: 'Rider' });
+    expect(mockFindPendingOfferForDriver).toHaveBeenCalledWith(bookingId, driverId);
+  });
 });

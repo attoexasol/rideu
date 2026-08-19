@@ -8,6 +8,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.optionalDeviceTracking = exports.trackDriverDevice = void 0;
 const utils_1 = require("../db/utils");
+const accountStatus_service_1 = require("../services/accountStatus.service");
 function getAuthPayload(req) {
     return req.auth?.payload || req.auth;
 }
@@ -80,6 +81,16 @@ const trackDriverDevice = async (req, res, next) => {
                 error: {
                     code: 'NOT_FOUND',
                     message: 'Driver not found',
+                },
+            });
+            return;
+        }
+        if ((0, accountStatus_service_1.isDeactivatedAccount)(driver.accountStatus)) {
+            res.status(403).json({
+                success: false,
+                error: {
+                    code: 'ACCOUNT_DEACTIVATED',
+                    message: 'This account has been deactivated',
                 },
             });
             return;

@@ -65,6 +65,7 @@ import { updateDriverCabIdentifier } from '../services/driverCabIdentifier';
 import { resolveCabFieldsForInsert, resolveCabFieldsForUpdate } from '../utils/cabIdentifier';
 import { generateUniqueDriverQrCode } from '../services/driverQrCode.service';
 import { ensureDriverVehicleQrCode } from '../services/vehicleQrCode.service';
+import { isDeactivatedAccount } from '../services/accountStatus.service';
 
 const router = express.Router();
 
@@ -256,6 +257,8 @@ router.get(
         vehicleModel: drivers.vehicleModel,
         vehicleYear: drivers.vehicleYear,
         vehicleColor: drivers.vehicleColor,
+        profileImageUrl: drivers.profileImageUrl,
+        accountStatus: drivers.accountStatus,
         lastSeen: drivers.lastSeen,
         createdAt: drivers.createdAt,
         updatedAt: drivers.updatedAt,
@@ -651,6 +654,10 @@ router.patch(
 
     if (!isOwnProfile && !isAdmin) {
       return sendError(res, 'UNAUTHORIZED', 'You can only update your own status', 403);
+    }
+
+    if (status === 'online' && isDeactivatedAccount(driver.accountStatus)) {
+      return sendError(res, 'ACCOUNT_DEACTIVATED', 'This account has been deactivated', 403);
     }
 
     if (qrDutyRequired && status === 'online' && isOwnProfile) {

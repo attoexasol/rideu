@@ -32,6 +32,8 @@ export declare const driverUtils: {
         activeDeviceId: string | null;
         activeDeviceInfo: string | null;
         lastLoginAt: Date | null;
+        profileImageUrl: string | null;
+        accountStatus: string;
         createdAt: Date;
         updatedAt: Date;
     }>;
@@ -61,6 +63,8 @@ export declare const driverUtils: {
         activeDeviceId: string | null;
         activeDeviceInfo: string | null;
         lastLoginAt: Date | null;
+        profileImageUrl: string | null;
+        accountStatus: string;
         createdAt: Date;
         updatedAt: Date;
     }>;
@@ -90,6 +94,8 @@ export declare const driverUtils: {
         activeDeviceId: string | null;
         activeDeviceInfo: string | null;
         lastLoginAt: Date | null;
+        profileImageUrl: string | null;
+        accountStatus: string;
         createdAt: Date;
         updatedAt: Date;
     }>;
@@ -119,6 +125,8 @@ export declare const driverUtils: {
         activeDeviceId: string | null;
         activeDeviceInfo: string | null;
         lastLoginAt: Date | null;
+        profileImageUrl: string | null;
+        accountStatus: string;
         createdAt: Date;
         updatedAt: Date;
     }[]>;
@@ -150,6 +158,8 @@ export declare const driverUtils: {
         activeDeviceId: string | null;
         activeDeviceInfo: string | null;
         lastLoginAt: Date | null;
+        profileImageUrl: string | null;
+        accountStatus: string;
         vehicle: never;
     } | null>;
     /**
@@ -183,6 +193,8 @@ export declare const driverUtils: {
         activeDeviceId: string | null;
         activeDeviceInfo: string | null;
         lastLoginAt: Date | null;
+        profileImageUrl: string | null;
+        accountStatus: string;
         createdAt: Date;
         updatedAt: Date;
     }>;
@@ -212,6 +224,8 @@ export declare const driverUtils: {
         activeDeviceId: string | null;
         activeDeviceInfo: string | null;
         lastLoginAt: Date | null;
+        profileImageUrl: string | null;
+        accountStatus: string;
         createdAt: Date;
         updatedAt: Date;
     }>;

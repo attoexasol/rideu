@@ -25,6 +25,9 @@ export interface RateLimitConfig {
   driverOffer: RateLimitBucketConfig;
   driverRecovery: RateLimitBucketConfig;
   videoUpload: RateLimitBucketConfig;
+  profilePatch: RateLimitBucketConfig;
+  avatarUpload: RateLimitBucketConfig;
+  profileDeactivate: RateLimitBucketConfig;
   adminRideVideoList: RateLimitBucketConfig;
   adminRideVideoPlayback: RateLimitBucketConfig;
   adminRideVideoDownload: RateLimitBucketConfig;
@@ -45,6 +48,9 @@ const TIER_DEFAULTS: Record<Exclude<RateLimitTier, 'test'>, TierDefaults> = {
     driverOffer: { windowMs: 60_000, max: 300 },
     driverRecovery: { windowMs: 60_000, max: 300 },
     videoUpload: { windowMs: 60_000, max: 120 },
+    profilePatch: { windowMs: 900_000, max: 30 },
+    avatarUpload: { windowMs: 3_600_000, max: 10 },
+    profileDeactivate: { windowMs: 3_600_000, max: 3 },
     adminRideVideoList: { windowMs: 60_000, max: 300 },
     adminRideVideoPlayback: { windowMs: 60_000, max: 120 },
     adminRideVideoDownload: { windowMs: 60_000, max: 20 },
@@ -61,6 +67,9 @@ const TIER_DEFAULTS: Record<Exclude<RateLimitTier, 'test'>, TierDefaults> = {
     driverOffer: { windowMs: 60_000, max: 300 },
     driverRecovery: { windowMs: 60_000, max: 200 },
     videoUpload: { windowMs: 60_000, max: 120 },
+    profilePatch: { windowMs: 900_000, max: 20 },
+    avatarUpload: { windowMs: 3_600_000, max: 10 },
+    profileDeactivate: { windowMs: 3_600_000, max: 3 },
     adminRideVideoList: { windowMs: 60_000, max: 200 },
     adminRideVideoPlayback: { windowMs: 60_000, max: 90 },
     adminRideVideoDownload: { windowMs: 60_000, max: 10 },
@@ -77,6 +86,9 @@ const TIER_DEFAULTS: Record<Exclude<RateLimitTier, 'test'>, TierDefaults> = {
     driverOffer: { windowMs: 60_000, max: 30 },
     driverRecovery: { windowMs: 60_000, max: 60 },
     videoUpload: { windowMs: 60_000, max: 30 },
+    profilePatch: { windowMs: 900_000, max: 20 },
+    avatarUpload: { windowMs: 3_600_000, max: 10 },
+    profileDeactivate: { windowMs: 86_400_000, max: 3 },
     adminRideVideoList: { windowMs: 60_000, max: 120 },
     adminRideVideoPlayback: { windowMs: 60_000, max: 60 },
     adminRideVideoDownload: { windowMs: 60_000, max: 5 },
@@ -180,6 +192,21 @@ export function loadRateLimitConfig(): RateLimitConfig {
       process.env.VIDEO_UPLOAD_RATE_LIMIT_WINDOW_MS,
       process.env.VIDEO_UPLOAD_RATE_LIMIT_MAX,
       tierDefaults.videoUpload
+    ),
+    profilePatch: bucket(
+      process.env.PROFILE_PATCH_RATE_LIMIT_WINDOW_MS,
+      process.env.PROFILE_PATCH_RATE_LIMIT_MAX,
+      tierDefaults.profilePatch
+    ),
+    avatarUpload: bucket(
+      process.env.AVATAR_UPLOAD_RATE_LIMIT_WINDOW_MS,
+      process.env.AVATAR_UPLOAD_RATE_LIMIT_MAX,
+      tierDefaults.avatarUpload
+    ),
+    profileDeactivate: bucket(
+      process.env.PROFILE_DEACTIVATE_RATE_LIMIT_WINDOW_MS,
+      process.env.PROFILE_DEACTIVATE_RATE_LIMIT_MAX,
+      tierDefaults.profileDeactivate
     ),
     adminRideVideoList: bucket(
       process.env.ADMIN_RIDE_VIDEO_LIST_RATE_LIMIT_WINDOW_MS,

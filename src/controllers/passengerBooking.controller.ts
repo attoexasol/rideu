@@ -31,10 +31,10 @@ import {
   getPassengerActiveBooking,
   formatPassengerBookingSnapshot,
   consentRecording,
-  getCustomerBookings,
   getBookingDetail,
   findBookingById,
 } from '../services/booking.service';
+import { listPassengerRideHistory } from '../services/rideHistory.service';
 import { findNearbyDriversForCategory } from '../services/dispatch.service';
 import { listLiveSegmentsByBooking } from '../services/liveVideo.service';
 import { quoteAllServiceCategories } from '../services/fare.service';
@@ -336,9 +336,10 @@ export async function createBookingHandler(req: Request, res: Response) {
 
 export async function listBookingsHandler(req: Request, res: Response) {
   const user = (req as any).user;
-  const page = Number(req.query.page) || 1;
-  const limit = Number(req.query.limit) || 20;
-  const result = await getCustomerBookings(user.userId, page, limit);
+  const page = Number((req.query as any).page) || 1;
+  const limit = Number((req.query as any).limit) || 20;
+  const filter = ((req.query as any).filter as 'all' | 'completed' | 'cancelled') || 'all';
+  const result = await listPassengerRideHistory(user.userId, page, limit, filter);
   return sendSuccess(res, result.items, 200, {
     pagination: calculatePagination(result.total, page, limit),
   });

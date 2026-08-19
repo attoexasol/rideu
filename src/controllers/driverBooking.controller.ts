@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { sendSuccess, sendError } from '../utils/response';
+import { sendSuccess, sendError, calculatePagination } from '../utils/response';
 import { driverUtils } from '../db/utils';
 import {
   acceptBookingOffer,
@@ -17,6 +17,7 @@ import {
   getDriverBookingDetailForDriver,
   buildOfferEventPayload,
 } from '../services/driverBooking.service';
+import { listDriverRideHistory } from '../services/rideHistory.service';
 import { logger } from '../middleware/logger';
 
 const ACCEPT_REQUEST_TIMEOUT_MS = parseInt(
@@ -60,6 +61,18 @@ export async function listOffersHandler(req: Request, res: Response) {
 
 export async function listPendingOffersHandler(req: Request, res: Response) {
   return listOffersHandler(req, res);
+}
+
+export async function listBookingsHandler(req: Request, res: Response) {
+  const driver = await resolveDriver(req);
+  if (!driver) return sendError(res, 'NOT_FOUND', 'Driver not found', 404);
+  const page = Number((req.query as any).page) || 1;
+  const limit = Number((req.query as any).limit) || 20;
+  const filter = ((req.query as any).filter as 'all' | 'completed' | 'cancelled') || 'all';
+  const result = await listDriverRideHistory(driver.id, page, limit, filter);
+  return sendSuccess(res, result.items, 200, {
+    pagination: calculatePagination(result.total, page, limit),
+  });
 }
 
 export async function getOfferHandler(req: Request, res: Response) {

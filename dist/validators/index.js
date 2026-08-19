@@ -5,8 +5,8 @@
  * All API request validation schemas
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.passengerForgotPasswordSchema = exports.passengerLoginSchema = exports.passengerRegisterSchema = exports.updateAdminUserSchema = exports.createAdminUserSchema = exports.getReportQuerySchema = exports.exportReportQuerySchema = exports.videoIdParamSchema = exports.videoUploadBodySchema = exports.scanPassengerSchema = exports.tripQrImageQuerySchema = exports.tripIdParamSchema = exports.getTripsQuerySchema = exports.updateTripSchema = exports.createTripSchema = exports.getLocationsQuerySchema = exports.submitLocationSchema = exports.cancelExchangeSchema = exports.confirmExchangeSchema = exports.initiateExchangeSchema = exports.exchangeIdParamSchema = exports.forceEndDutySchema = exports.assignDriverFleetSchema = exports.vehicleQrTokenIdParamSchema = exports.patchAdminFleetVehicleSchema = exports.listAdminFleetVehiclesQuerySchema = exports.fleetIdParamSchema = exports.dutyEndSchema = exports.dutyStartSchema = exports.dutyLocationSchema = exports.driverIdPathSchema = exports.checkOutSchema = exports.checkInSchema = exports.scanVehicleSchema = exports.createVehicleSchema = exports.companyCheckInQrQuerySchema = exports.vehicleScanSchema = exports.vehicleQrImageQuerySchema = exports.vehicleQrCodeParamSchema = exports.vehicleIdParamSchema = exports.driverIdParamSchema = exports.driverQrImageQuerySchema = exports.driverQrCodeParamSchema = exports.getDriversQuerySchema = exports.updateDriverStatusSchema = exports.updateDriverSchema = exports.createDriverSchema = exports.refreshTokenSchema = exports.loginSchema = exports.updateCabIdentifierSchema = void 0;
-exports.validate = exports.adminRideVideoPlaybackManifestSchema = exports.adminRideVideoAuditQuerySchema = exports.adminRideVideoSegmentsQuerySchema = exports.adminRideVideoSummaryQuerySchema = exports.adminRideVideoListQuerySchema = exports.videoSegmentListQuerySchema = exports.failVideoSegmentSchema = exports.completeVideoSegmentSchema = exports.registerVideoSegmentSchema = exports.videoSegmentIdParamSchema = exports.videoSegmentParamSchema = exports.videoSessionParamSchema = exports.recordingConsentSchema = exports.liveVideoChunkSchema = exports.placeSuggestionsQuerySchema = exports.nearbyDriversQuerySchema = exports.placeIdParamSchema = exports.updatePlaceSchema = exports.savePlaceSchema = exports.routePreviewSchema = exports.pickupSpotsQuerySchema = exports.reverseGeocodeQuerySchema = exports.placeDetailsQuerySchema = exports.placesAutocompleteQuerySchema = exports.assignDriverCategorySchema = exports.driverBookingStatusSchema = exports.driverCancelBookingSchema = exports.declineOfferSchema = exports.offerIdParamSchema = exports.bookingIdParamSchema = exports.cancelBookingSchema = exports.createBookingSchema = exports.bookingQuoteSchema = exports.longitudeQuerySchema = exports.latitudeQuerySchema = exports.longitudeSchema = exports.latitudeSchema = void 0;
+exports.passengerRegisterSchema = exports.updateAdminUserSchema = exports.createAdminUserSchema = exports.getReportQuerySchema = exports.exportReportQuerySchema = exports.videoIdParamSchema = exports.videoUploadBodySchema = exports.scanPassengerSchema = exports.tripQrImageQuerySchema = exports.tripIdParamSchema = exports.getTripsQuerySchema = exports.updateTripSchema = exports.createTripSchema = exports.getLocationsQuerySchema = exports.submitLocationSchema = exports.cancelExchangeSchema = exports.confirmExchangeSchema = exports.initiateExchangeSchema = exports.exchangeIdParamSchema = exports.forceEndDutySchema = exports.assignDriverFleetSchema = exports.vehicleQrTokenIdParamSchema = exports.patchAdminFleetVehicleSchema = exports.listAdminFleetVehiclesQuerySchema = exports.fleetIdParamSchema = exports.dutyEndSchema = exports.dutyStartSchema = exports.dutyLocationSchema = exports.driverIdPathSchema = exports.checkOutSchema = exports.checkInSchema = exports.scanVehicleSchema = exports.createVehicleSchema = exports.companyCheckInQrQuerySchema = exports.vehicleScanSchema = exports.vehicleQrImageQuerySchema = exports.vehicleQrCodeParamSchema = exports.vehicleIdParamSchema = exports.driverIdParamSchema = exports.driverQrImageQuerySchema = exports.driverQrCodeParamSchema = exports.getDriversQuerySchema = exports.updateDriverStatusSchema = exports.updateDriverSchema = exports.createDriverSchema = exports.registerPassengerPushTokenSchema = exports.registerDriverPushTokenSchema = exports.refreshTokenSchema = exports.loginSchema = exports.updateCabIdentifierSchema = void 0;
+exports.validate = exports.adminRideVideoPlaybackManifestSchema = exports.adminRideVideoAuditQuerySchema = exports.adminRideVideoSegmentsQuerySchema = exports.adminRideVideoSummaryQuerySchema = exports.adminRideVideoListQuerySchema = exports.videoSegmentListQuerySchema = exports.failVideoSegmentSchema = exports.completeVideoSegmentSchema = exports.registerVideoSegmentSchema = exports.videoSegmentIdParamSchema = exports.videoSegmentParamSchema = exports.videoSessionParamSchema = exports.recordingConsentSchema = exports.liveVideoChunkSchema = exports.placeSuggestionsQuerySchema = exports.nearbyDriversQuerySchema = exports.placeIdParamSchema = exports.updatePlaceSchema = exports.savePlaceSchema = exports.routePreviewSchema = exports.pickupSpotsQuerySchema = exports.reverseGeocodeQuerySchema = exports.placeDetailsQuerySchema = exports.placesAutocompleteQuerySchema = exports.assignDriverCategorySchema = exports.driverBookingStatusSchema = exports.driverCancelBookingSchema = exports.declineOfferSchema = exports.offerIdParamSchema = exports.bookingHistoryQuerySchema = exports.bookingIdParamSchema = exports.cancelBookingSchema = exports.createBookingSchema = exports.bookingQuoteSchema = exports.longitudeQuerySchema = exports.latitudeQuerySchema = exports.longitudeSchema = exports.latitudeSchema = exports.passengerForgotPasswordSchema = exports.passengerLoginSchema = void 0;
 const zod_1 = require("zod");
 const cabIdentifier_1 = require("../utils/cabIdentifier");
 Object.defineProperty(exports, "updateCabIdentifierSchema", { enumerable: true, get: function () { return cabIdentifier_1.updateCabIdentifierSchema; } });
@@ -20,6 +20,14 @@ exports.loginSchema = zod_1.z.object({
 });
 exports.refreshTokenSchema = zod_1.z.object({
     refreshToken: zod_1.z.string().min(1, 'Refresh token is required'),
+});
+exports.registerDriverPushTokenSchema = zod_1.z.object({
+    token: zod_1.z.string().min(8, 'FCM registration token is required').max(4096),
+    deviceId: zod_1.z.string().min(1).max(255).optional(),
+});
+exports.registerPassengerPushTokenSchema = zod_1.z.object({
+    token: zod_1.z.string().min(8, 'FCM registration token is required').max(4096),
+    deviceId: zod_1.z.string().min(1).max(255).optional(),
 });
 // ============================================================================
 // Driver Schemas
@@ -419,6 +427,11 @@ exports.cancelBookingSchema = zod_1.z.object({
 });
 exports.bookingIdParamSchema = zod_1.z.object({
     bookingId: zod_1.z.string().uuid(),
+});
+exports.bookingHistoryQuerySchema = zod_1.z.object({
+    page: zod_1.z.coerce.number().int().min(1).optional().default(1),
+    limit: zod_1.z.coerce.number().int().min(1).max(50).optional().default(20),
+    filter: zod_1.z.enum(['all', 'completed', 'cancelled']).optional().default('all'),
 });
 exports.offerIdParamSchema = zod_1.z.object({
     offerId: zod_1.z.string().uuid(),

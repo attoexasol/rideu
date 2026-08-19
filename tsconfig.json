@@ -22,5 +22,11 @@
     "types": ["node", "jest"]
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "tests"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    "tests",
+    "src/scripts/live-deployed-verify.ts",
+    "src/scripts/live-offer-timezone-verify.ts"
+  ]
 }

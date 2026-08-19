@@ -25,6 +25,7 @@ import {
   nearbyDriversQuerySchema,
   placeSuggestionsQuerySchema,
   recordingConsentSchema,
+  bookingHistoryQuerySchema,
 } from '../../../validators';
 import {
   autocompleteHandler,
@@ -161,6 +162,7 @@ router.get(
   requireAuth,
   extractUserInfo,
   requireCustomer,
+  validate(bookingHistoryQuerySchema, 'query'),
   asyncHandler(listBookingsHandler)
 );
 router.get(

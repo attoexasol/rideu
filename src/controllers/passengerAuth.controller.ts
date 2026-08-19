@@ -6,6 +6,7 @@ import {
   logoutPassenger,
   requestPasswordReset,
   PasswordResetError,
+  AccountDeactivatedError,
 } from '../services/passengerAuth.service';
 import { findCustomerById } from '../repositories/customer.repository';
 
@@ -25,6 +26,9 @@ export async function loginHandler(req: Request, res: Response) {
     const result = await loginPassenger(req.body);
     return sendSuccess(res, result);
   } catch (e) {
+    if (e instanceof AccountDeactivatedError) {
+      return sendError(res, e.code, e.message, e.statusCode);
+    }
     return sendError(res, 'AUTH_FAILED', e instanceof Error ? e.message : 'Login failed', 401);
   }
 }
