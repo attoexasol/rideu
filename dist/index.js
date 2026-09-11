@@ -11,6 +11,7 @@ const cors_1 = __importDefault(require("cors"));
 const helmet_1 = __importDefault(require("helmet"));
 // Rate Limiting — centralized config with dedicated per-route limiters
 const rate_limiters_1 = require("./middleware/rate-limiters");
+const rate_limit_debug_1 = require("./middleware/rate-limit-debug");
 const server_1 = require("./websocket/server");
 const bookingNotify_service_1 = require("./services/bookingNotify.service");
 const dispatch_service_1 = require("./services/dispatch.service");
@@ -36,6 +37,7 @@ const vehicles_1 = __importDefault(require("./routes/vehicles"));
 const company_1 = __importDefault(require("./routes/company"));
 const videos_1 = __importDefault(require("./routes/videos"));
 const v1_1 = __importDefault(require("./routes/v1"));
+const stripe_1 = __importDefault(require("./routes/v1/webhooks/stripe"));
 const path_1 = __importDefault(require("path"));
 const video_storage_service_1 = require("./services/video-storage.service");
 const avatar_storage_service_1 = require("./services/avatar-storage.service");
@@ -90,7 +92,11 @@ app.use((0, cors_1.default)({
     ],
     credentials: true,
 }));
+app.use(rate_limit_debug_1.rateLimitRequestCounter);
 app.use(rate_limiters_1.globalRateLimiter);
+// Stripe webhook must receive the raw body for signature verification.
+// Mount before express.json() so JSON parsing does not consume the payload.
+app.use('/api/v1/webhooks/stripe', express_1.default.raw({ type: 'application/json' }), stripe_1.default);
 // Body parsing middleware
 app.use(express_1.default.json());
 app.use(express_1.default.urlencoded({ extended: true }));

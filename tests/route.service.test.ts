@@ -56,6 +56,36 @@ describe('computeRoute', () => {
     expect(route.provider).toBe('google');
   });
 
+  it('accepts United States coordinates without a country restriction', async () => {
+    mockedAxios.post.mockResolvedValue({
+      data: {
+        routes: [
+          {
+            duration: '600s',
+            distanceMeters: 1200,
+            polyline: { encodedPolyline: 'us_route' },
+            viewport: {
+              northeast: { latitude: 40.76, longitude: -73.98 },
+              southwest: { latitude: 40.74, longitude: -73.99 },
+            },
+          },
+        ],
+      },
+    });
+
+    const route = await computeRoute({
+      pickup: { latitude: 40.758, longitude: -73.9855 },
+      dropoff: { latitude: 40.7484, longitude: -73.9857 },
+    });
+
+    expect(route.encodedPolyline).toBe('us_route');
+    const body = mockedAxios.post.mock.calls[0][1] as { origin: unknown };
+    expect(body.origin).toEqual({
+      location: { latLng: { latitude: 40.758, longitude: -73.9855 } },
+    });
+    expect(body).not.toHaveProperty('country');
+  });
+
   it('throws NO_ROUTE_FOUND when polyline missing', async () => {
     mockedAxios.post.mockResolvedValue({ data: { routes: [{}] } });
 

@@ -9,10 +9,16 @@ import driverVehicleExchangeRoutes from './driver/vehicle-exchanges';
 import driverPushRoutes from './driver/push';
 import passengerPushRoutes from './passenger/push';
 import driverProfileRoutes from './driver/profile';
+import driverPayoutRoutes from './driver/payouts';
+import driverPaymentRoutes from './driver/payments';
+import paymentsConfigRoutes from './config';
 import adminBookingRoutes from './admin/booking';
 import adminFleetRoutes from './admin/fleet';
 import adminRideVideoRoutes from './admin/rideVideos';
 import adminPassengerRoutes from './admin/passengers';
+import adminSettingsRoutes from './admin/settings';
+import adminAirportRoutes from './admin/airports';
+import adminMarketRoutes from './admin/markets';
 
 const router = express.Router();
 
@@ -20,7 +26,10 @@ router.use('/passenger/auth', passengerAuthRoutes);
 router.use('/passenger/profile', passengerProfileRoutes);
 router.use('/passenger/push-token', passengerPushRoutes);
 router.use('/passenger', passengerRoutes);
+router.use('/config', paymentsConfigRoutes);
 router.use('/driver/profile', driverProfileRoutes);
+router.use('/driver/payouts', driverPayoutRoutes);
+router.use('/driver/payments', driverPaymentRoutes);
 router.use('/driver/bookings', driverBookingRoutes);
 router.use('/driver/video', driverVideoRoutes);
 router.use('/driver/duty', driverDutyRoutes);
@@ -29,6 +38,9 @@ router.use('/driver/push-token', driverPushRoutes);
 router.use('/admin', adminBookingRoutes);
 router.use('/admin', adminRideVideoRoutes);
 router.use('/admin/passengers', adminPassengerRoutes);
+router.use('/admin/settings', adminSettingsRoutes);
+router.use('/admin/airports', adminAirportRoutes);
+router.use('/admin/markets', adminMarketRoutes);
 router.use('/admin/fleet', adminFleetRoutes);
 
 export default router;

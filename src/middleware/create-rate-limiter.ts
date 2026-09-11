@@ -69,7 +69,15 @@ export function createRateLimiter(options: CreateRateLimiterOptions): RateLimitR
     skipSuccessfulRequests,
     skipFailedRequests,
     handler: ((req, res, _next, handlerOptions) => {
-      logRateLimitExceeded(name, req, handlerOptions);
+      const rateLimitInfo = (req as Request & { rateLimit?: { current?: number; limit?: number } })
+        .rateLimit;
+      const resolvedKey = keyGenerator(req);
+      logRateLimitExceeded(name, req, handlerOptions, {
+        key: resolvedKey,
+        limit: bucket.max,
+        windowMs: bucket.windowMs,
+        currentCount: rateLimitInfo?.current,
+      });
       const resetTime = (handlerOptions as { resetTime?: Date }).resetTime;
       let retryAfterSeconds: number | undefined;
       if (resetTime instanceof Date) {

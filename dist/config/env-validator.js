@@ -9,6 +9,7 @@ exports.getEnvVar = getEnvVar;
 exports.getEnvVarAsNumber = getEnvVarAsNumber;
 exports.getEnvVarAsBoolean = getEnvVarAsBoolean;
 exports.printEnvironmentInfo = printEnvironmentInfo;
+const stripe_1 = require("./stripe");
 const envConfigs = {
     production: {
         required: [
@@ -271,6 +272,19 @@ function validateEnvironment() {
         warnings.forEach((key) => console.warn(`  - ${key}`));
         console.warn('  These variables are optional but recommended.');
     }
+    if ((0, stripe_1.isStripeSecretConfigured)() && (0, stripe_1.getStripePublishableKey)() && !(0, stripe_1.areStripeKeyModesAligned)()) {
+        throw new Error('STRIPE_MODE_MISMATCH: Stripe secret and publishable keys must both be test or both be live. Cash bookings remain available if Stripe keys are removed.');
+    }
+    if (process.env.STRIPE_SECRET_KEY && !process.env.STRIPE_WEBHOOK_SECRET) {
+        console.warn('⚠️  STRIPE_SECRET_KEY is set but STRIPE_WEBHOOK_SECRET is not. Card webhooks will fail until the webhook secret is set. Cash bookings still work.');
+    }
+    if (process.env.STRIPE_SECRET_KEY && !process.env.STRIPE_CONNECT_DEFAULT_COUNTRY && !process.env.CONNECT_DEFAULT_COUNTRY) {
+        console.warn('⚠️  STRIPE_SECRET_KEY is set but STRIPE_CONNECT_DEFAULT_COUNTRY is not. Driver Connect onboarding will return STRIPE_CONNECT_COUNTRY_REQUIRED. Do not assume BD from BDT fares. Cash bookings still work.');
+    }
+    if (process.env.STRIPE_SECRET_KEY &&
+        (!process.env.STRIPE_CONNECT_RETURN_URL || !process.env.STRIPE_CONNECT_REFRESH_URL)) {
+        console.warn('⚠️  Stripe Connect return/refresh URLs are not fully set. Driver onboarding links will fail until STRIPE_CONNECT_RETURN_URL and STRIPE_CONNECT_REFRESH_URL are configured. Cash bookings still work.');
+    }
     console.log('✅ Environment validation passed\n');
 }
 /**
@@ -344,6 +358,14 @@ function printEnvironmentInfo() {
         : process.env.GOOGLE_APPLICATION_CREDENTIALS
             ? '[SET] (GOOGLE_APPLICATION_CREDENTIALS)'
             : '[NOT SET]'}`);
+    const stripeInfo = (0, stripe_1.describeStripeConfig)();
+    console.log(`  - STRIPE_SECRET_KEY: [${stripeInfo.secretKey}]`);
+    console.log(`  - STRIPE_WEBHOOK_SECRET: [${stripeInfo.webhookSecret}]`);
+    console.log(`  - STRIPE_PUBLISHABLE_KEY: [${stripeInfo.publishableKey}]`);
+    console.log(`  - STRIPE_MODE: ${stripeInfo.mode}`);
+    console.log(`  - STRIPE_CONNECT_DEFAULT_COUNTRY: [${stripeInfo.connectDefaultCountry}]`);
+    console.log(`  - STRIPE_CONNECT_RETURN_URL: [${stripeInfo.connectReturnUrl}]`);
+    console.log(`  - STRIPE_CONNECT_REFRESH_URL: [${stripeInfo.connectRefreshUrl}]`);
     if (nodeEnv === 'production') {
         console.log(`  - SENTRY_DSN: ${process.env.SENTRY_DSN ? '[SET]' : '[NOT SET]'}`);
     }

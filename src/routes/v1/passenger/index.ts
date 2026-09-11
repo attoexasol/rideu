@@ -44,6 +44,7 @@ import {
   listBookingsHandler,
   activeBookingHandler,
   getBookingHandler,
+  getBookingPaymentHandler,
   cancelBookingHandler,
   consentRecordingHandler,
   shareBookingHandler,
@@ -172,6 +173,15 @@ router.get(
   requireCustomer,
   passengerRecoveryRateLimit,
   asyncHandler(activeBookingHandler)
+);
+router.get(
+  '/bookings/:bookingId/payment',
+  requireAuth,
+  extractUserInfo,
+  requireCustomer,
+  passengerRecoveryRateLimit,
+  validate(bookingIdParamSchema, 'params'),
+  asyncHandler(getBookingPaymentHandler)
 );
 router.get(
   '/bookings/:bookingId',

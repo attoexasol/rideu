@@ -25,6 +25,55 @@ import {
 
 export { isGoogleMapsConfigured };
 
+const ISO_ALPHA2 = /^[A-Za-z]{2}$/;
+
+export function normalizePlacesCountryCode(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  if (!ISO_ALPHA2.test(trimmed)) return undefined;
+  return trimmed.toUpperCase();
+}
+
+export function buildAutocompleteProviderParams(
+  input: string,
+  options?: {
+    lat?: number;
+    lng?: number;
+    city?: string;
+    country?: string;
+    sessionToken?: string;
+  },
+  language = 'en'
+): Record<string, string> {
+  const params: Record<string, string> = {
+    input: input.trim(),
+    types: 'establishment|geocode',
+    language,
+  };
+
+  const country = normalizePlacesCountryCode(options?.country);
+  if (country) {
+    params.components = `country:${country}`;
+  }
+  if (options?.city) {
+    const locality = options.city.trim();
+    if (locality) {
+      params.components = params.components
+        ? `${params.components}|locality:${locality}`
+        : `locality:${locality}`;
+    }
+  }
+  if (options?.lat != null && options?.lng != null) {
+    params.location = `${options.lat},${options.lng}`;
+    params.radius = '50000';
+  }
+  if (options?.sessionToken) {
+    params.sessiontoken = options.sessionToken;
+  }
+
+  return params;
+}
+
 function assertConfigured(): void {
   if (!isGoogleMapsConfigured()) {
     throw new GoogleMapsServiceError(
@@ -115,25 +164,7 @@ export async function autocompletePlaces(
   }
 ): Promise<AutocompletePrediction[]> {
   const config = getGoogleMapsConfig();
-  const trimmed = input.trim();
-
-  const params: Record<string, string> = {
-    input: trimmed,
-    types: 'establishment|geocode',
-    language: config.language,
-    components: `country:${options?.country ?? config.defaultCountry}`,
-  };
-
-  if (options?.lat != null && options?.lng != null) {
-    params.location = `${options.lat},${options.lng}`;
-    params.radius = '50000';
-  }
-  if (options?.city) {
-    params.components = `${params.components}|locality:${options.city}`;
-  }
-  if (options?.sessionToken) {
-    params.sessiontoken = options.sessionToken;
-  }
+  const params = buildAutocompleteProviderParams(input, options, config.language);
 
   const data = await getLegacy<{
     status: string;

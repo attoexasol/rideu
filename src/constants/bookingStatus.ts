@@ -17,8 +17,9 @@ export const BookingStatus = {
 
 export type BookingStatusType = (typeof BookingStatus)[keyof typeof BookingStatus];
 
-/** Statuses where the passenger may cancel. */
+/** Statuses where the passenger may cancel. Includes quoted (card payment pending). */
 export const CANCELLABLE_BY_PASSENGER: BookingStatusType[] = [
+  BookingStatus.QUOTED,
   BookingStatus.SEARCHING,
   BookingStatus.OFFERED,
   BookingStatus.DRIVER_EN_ROUTE,
@@ -35,6 +36,7 @@ export const ACTIVE_BOOKING_STATUSES: BookingStatusType[] = [
 
 /** Passenger bookings that block creating another booking or represent an in-flight ride request. */
 export const PASSENGER_ONGOING_BOOKING_STATUSES: BookingStatusType[] = [
+  BookingStatus.QUOTED,
   BookingStatus.SEARCHING,
   BookingStatus.OFFERED,
   BookingStatus.SCHEDULED,

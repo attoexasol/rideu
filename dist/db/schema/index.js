@@ -55,6 +55,13 @@ __exportStar(require("./vehicle_exchange_events"), exports);
 __exportStar(require("./vehicle_exchange_resource_locks"), exports);
 __exportStar(require("./driver_push_tokens"), exports);
 __exportStar(require("./passenger_push_tokens"), exports);
+__exportStar(require("./booking_payments"), exports);
+__exportStar(require("./booking_settlements"), exports);
+__exportStar(require("./settlement_settings"), exports);
+__exportStar(require("./airports"), exports);
+__exportStar(require("./ride_markets"), exports);
+__exportStar(require("./service_category_market_fares"), exports);
+__exportStar(require("./stripe_webhook_events"), exports);
 const drivers_1 = require("./drivers");
 const locations_1 = require("./locations");
 const trips_1 = require("./trips");
@@ -91,6 +98,13 @@ const vehicle_exchange_events_1 = require("./vehicle_exchange_events");
 const vehicle_exchange_resource_locks_1 = require("./vehicle_exchange_resource_locks");
 const driver_push_tokens_1 = require("./driver_push_tokens");
 const passenger_push_tokens_1 = require("./passenger_push_tokens");
+const booking_payments_1 = require("./booking_payments");
+const booking_settlements_1 = require("./booking_settlements");
+const settlement_settings_1 = require("./settlement_settings");
+const airports_1 = require("./airports");
+const ride_markets_1 = require("./ride_markets");
+const service_category_market_fares_1 = require("./service_category_market_fares");
+const stripe_webhook_events_1 = require("./stripe_webhook_events");
 exports.schema = {
     drivers: drivers_1.drivers,
     locations: locations_1.locations,
@@ -128,5 +142,12 @@ exports.schema = {
     vehicleExchangeResourceLocks: vehicle_exchange_resource_locks_1.vehicleExchangeResourceLocks,
     driverPushTokens: driver_push_tokens_1.driverPushTokens,
     passengerPushTokens: passenger_push_tokens_1.passengerPushTokens,
+    bookingPayments: booking_payments_1.bookingPayments,
+    bookingSettlements: booking_settlements_1.bookingSettlements,
+    settlementSettings: settlement_settings_1.settlementSettings,
+    airports: airports_1.airports,
+    rideMarkets: ride_markets_1.rideMarkets,
+    serviceCategoryMarketFares: service_category_market_fares_1.serviceCategoryMarketFares,
+    stripeWebhookEvents: stripe_webhook_events_1.stripeWebhookEvents,
 };
 //# sourceMappingURL=index.js.map

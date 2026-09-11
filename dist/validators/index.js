@@ -6,7 +6,7 @@
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.passengerRegisterSchema = exports.updateAdminUserSchema = exports.createAdminUserSchema = exports.getReportQuerySchema = exports.exportReportQuerySchema = exports.videoIdParamSchema = exports.videoUploadBodySchema = exports.scanPassengerSchema = exports.tripQrImageQuerySchema = exports.tripIdParamSchema = exports.getTripsQuerySchema = exports.updateTripSchema = exports.createTripSchema = exports.getLocationsQuerySchema = exports.submitLocationSchema = exports.cancelExchangeSchema = exports.confirmExchangeSchema = exports.initiateExchangeSchema = exports.exchangeIdParamSchema = exports.forceEndDutySchema = exports.assignDriverFleetSchema = exports.vehicleQrTokenIdParamSchema = exports.patchAdminFleetVehicleSchema = exports.listAdminFleetVehiclesQuerySchema = exports.fleetIdParamSchema = exports.dutyEndSchema = exports.dutyStartSchema = exports.dutyLocationSchema = exports.driverIdPathSchema = exports.checkOutSchema = exports.checkInSchema = exports.scanVehicleSchema = exports.createVehicleSchema = exports.companyCheckInQrQuerySchema = exports.vehicleScanSchema = exports.vehicleQrImageQuerySchema = exports.vehicleQrCodeParamSchema = exports.vehicleIdParamSchema = exports.driverIdParamSchema = exports.driverQrImageQuerySchema = exports.driverQrCodeParamSchema = exports.getDriversQuerySchema = exports.updateDriverStatusSchema = exports.updateDriverSchema = exports.createDriverSchema = exports.registerPassengerPushTokenSchema = exports.registerDriverPushTokenSchema = exports.refreshTokenSchema = exports.loginSchema = exports.updateCabIdentifierSchema = void 0;
-exports.validate = exports.adminRideVideoPlaybackManifestSchema = exports.adminRideVideoAuditQuerySchema = exports.adminRideVideoSegmentsQuerySchema = exports.adminRideVideoSummaryQuerySchema = exports.adminRideVideoListQuerySchema = exports.videoSegmentListQuerySchema = exports.failVideoSegmentSchema = exports.completeVideoSegmentSchema = exports.registerVideoSegmentSchema = exports.videoSegmentIdParamSchema = exports.videoSegmentParamSchema = exports.videoSessionParamSchema = exports.recordingConsentSchema = exports.liveVideoChunkSchema = exports.placeSuggestionsQuerySchema = exports.nearbyDriversQuerySchema = exports.placeIdParamSchema = exports.updatePlaceSchema = exports.savePlaceSchema = exports.routePreviewSchema = exports.pickupSpotsQuerySchema = exports.reverseGeocodeQuerySchema = exports.placeDetailsQuerySchema = exports.placesAutocompleteQuerySchema = exports.assignDriverCategorySchema = exports.driverBookingStatusSchema = exports.driverCancelBookingSchema = exports.declineOfferSchema = exports.offerIdParamSchema = exports.bookingHistoryQuerySchema = exports.bookingIdParamSchema = exports.cancelBookingSchema = exports.createBookingSchema = exports.bookingQuoteSchema = exports.longitudeQuerySchema = exports.latitudeQuerySchema = exports.longitudeSchema = exports.latitudeSchema = exports.passengerForgotPasswordSchema = exports.passengerLoginSchema = void 0;
+exports.validate = exports.upsertMarketFaresSchema = exports.marketCodeParamSchema = exports.airportIdParamSchema = exports.updateAirportSchema = exports.createAirportSchema = exports.updateSettlementSettingsSchema = exports.adminRideVideoPlaybackManifestSchema = exports.adminRideVideoAuditQuerySchema = exports.adminRideVideoSegmentsQuerySchema = exports.adminRideVideoSummaryQuerySchema = exports.adminRideVideoListQuerySchema = exports.videoSegmentListQuerySchema = exports.failVideoSegmentSchema = exports.completeVideoSegmentSchema = exports.registerVideoSegmentSchema = exports.videoSegmentIdParamSchema = exports.videoSegmentParamSchema = exports.videoSessionParamSchema = exports.recordingConsentSchema = exports.liveVideoChunkSchema = exports.placeSuggestionsQuerySchema = exports.nearbyDriversQuerySchema = exports.placeIdParamSchema = exports.updatePlaceSchema = exports.savePlaceSchema = exports.routePreviewSchema = exports.pickupSpotsQuerySchema = exports.reverseGeocodeQuerySchema = exports.placeDetailsQuerySchema = exports.placesAutocompleteQuerySchema = exports.assignDriverCategorySchema = exports.driverBookingStatusSchema = exports.driverCancelBookingSchema = exports.declineOfferSchema = exports.offerIdParamSchema = exports.paymentIdParamSchema = exports.driverPaymentHistoryQuerySchema = exports.bookingHistoryQuerySchema = exports.bookingIdParamSchema = exports.cancelBookingSchema = exports.createBookingSchema = exports.bookingQuoteSchema = exports.longitudeQuerySchema = exports.latitudeQuerySchema = exports.longitudeSchema = exports.latitudeSchema = exports.passengerForgotPasswordSchema = exports.passengerLoginSchema = void 0;
 const zod_1 = require("zod");
 const cabIdentifier_1 = require("../utils/cabIdentifier");
 Object.defineProperty(exports, "updateCabIdentifierSchema", { enumerable: true, get: function () { return cabIdentifier_1.updateCabIdentifierSchema; } });
@@ -359,11 +359,20 @@ const coordinatePointSchema = zod_1.z.object({
 });
 /** Flutter/Dart often sends explicit null for omitted optional strings. */
 const nullishOptionalString = zod_1.z.preprocess((val) => (val === null || val === '' ? undefined : val), zod_1.z.string().optional());
+const optionalCountryCode = zod_1.z
+    .string()
+    .trim()
+    .length(2)
+    .transform((v) => v.toUpperCase())
+    .optional();
 exports.bookingQuoteSchema = zod_1.z.object({
     serviceCategoryId: zod_1.z.string().uuid().optional(),
+    pickupCountryCode: optionalCountryCode,
     pickup: coordinatePointSchema.extend({
         address: zod_1.z.string().optional(),
         spotLabel: nullishOptionalString,
+        placeId: nullishOptionalString,
+        countryCode: optionalCountryCode,
     }),
     dropoff: coordinatePointSchema.extend({
         address: zod_1.z.string().optional(),
@@ -381,9 +390,12 @@ exports.bookingQuoteSchema = zod_1.z.object({
 exports.createBookingSchema = zod_1.z
     .object({
     serviceCategoryId: zod_1.z.string().uuid(),
+    pickupCountryCode: optionalCountryCode,
     pickup: coordinatePointSchema.extend({
         address: zod_1.z.string().min(1),
         spotLabel: nullishOptionalString,
+        placeId: nullishOptionalString,
+        countryCode: optionalCountryCode,
     }),
     dropoff: coordinatePointSchema.extend({
         address: zod_1.z.string().min(1),
@@ -433,6 +445,13 @@ exports.bookingHistoryQuerySchema = zod_1.z.object({
     limit: zod_1.z.coerce.number().int().min(1).max(50).optional().default(20),
     filter: zod_1.z.enum(['all', 'completed', 'cancelled']).optional().default('all'),
 });
+exports.driverPaymentHistoryQuerySchema = zod_1.z.object({
+    page: zod_1.z.coerce.number().int().min(1).optional().default(1),
+    limit: zod_1.z.coerce.number().int().min(1).max(50).optional().default(20),
+});
+exports.paymentIdParamSchema = zod_1.z.object({
+    paymentId: zod_1.z.string().uuid(),
+});
 exports.offerIdParamSchema = zod_1.z.object({
     offerId: zod_1.z.string().uuid(),
 });
@@ -460,7 +479,12 @@ exports.placesAutocompleteQuerySchema = zod_1.z.object({
     lat: exports.latitudeQuerySchema.optional(),
     lng: exports.longitudeQuerySchema.optional(),
     city: zod_1.z.string().trim().max(100).optional(),
-    country: zod_1.z.string().trim().length(2).optional(),
+    country: zod_1.z
+        .string()
+        .trim()
+        .regex(/^[A-Za-z]{2}$/, 'country must be a 2-letter ISO code')
+        .transform((value) => value.toUpperCase())
+        .optional(),
     sessionToken: zod_1.z.string().trim().max(256).optional(),
 });
 exports.placeDetailsQuerySchema = zod_1.z.object({
@@ -629,6 +653,81 @@ exports.adminRideVideoPlaybackManifestSchema = zod_1.z
     .optional()
     .default({});
 const response_1 = require("../utils/response");
+exports.updateSettlementSettingsSchema = zod_1.z
+    .object({
+    driverPercentage: zod_1.z.union([zod_1.z.number(), zod_1.z.string()]),
+    companyPercentage: zod_1.z.union([zod_1.z.number(), zod_1.z.string()]),
+})
+    .strict();
+const airportFeeInput = zod_1.z.union([zod_1.z.number(), zod_1.z.string()]);
+exports.createAirportSchema = zod_1.z
+    .object({
+    code: zod_1.z.string().trim().min(1).max(16),
+    name: zod_1.z.string().trim().min(1).max(255),
+    googlePlaceId: zod_1.z.string().trim().min(1).max(255).optional().nullable(),
+    countryCode: zod_1.z
+        .string()
+        .trim()
+        .length(2)
+        .transform((v) => v.toUpperCase()),
+    currency: zod_1.z
+        .string()
+        .trim()
+        .min(3)
+        .max(10)
+        .transform((v) => v.toUpperCase()),
+    latitude: exports.latitudeSchema,
+    longitude: exports.longitudeSchema,
+    radiusMeters: zod_1.z.number().int().positive(),
+    pickupFee: airportFeeInput,
+    dropoffFee: airportFeeInput,
+    isActive: zod_1.z.boolean().optional().default(true),
+})
+    .strict();
+exports.updateAirportSchema = zod_1.z
+    .object({
+    code: zod_1.z.string().trim().min(1).max(16).optional(),
+    name: zod_1.z.string().trim().min(1).max(255).optional(),
+    googlePlaceId: zod_1.z.string().trim().min(1).max(255).optional().nullable(),
+    countryCode: zod_1.z
+        .string()
+        .trim()
+        .length(2)
+        .transform((v) => v.toUpperCase())
+        .optional(),
+    currency: zod_1.z
+        .string()
+        .trim()
+        .min(3)
+        .max(10)
+        .transform((v) => v.toUpperCase())
+        .optional(),
+    latitude: exports.latitudeSchema.optional(),
+    longitude: exports.longitudeSchema.optional(),
+    radiusMeters: zod_1.z.number().int().positive().optional(),
+    pickupFee: airportFeeInput.optional(),
+    dropoffFee: airportFeeInput.optional(),
+    isActive: zod_1.z.boolean().optional(),
+})
+    .strict();
+exports.airportIdParamSchema = zod_1.z.object({
+    id: zod_1.z.string().uuid(),
+});
+exports.marketCodeParamSchema = zod_1.z.object({
+    code: zod_1.z.string().trim().min(2).max(8),
+});
+exports.upsertMarketFaresSchema = zod_1.z
+    .object({
+    fares: zod_1.z
+        .array(zod_1.z.object({
+        serviceCategoryId: zod_1.z.string().uuid(),
+        baseFare: zod_1.z.union([zod_1.z.number(), zod_1.z.string()]),
+        perKmRate: zod_1.z.union([zod_1.z.number(), zod_1.z.string()]),
+        minFare: zod_1.z.union([zod_1.z.number(), zod_1.z.string()]),
+    }))
+        .min(1),
+})
+    .strict();
 const validate = (schema, source = 'body') => {
     return (req, res, next) => {
         try {

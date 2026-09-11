@@ -39,6 +39,13 @@ export * from './vehicle_exchange_events';
 export * from './vehicle_exchange_resource_locks';
 export * from './driver_push_tokens';
 export * from './passenger_push_tokens';
+export * from './booking_payments';
+export * from './booking_settlements';
+export * from './settlement_settings';
+export * from './airports';
+export * from './ride_markets';
+export * from './service_category_market_fares';
+export * from './stripe_webhook_events';
 
 import { drivers } from './drivers';
 import { locations } from './locations';
@@ -76,6 +83,13 @@ import { vehicleExchangeEvents } from './vehicle_exchange_events';
 import { vehicleExchangeResourceLocks } from './vehicle_exchange_resource_locks';
 import { driverPushTokens } from './driver_push_tokens';
 import { passengerPushTokens } from './passenger_push_tokens';
+import { bookingPayments } from './booking_payments';
+import { bookingSettlements } from './booking_settlements';
+import { settlementSettings } from './settlement_settings';
+import { airports } from './airports';
+import { rideMarkets } from './ride_markets';
+import { serviceCategoryMarketFares } from './service_category_market_fares';
+import { stripeWebhookEvents } from './stripe_webhook_events';
 
 export const schema = {
   drivers,
@@ -114,4 +128,11 @@ export const schema = {
   vehicleExchangeResourceLocks,
   driverPushTokens,
   passengerPushTokens,
+  bookingPayments,
+  bookingSettlements,
+  settlementSettings,
+  airports,
+  rideMarkets,
+  serviceCategoryMarketFares,
+  stripeWebhookEvents,
 };

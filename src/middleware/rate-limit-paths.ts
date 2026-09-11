@@ -17,9 +17,14 @@ const GLOBAL_RATE_LIMIT_SKIP_PATTERNS: RegExp[] = [
   /^\/api\/v1\/passenger\/push-token$/,
   /^\/api\/v1\/driver\/bookings(\/|$)/,
   /^\/api\/v1\/driver\/profile(\/|$)/,
+  /^\/api\/v1\/driver\/payouts(\/|$)/,
+  /^\/api\/v1\/driver\/payments(\/|$)/,
   /^\/api\/v1\/passenger\/profile(\/|$)/,
   /^\/api\/v1\/admin\/ride-videos(\/|$)/,
   /^\/api\/v1\/admin\/bookings\/[0-9a-f-]{36}\/ride-video$/i,
+  /^\/api\/v1\/webhooks\/stripe$/,
+  /^\/api\/v1\/config\/payments$/,
+  /^\/api\/v1\/passenger\/bookings\/[0-9a-f-]{36}\/payment$/i,
 ];
 
 export function shouldSkipGlobalRateLimit(path: string): boolean {

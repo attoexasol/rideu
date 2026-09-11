@@ -1,3 +1,8 @@
+/** Haversine distance in meters between two coordinates. */
+export function haversineMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  return haversineKm(lat1, lon1, lat2, lon2) * 1000;
+}
+
 /** Haversine distance in kilometers between two coordinates. */
 export function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371;

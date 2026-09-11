@@ -29,12 +29,13 @@ export function parseAddressComponents(components: AddressComponent[] = []): {
 
   const countryComp = find('country');
   const postal = find('postal_code');
+  const rawCountryCode = countryComp?.short_name?.trim();
 
   return {
     city,
     district,
     country: countryComp?.long_name ?? null,
-    countryCode: countryComp?.short_name ?? null,
+    countryCode: rawCountryCode ? rawCountryCode.toUpperCase() : null,
     postalCode: postal?.long_name ?? null,
   };
 }

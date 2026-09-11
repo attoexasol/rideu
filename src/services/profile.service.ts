@@ -385,6 +385,8 @@ export async function deactivateDriverAccount(driverId: string): Promise<{ accou
     }
   }
 
+  // Stripe connected accounts belong to the driver's financial identity.
+  // Logout, session invalidation, and deactivation must not delete or detach them.
   await db
     .update(drivers)
     .set({

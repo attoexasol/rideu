@@ -832,23 +832,23 @@ export declare const createAdminUserSchema: z.ZodObject<{
     name: z.ZodString;
     role: z.ZodEnum<["admin", "super_admin"]>;
 }, "strip", z.ZodTypeAny, {
+    role: "admin" | "super_admin";
     name: string;
     email: string;
-    role: "admin" | "super_admin";
 }, {
+    role: "admin" | "super_admin";
     name: string;
     email: string;
-    role: "admin" | "super_admin";
 }>;
 export declare const updateAdminUserSchema: z.ZodObject<{
     name: z.ZodOptional<z.ZodString>;
     role: z.ZodOptional<z.ZodEnum<["admin", "super_admin"]>>;
 }, "strip", z.ZodTypeAny, {
-    name?: string | undefined;
     role?: "admin" | "super_admin" | undefined;
+    name?: string | undefined;
 }, {
-    name?: string | undefined;
     role?: "admin" | "super_admin" | undefined;
+    name?: string | undefined;
 }>;
 export declare const passengerRegisterSchema: z.ZodObject<{
     email: z.ZodEffects<z.ZodString, string, string>;
@@ -889,21 +889,28 @@ export declare const latitudeQuerySchema: z.ZodNumber;
 export declare const longitudeQuerySchema: z.ZodNumber;
 export declare const bookingQuoteSchema: z.ZodObject<{
     serviceCategoryId: z.ZodOptional<z.ZodString>;
+    pickupCountryCode: z.ZodOptional<z.ZodEffects<z.ZodString, string, string>>;
     pickup: z.ZodObject<{
         latitude: z.ZodNumber;
         longitude: z.ZodNumber;
     } & {
         address: z.ZodOptional<z.ZodString>;
         spotLabel: z.ZodEffects<z.ZodOptional<z.ZodString>, string | undefined, unknown>;
+        placeId: z.ZodEffects<z.ZodOptional<z.ZodString>, string | undefined, unknown>;
+        countryCode: z.ZodOptional<z.ZodEffects<z.ZodString, string, string>>;
     }, "strip", z.ZodTypeAny, {
         latitude: number;
         longitude: number;
         address?: string | undefined;
+        placeId?: string | undefined;
+        countryCode?: string | undefined;
         spotLabel?: string | undefined;
     }, {
         latitude: number;
         longitude: number;
         address?: string | undefined;
+        placeId?: unknown;
+        countryCode?: string | undefined;
         spotLabel?: unknown;
     }>;
     dropoff: z.ZodObject<{
@@ -945,6 +952,8 @@ export declare const bookingQuoteSchema: z.ZodObject<{
         latitude: number;
         longitude: number;
         address?: string | undefined;
+        placeId?: string | undefined;
+        countryCode?: string | undefined;
         spotLabel?: string | undefined;
     };
     dropoff: {
@@ -960,11 +969,14 @@ export declare const bookingQuoteSchema: z.ZodObject<{
         placeId?: string | undefined;
     }[];
     serviceCategoryId?: string | undefined;
+    pickupCountryCode?: string | undefined;
 }, {
     pickup: {
         latitude: number;
         longitude: number;
         address?: string | undefined;
+        placeId?: unknown;
+        countryCode?: string | undefined;
         spotLabel?: unknown;
     };
     dropoff: {
@@ -974,6 +986,7 @@ export declare const bookingQuoteSchema: z.ZodObject<{
         placeId?: unknown;
     };
     serviceCategoryId?: string | undefined;
+    pickupCountryCode?: string | undefined;
     stops?: {
         latitude: number;
         longitude: number;
@@ -983,21 +996,28 @@ export declare const bookingQuoteSchema: z.ZodObject<{
 }>;
 export declare const createBookingSchema: z.ZodEffects<z.ZodObject<{
     serviceCategoryId: z.ZodString;
+    pickupCountryCode: z.ZodOptional<z.ZodEffects<z.ZodString, string, string>>;
     pickup: z.ZodObject<{
         latitude: z.ZodNumber;
         longitude: z.ZodNumber;
     } & {
         address: z.ZodString;
         spotLabel: z.ZodEffects<z.ZodOptional<z.ZodString>, string | undefined, unknown>;
+        placeId: z.ZodEffects<z.ZodOptional<z.ZodString>, string | undefined, unknown>;
+        countryCode: z.ZodOptional<z.ZodEffects<z.ZodString, string, string>>;
     }, "strip", z.ZodTypeAny, {
         latitude: number;
         longitude: number;
         address: string;
+        placeId?: string | undefined;
+        countryCode?: string | undefined;
         spotLabel?: string | undefined;
     }, {
         latitude: number;
         longitude: number;
         address: string;
+        placeId?: unknown;
+        countryCode?: string | undefined;
         spotLabel?: unknown;
     }>;
     dropoff: z.ZodObject<{
@@ -1045,6 +1065,8 @@ export declare const createBookingSchema: z.ZodEffects<z.ZodObject<{
         latitude: number;
         longitude: number;
         address: string;
+        placeId?: string | undefined;
+        countryCode?: string | undefined;
         spotLabel?: string | undefined;
     };
     dropoff: {
@@ -1060,12 +1082,15 @@ export declare const createBookingSchema: z.ZodEffects<z.ZodObject<{
         placeId?: string | undefined;
     }[];
     scheduledPickupAt?: string | undefined;
+    pickupCountryCode?: string | undefined;
 }, {
     serviceCategoryId: string;
     pickup: {
         latitude: number;
         longitude: number;
         address: string;
+        placeId?: unknown;
+        countryCode?: string | undefined;
         spotLabel?: unknown;
     };
     dropoff: {
@@ -1076,6 +1101,7 @@ export declare const createBookingSchema: z.ZodEffects<z.ZodObject<{
     };
     schedulingType?: "instant" | "scheduled" | undefined;
     scheduledPickupAt?: string | undefined;
+    pickupCountryCode?: string | undefined;
     paymentMethodCode?: unknown;
     stops?: {
         latitude: number;
@@ -1091,6 +1117,8 @@ export declare const createBookingSchema: z.ZodEffects<z.ZodObject<{
         latitude: number;
         longitude: number;
         address: string;
+        placeId?: string | undefined;
+        countryCode?: string | undefined;
         spotLabel?: string | undefined;
     };
     dropoff: {
@@ -1106,12 +1134,15 @@ export declare const createBookingSchema: z.ZodEffects<z.ZodObject<{
         placeId?: string | undefined;
     }[];
     scheduledPickupAt?: string | undefined;
+    pickupCountryCode?: string | undefined;
 }, {
     serviceCategoryId: string;
     pickup: {
         latitude: number;
         longitude: number;
         address: string;
+        placeId?: unknown;
+        countryCode?: string | undefined;
         spotLabel?: unknown;
     };
     dropoff: {
@@ -1122,6 +1153,7 @@ export declare const createBookingSchema: z.ZodEffects<z.ZodObject<{
     };
     schedulingType?: "instant" | "scheduled" | undefined;
     scheduledPickupAt?: string | undefined;
+    pickupCountryCode?: string | undefined;
     paymentMethodCode?: unknown;
     stops?: {
         latitude: number;
@@ -1159,6 +1191,23 @@ export declare const bookingHistoryQuerySchema: z.ZodObject<{
     filter?: "completed" | "cancelled" | "all" | undefined;
     limit?: number | undefined;
     page?: number | undefined;
+}>;
+export declare const driverPaymentHistoryQuerySchema: z.ZodObject<{
+    page: z.ZodDefault<z.ZodOptional<z.ZodNumber>>;
+    limit: z.ZodDefault<z.ZodOptional<z.ZodNumber>>;
+}, "strip", z.ZodTypeAny, {
+    limit: number;
+    page: number;
+}, {
+    limit?: number | undefined;
+    page?: number | undefined;
+}>;
+export declare const paymentIdParamSchema: z.ZodObject<{
+    paymentId: z.ZodString;
+}, "strip", z.ZodTypeAny, {
+    paymentId: string;
+}, {
+    paymentId: string;
 }>;
 export declare const offerIdParamSchema: z.ZodObject<{
     offerId: z.ZodString;
@@ -1209,7 +1258,7 @@ export declare const placesAutocompleteQuerySchema: z.ZodObject<{
     lat: z.ZodOptional<z.ZodNumber>;
     lng: z.ZodOptional<z.ZodNumber>;
     city: z.ZodOptional<z.ZodString>;
-    country: z.ZodOptional<z.ZodString>;
+    country: z.ZodOptional<z.ZodEffects<z.ZodString, string, string>>;
     sessionToken: z.ZodOptional<z.ZodString>;
 }, "strip", z.ZodTypeAny, {
     input: string;
@@ -1593,14 +1642,14 @@ export declare const adminRideVideoListQuerySchema: z.ZodObject<{
     sortOrder?: "asc" | "desc" | undefined;
     passengerId?: string | undefined;
     consentStatus?: "pending" | "required" | "revoked" | "granted" | "denied" | "not_required" | undefined;
+    processingStatus?: string | undefined;
     driverPhone?: string | undefined;
+    bookingStatus?: string | undefined;
     recordingStatus?: string | undefined;
     page?: number | undefined;
     passengerPhone?: string | undefined;
     vehicleRegistration?: string | undefined;
-    bookingStatus?: string | undefined;
-    uploadHealth?: "healthy" | "unknown" | "delayed" | "missing_segments" | "failed_segments" | "duplicate_segments" | "incomplete" | undefined;
-    processingStatus?: string | undefined;
+    uploadHealth?: "unknown" | "healthy" | "delayed" | "missing_segments" | "failed_segments" | "duplicate_segments" | "incomplete" | undefined;
     retentionStatus?: "active" | "expired" | "deleted" | "expiring_soon" | undefined;
     serviceType?: string | undefined;
     dateFrom?: string | undefined;
@@ -1615,14 +1664,14 @@ export declare const adminRideVideoListQuerySchema: z.ZodObject<{
     sortOrder?: "asc" | "desc" | undefined;
     passengerId?: string | undefined;
     consentStatus?: "pending" | "required" | "revoked" | "granted" | "denied" | "not_required" | undefined;
+    processingStatus?: string | undefined;
     driverPhone?: string | undefined;
+    bookingStatus?: string | undefined;
     recordingStatus?: string | undefined;
     page?: number | undefined;
     passengerPhone?: string | undefined;
     vehicleRegistration?: string | undefined;
-    bookingStatus?: string | undefined;
-    uploadHealth?: "healthy" | "unknown" | "delayed" | "missing_segments" | "failed_segments" | "duplicate_segments" | "incomplete" | undefined;
-    processingStatus?: string | undefined;
+    uploadHealth?: "unknown" | "healthy" | "delayed" | "missing_segments" | "failed_segments" | "duplicate_segments" | "incomplete" | undefined;
     retentionStatus?: "active" | "expired" | "deleted" | "expiring_soon" | undefined;
     serviceType?: string | undefined;
     dateFrom?: string | undefined;
@@ -1694,5 +1743,135 @@ export declare const adminRideVideoPlaybackManifestSchema: z.ZodDefault<z.ZodOpt
  * @param source - Where to find the data ('body', 'query', 'params')
  */
 import { Request, Response, NextFunction } from 'express';
+export declare const updateSettlementSettingsSchema: z.ZodObject<{
+    driverPercentage: z.ZodUnion<[z.ZodNumber, z.ZodString]>;
+    companyPercentage: z.ZodUnion<[z.ZodNumber, z.ZodString]>;
+}, "strict", z.ZodTypeAny, {
+    driverPercentage: string | number;
+    companyPercentage: string | number;
+}, {
+    driverPercentage: string | number;
+    companyPercentage: string | number;
+}>;
+export declare const createAirportSchema: z.ZodObject<{
+    code: z.ZodString;
+    name: z.ZodString;
+    googlePlaceId: z.ZodNullable<z.ZodOptional<z.ZodString>>;
+    countryCode: z.ZodEffects<z.ZodString, string, string>;
+    currency: z.ZodEffects<z.ZodString, string, string>;
+    latitude: z.ZodNumber;
+    longitude: z.ZodNumber;
+    radiusMeters: z.ZodNumber;
+    pickupFee: z.ZodUnion<[z.ZodNumber, z.ZodString]>;
+    dropoffFee: z.ZodUnion<[z.ZodNumber, z.ZodString]>;
+    isActive: z.ZodDefault<z.ZodOptional<z.ZodBoolean>>;
+}, "strict", z.ZodTypeAny, {
+    name: string;
+    latitude: number;
+    longitude: number;
+    isActive: boolean;
+    countryCode: string;
+    code: string;
+    currency: string;
+    radiusMeters: number;
+    pickupFee: string | number;
+    dropoffFee: string | number;
+    googlePlaceId?: string | null | undefined;
+}, {
+    name: string;
+    latitude: number;
+    longitude: number;
+    countryCode: string;
+    code: string;
+    currency: string;
+    radiusMeters: number;
+    pickupFee: string | number;
+    dropoffFee: string | number;
+    isActive?: boolean | undefined;
+    googlePlaceId?: string | null | undefined;
+}>;
+export declare const updateAirportSchema: z.ZodObject<{
+    code: z.ZodOptional<z.ZodString>;
+    name: z.ZodOptional<z.ZodString>;
+    googlePlaceId: z.ZodNullable<z.ZodOptional<z.ZodString>>;
+    countryCode: z.ZodOptional<z.ZodEffects<z.ZodString, string, string>>;
+    currency: z.ZodOptional<z.ZodEffects<z.ZodString, string, string>>;
+    latitude: z.ZodOptional<z.ZodNumber>;
+    longitude: z.ZodOptional<z.ZodNumber>;
+    radiusMeters: z.ZodOptional<z.ZodNumber>;
+    pickupFee: z.ZodOptional<z.ZodUnion<[z.ZodNumber, z.ZodString]>>;
+    dropoffFee: z.ZodOptional<z.ZodUnion<[z.ZodNumber, z.ZodString]>>;
+    isActive: z.ZodOptional<z.ZodBoolean>;
+}, "strict", z.ZodTypeAny, {
+    name?: string | undefined;
+    latitude?: number | undefined;
+    longitude?: number | undefined;
+    isActive?: boolean | undefined;
+    countryCode?: string | undefined;
+    code?: string | undefined;
+    googlePlaceId?: string | null | undefined;
+    currency?: string | undefined;
+    radiusMeters?: number | undefined;
+    pickupFee?: string | number | undefined;
+    dropoffFee?: string | number | undefined;
+}, {
+    name?: string | undefined;
+    latitude?: number | undefined;
+    longitude?: number | undefined;
+    isActive?: boolean | undefined;
+    countryCode?: string | undefined;
+    code?: string | undefined;
+    googlePlaceId?: string | null | undefined;
+    currency?: string | undefined;
+    radiusMeters?: number | undefined;
+    pickupFee?: string | number | undefined;
+    dropoffFee?: string | number | undefined;
+}>;
+export declare const airportIdParamSchema: z.ZodObject<{
+    id: z.ZodString;
+}, "strip", z.ZodTypeAny, {
+    id: string;
+}, {
+    id: string;
+}>;
+export declare const marketCodeParamSchema: z.ZodObject<{
+    code: z.ZodString;
+}, "strip", z.ZodTypeAny, {
+    code: string;
+}, {
+    code: string;
+}>;
+export declare const upsertMarketFaresSchema: z.ZodObject<{
+    fares: z.ZodArray<z.ZodObject<{
+        serviceCategoryId: z.ZodString;
+        baseFare: z.ZodUnion<[z.ZodNumber, z.ZodString]>;
+        perKmRate: z.ZodUnion<[z.ZodNumber, z.ZodString]>;
+        minFare: z.ZodUnion<[z.ZodNumber, z.ZodString]>;
+    }, "strip", z.ZodTypeAny, {
+        baseFare: string | number;
+        perKmRate: string | number;
+        minFare: string | number;
+        serviceCategoryId: string;
+    }, {
+        baseFare: string | number;
+        perKmRate: string | number;
+        minFare: string | number;
+        serviceCategoryId: string;
+    }>, "many">;
+}, "strict", z.ZodTypeAny, {
+    fares: {
+        baseFare: string | number;
+        perKmRate: string | number;
+        minFare: string | number;
+        serviceCategoryId: string;
+    }[];
+}, {
+    fares: {
+        baseFare: string | number;
+        perKmRate: string | number;
+        minFare: string | number;
+        serviceCategoryId: string;
+    }[];
+}>;
 export declare const validate: (schema: z.ZodSchema, source?: "body" | "query" | "params") => (req: Request, res: Response, next: NextFunction) => void;
 //# sourceMappingURL=index.d.ts.map

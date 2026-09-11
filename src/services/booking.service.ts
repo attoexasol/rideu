@@ -13,6 +13,7 @@ import {
   BookingOfferStatus,
   CANCELLABLE_BY_PASSENGER,
 } from '../constants/bookingStatus';
+import { resolveBookingCurrency } from '../constants/payment';
 import {
   updateBooking,
   findBookingById,
@@ -24,8 +25,18 @@ import {
   findIdempotencyRecord,
 } from '../repositories/booking.repository';
 import { findPaymentMethodByCode } from '../repositories/serviceCategory.repository';
+import { findBookingPaymentByBookingId } from '../repositories/bookingPayment.repository';
+import {
+  assertCardPaymentAllowed,
+  captureAuthorizedBookingPayment,
+  prepareCardPaymentForBooking,
+  recordCompletedCashBookingPayment,
+  releaseCardPaymentAuthorization,
+  type CardPaymentClientView,
+} from './payment.service';
 import { quoteSingleCategory } from './fare.service';
 import { startDispatch, clearDispatchTimer } from './dispatch.service';
+import { shouldStartDispatchOnBookingCreate } from './cardBookingActivation.service';
 import {
   emitBookingStatus,
   emitRecordingConsent,
@@ -89,8 +100,16 @@ export async function getPassengerActiveBooking(customerId: string) {
 export interface CreateBookingInput {
   customerId: string;
   serviceCategoryId: string;
-  pickup: { latitude: number; longitude: number; address: string; spotLabel?: string };
+  pickup: {
+    latitude: number;
+    longitude: number;
+    address: string;
+    spotLabel?: string;
+    placeId?: string;
+    countryCode?: string;
+  };
   dropoff: { latitude: number; longitude: number; address: string; placeId?: string };
+  pickupCountryCode?: string;
   stops?: { latitude: number; longitude: number; address: string; placeId?: string }[];
   paymentMethodCode?: string;
   schedulingType?: 'instant' | 'scheduled';
@@ -112,11 +131,14 @@ export async function createBookingQuote(input: CreateBookingInput) {
       latitude: input.pickup.latitude,
       longitude: input.pickup.longitude,
       address: input.pickup.address,
+      placeId: input.pickup.placeId,
+      countryCode: input.pickup.countryCode ?? input.pickupCountryCode,
     },
     {
       latitude: input.dropoff.latitude,
       longitude: input.dropoff.longitude,
       address: input.dropoff.address,
+      placeId: input.dropoff.placeId,
     },
     waypoints
   );
@@ -134,12 +156,29 @@ export async function createBookingQuote(input: CreateBookingInput) {
   };
 }
 
-export async function confirmBooking(input: CreateBookingInput) {
+export type ConfirmBookingResult = {
+  booking: Awaited<ReturnType<typeof findBookingById>> & object;
+  payment?: CardPaymentClientView;
+};
+
+export async function confirmBooking(input: CreateBookingInput): Promise<ConfirmBookingResult> {
   if (input.idempotencyKey) {
     const existing = await findIdempotencyRecord(input.customerId, input.idempotencyKey);
     if (existing?.bookingId) {
       const booking = await findBookingById(existing.bookingId);
-      if (booking) return booking;
+      if (booking) {
+        const paymentCode = (input.paymentMethodCode ?? 'cash').toLowerCase();
+        if (paymentCode === 'card') {
+          const payment = await prepareCardPaymentForBooking({
+            bookingId: booking.id,
+            passengerId: input.customerId,
+            finalFare: booking.finalFare,
+            currency: resolveBookingCurrency(booking),
+          });
+          return { booking, payment };
+        }
+        return { booking };
+      }
     }
   }
 
@@ -153,9 +192,17 @@ export async function confirmBooking(input: CreateBookingInput) {
   if (!payment) {
     throw new Error('Payment method not found');
   }
+  assertCardPaymentAllowed(payment.code);
 
+  const isCard = payment.code === 'card';
   const isScheduled = input.schedulingType === 'scheduled' && input.scheduledPickupAt;
-  const initialStatus = isScheduled ? BookingStatus.SCHEDULED : BookingStatus.SEARCHING;
+  const initialStatus = isCard
+    ? isScheduled
+      ? BookingStatus.SCHEDULED
+      : BookingStatus.QUOTED
+    : isScheduled
+      ? BookingStatus.SCHEDULED
+      : BookingStatus.SEARCHING;
   const idempotencyExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
   const booking = await db.transaction(async (tx) => {
@@ -172,6 +219,7 @@ export async function confirmBooking(input: CreateBookingInput) {
         pickupLongitude: String(input.pickup.longitude),
         pickupAddress: input.pickup.address,
         pickupSpotLabel: input.pickup.spotLabel ?? null,
+        pickupPlaceId: input.pickup.placeId ?? null,
         dropoffLatitude: String(input.dropoff.latitude),
         dropoffLongitude: String(input.dropoff.longitude),
         dropoffAddress: input.dropoff.address,
@@ -182,12 +230,21 @@ export async function confirmBooking(input: CreateBookingInput) {
         originalFare: String(quote.originalFare),
         promotionId: quote.promotionId,
         discountAmount: String(quote.discountAmount),
+        regularTripFare: String(quote.regularFare),
+        airportFeeAmount: String(quote.airportFee),
+        currency: quote.currency,
+        marketCode: quote.marketCode ?? null,
+        pickupCountryCode: quote.pickupCountryCode ?? null,
+        airportId: quote.airport?.id ?? null,
+        airportCodeSnapshot: quote.airport?.code ?? null,
+        airportNameSnapshot: quote.airport?.name ?? null,
+        airportTripType: quote.airport?.tripType ?? null,
         finalFare: String(quote.finalFare),
         routeEncodedPolyline: quote.encodedPolyline ?? null,
         paymentMethodId: payment.id,
         paymentStatus: 'pending',
         shareToken: generateShareToken(),
-        searchStartedAt: isScheduled ? null : new Date(),
+        searchStartedAt: initialStatus === BookingStatus.SEARCHING ? new Date() : null,
       })
       .returning();
 
@@ -242,11 +299,21 @@ export async function confirmBooking(input: CreateBookingInput) {
     return created;
   });
 
-  if (!isScheduled) {
+  if (isCard) {
+    const cardPayment = await prepareCardPaymentForBooking({
+      bookingId: booking.id,
+      passengerId: input.customerId,
+      finalFare: booking.finalFare,
+      currency: quote.currency,
+    });
+    return { booking, payment: cardPayment };
+  }
+
+  if (shouldStartDispatchOnBookingCreate({ isScheduled: Boolean(isScheduled), paymentMethodCode: payment.code })) {
     await startDispatch(booking.id);
   }
 
-  return booking;
+  return { booking };
 }
 
 export async function cancelBookingByCustomer(
@@ -268,6 +335,7 @@ export async function cancelBookingByCustomer(
     if (existing?.bookingId) {
       const prior = await findBookingById(existing.bookingId);
       if (prior?.status === BookingStatus.CANCELLED) {
+        await releaseCardPaymentAuthorization(bookingId);
         return prior;
       }
     }
@@ -282,6 +350,7 @@ export async function cancelBookingByCustomer(
   }
 
   if (booking.status === BookingStatus.CANCELLED) {
+    await releaseCardPaymentAuthorization(bookingId);
     return booking;
   }
 
@@ -414,6 +483,7 @@ export async function cancelBookingByCustomer(
   }
 
   if (!didCancel) {
+    await releaseCardPaymentAuthorization(bookingId);
     return updated;
   }
 
@@ -447,6 +517,7 @@ export async function cancelBookingByCustomer(
   const { finalizeRideVideoSessionsForBooking } = await import('./rideVideo.service');
   await finalizeRideVideoSessionsForBooking(bookingId, 'Booking cancelled by passenger');
 
+  await releaseCardPaymentAuthorization(bookingId);
   return updated;
 }
 
@@ -530,12 +601,28 @@ export async function updateBookingStatusByDriver(
   if (!booking) throw new Error('Booking not found');
   if (booking.assignedDriverId !== driverId) throw new Error('Access denied');
 
+  if (booking.status === BookingStatus.COMPLETED && newStatus === BookingStatus.COMPLETED) {
+    await captureAuthorizedBookingPayment(bookingId);
+    await recordCompletedCashBookingPayment({
+      bookingId,
+      finalFare: booking.finalFare,
+      currency: booking.currency,
+      completedAt: booking.completedAt,
+    });
+    return (await findBookingById(bookingId)) ?? booking;
+  }
+
   const allowed = DRIVER_STATUS_TRANSITIONS[booking.status] ?? [];
   if (!allowed.includes(newStatus)) {
     throw new Error(`Cannot transition from ${booking.status} to ${newStatus}`);
   }
 
   const patch: Record<string, unknown> = { status: newStatus };
+  const cardPayment =
+    newStatus === BookingStatus.COMPLETED
+      ? await findBookingPaymentByBookingId(bookingId)
+      : null;
+  const isCard = cardPayment?.paymentMethod === 'card';
 
   if (newStatus === BookingStatus.ARRIVED) {
     patch.arrivedAt = new Date();
@@ -561,7 +648,9 @@ export async function updateBookingStatusByDriver(
 
   if (newStatus === BookingStatus.COMPLETED) {
     patch.completedAt = new Date();
-    patch.paymentStatus = 'paid';
+    if (!isCard) {
+      patch.paymentStatus = 'paid';
+    }
     if (booking.linkedTripId) {
       await db
         .update(trips)
@@ -578,8 +667,8 @@ export async function updateBookingStatusByDriver(
   await insertBookingEvent({
     bookingId,
     actorType: 'driver',
-    actorId: driverId,
     eventType: 'status_change',
+    actorId: driverId,
     payload: { from: booking.status, to: newStatus },
   });
 
@@ -594,6 +683,20 @@ export async function updateBookingStatusByDriver(
       customerId: booking.customerId,
       bookingId,
       event: newStatus,
+    });
+  }
+
+  if (newStatus === BookingStatus.COMPLETED && isCard) {
+    await captureAuthorizedBookingPayment(bookingId);
+    return (await findBookingById(bookingId)) ?? updated;
+  }
+
+  if (newStatus === BookingStatus.COMPLETED && !isCard) {
+    await recordCompletedCashBookingPayment({
+      bookingId,
+      finalFare: booking.finalFare,
+      currency: booking.currency,
+      completedAt: updated.completedAt,
     });
   }
 
@@ -621,6 +724,12 @@ export async function cancelBookingByDriver(bookingId: string, driverId: string,
   const booking = await findBookingById(bookingId);
   if (!booking) throw new Error('Booking not found');
   if (booking.assignedDriverId !== driverId) throw new Error('Access denied');
+
+  if (booking.status === BookingStatus.CANCELLED) {
+    await releaseCardPaymentAuthorization(bookingId);
+    return booking;
+  }
+
   if (!DRIVER_CANCELLABLE_STATUSES.includes(booking.status as any)) {
     throw new Error('Booking cannot be cancelled in the current status');
   }
@@ -655,6 +764,7 @@ export async function cancelBookingByDriver(bookingId: string, driverId: string,
     cancelledBy: 'driver',
   });
 
+  await releaseCardPaymentAuthorization(bookingId);
   return updated;
 }
 

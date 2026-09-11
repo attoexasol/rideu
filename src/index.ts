@@ -5,6 +5,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 // Rate Limiting — centralized config with dedicated per-route limiters
 import { globalRateLimiter } from './middleware/rate-limiters';
+import { rateLimitRequestCounter } from './middleware/rate-limit-debug';
 import { setupWebSocketServer } from './websocket/server';
 import { setupBookingEventSubscriber } from './services/bookingNotify.service';
 import { processExpiredOffers } from './services/dispatch.service';
@@ -31,6 +32,7 @@ import vehicleRoutes from './routes/vehicles';
 import companyRoutes from './routes/company';
 import videoRoutes from './routes/videos';
 import v1Routes from './routes/v1';
+import stripeWebhookRoutes from './routes/v1/webhooks/stripe';
 import path from 'path';
 import { ensureUploadDirectories } from './services/video-storage.service';
 import { ensureAvatarDirectories } from './services/avatar-storage.service';
@@ -93,7 +95,12 @@ app.use(
   })
 );
 
+app.use(rateLimitRequestCounter);
 app.use(globalRateLimiter);
+
+// Stripe webhook must receive the raw body for signature verification.
+// Mount before express.json() so JSON parsing does not consume the payload.
+app.use('/api/v1/webhooks/stripe', express.raw({ type: 'application/json' }), stripeWebhookRoutes);
 
 // Body parsing middleware
 app.use(express.json());

@@ -45,6 +45,21 @@ exports.drivers = (0, pg_core_1.pgTable)('drivers', {
     lastLoginAt: (0, pg_core_1.timestamp)('last_login_at'), // Last successful login timestamp (for Auth0 token iat comparison)
     profileImageUrl: (0, pg_core_1.varchar)('profile_image_url', { length: 500 }),
     accountStatus: (0, pg_core_1.varchar)('account_status', { length: 30 }).default('active').notNull(),
+    // Stripe Connect (payouts). Never store bank numbers, KYC, tax IDs, or Stripe secrets.
+    stripeAccountId: (0, pg_core_1.varchar)('stripe_account_id', { length: 255 }),
+    stripeAccountCountry: (0, pg_core_1.varchar)('stripe_account_country', { length: 2 }),
+    stripeAccountStatus: (0, pg_core_1.varchar)('stripe_account_status', { length: 50 }),
+    stripeDetailsSubmitted: (0, pg_core_1.boolean)('stripe_details_submitted').default(false).notNull(),
+    stripeChargesEnabled: (0, pg_core_1.boolean)('stripe_charges_enabled').default(false).notNull(),
+    stripePayoutsEnabled: (0, pg_core_1.boolean)('stripe_payouts_enabled').default(false).notNull(),
+    stripeRequirementsCurrentlyDue: (0, pg_core_1.jsonb)('stripe_requirements_currently_due')
+        .$type()
+        .default([]),
+    stripeRequirementsEventuallyDue: (0, pg_core_1.jsonb)('stripe_requirements_eventually_due')
+        .$type()
+        .default([]),
+    stripeOnboardingCompletedAt: (0, pg_core_1.timestamp)('stripe_onboarding_completed_at'),
+    stripeLastSyncedAt: (0, pg_core_1.timestamp)('stripe_last_synced_at'),
     createdAt: (0, pg_core_1.timestamp)('created_at').defaultNow().notNull(),
     updatedAt: (0, pg_core_1.timestamp)('updated_at').defaultNow().notNull(),
 }, (table) => ({
@@ -55,5 +70,7 @@ exports.drivers = (0, pg_core_1.pgTable)('drivers', {
     activeSessionIdx: (0, pg_core_1.index)('idx_drivers_active_session').on(table.activeSessionId),
     qrCodeIdx: (0, pg_core_1.index)('idx_drivers_qr_code').on(table.qrCode),
     vehicleQrCodeIdx: (0, pg_core_1.index)('idx_drivers_vehicle_qr_code').on(table.vehicleQrCode),
+    stripeAccountIdUq: (0, pg_core_1.uniqueIndex)('uq_drivers_stripe_account_id').on(table.stripeAccountId),
+    stripeAccountStatusIdx: (0, pg_core_1.index)('idx_drivers_stripe_account_status').on(table.stripeAccountStatus),
 }));
 //# sourceMappingURL=drivers.js.map

@@ -15,6 +15,7 @@ import { vehicles } from './vehicles';
 import { serviceCategories } from './service_categories';
 import { promotions } from './promotions';
 import { paymentMethods } from './payment_methods';
+import { airports } from './airports';
 
 export const bookings = pgTable(
   'bookings',
@@ -34,6 +35,7 @@ export const bookings = pgTable(
     pickupLongitude: decimal('pickup_longitude', { precision: 11, scale: 8 }).notNull(),
     pickupAddress: varchar('pickup_address', { length: 500 }).notNull(),
     pickupSpotLabel: varchar('pickup_spot_label', { length: 255 }),
+    pickupPlaceId: varchar('pickup_place_id', { length: 255 }),
     dropoffLatitude: decimal('dropoff_latitude', { precision: 10, scale: 8 }).notNull(),
     dropoffLongitude: decimal('dropoff_longitude', { precision: 11, scale: 8 }).notNull(),
     dropoffAddress: varchar('dropoff_address', { length: 500 }).notNull(),
@@ -45,6 +47,15 @@ export const bookings = pgTable(
     promotionId: uuid('promotion_id').references(() => promotions.id, { onDelete: 'set null' }),
     discountAmount: decimal('discount_amount', { precision: 10, scale: 2 }),
     finalFare: decimal('final_fare', { precision: 10, scale: 2 }),
+    currency: varchar('currency', { length: 10 }).default('BDT').notNull(),
+    marketCode: varchar('market_code', { length: 8 }),
+    pickupCountryCode: varchar('pickup_country_code', { length: 2 }),
+    regularTripFare: decimal('regular_trip_fare', { precision: 10, scale: 2 }),
+    airportFeeAmount: decimal('airport_fee_amount', { precision: 10, scale: 2 }).default('0').notNull(),
+    airportId: uuid('airport_id').references(() => airports.id, { onDelete: 'set null' }),
+    airportCodeSnapshot: varchar('airport_code_snapshot', { length: 16 }),
+    airportNameSnapshot: varchar('airport_name_snapshot', { length: 255 }),
+    airportTripType: varchar('airport_trip_type', { length: 20 }),
     paymentMethodId: uuid('payment_method_id').references(() => paymentMethods.id),
     paymentStatus: varchar('payment_status', { length: 50 }).default('pending').notNull(),
     assignedDriverId: uuid('assigned_driver_id').references(() => drivers.id, {
@@ -94,6 +105,15 @@ export const bookings = pgTable(
       'bookings_recording_consent_status_check',
       sql`${table.recordingConsentStatus} in ('required', 'granted', 'denied', 'not_required')`
     ),
+    airportTripTypeCheck: check(
+      'bookings_airport_trip_type_check',
+      sql`${table.airportTripType} is null or ${table.airportTripType} in ('pickup', 'dropoff')`
+    ),
+    currencyCheck: check(
+      'bookings_currency_check',
+      sql`${table.currency} in ('BDT', 'USD')`
+    ),
+    airportIdx: index('idx_bookings_airport_id').on(table.airportId),
   })
 );
 

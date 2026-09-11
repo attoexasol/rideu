@@ -7,6 +7,7 @@ import {
   getOfferDetailForDriver,
   type AcceptOfferResult,
 } from '../services/dispatch.service';
+import { PaymentError } from '../services/payment.errors';
 import {
   updateBookingStatusByDriver,
   cancelBookingByDriver,
@@ -187,6 +188,9 @@ export async function updateStatusHandler(req: Request, res: Response) {
     );
     return sendSuccess(res, updated);
   } catch (e: any) {
+    if (e instanceof PaymentError) {
+      return sendError(res, e.code, e.message, e.statusCode);
+    }
     const code =
       e?.code === 'RECORDING_CONSENT_REQUIRED'
         ? 'RECORDING_CONSENT_REQUIRED'
@@ -209,6 +213,9 @@ export async function cancelBookingHandler(req: Request, res: Response) {
     );
     return sendSuccess(res, updated);
   } catch (e) {
+    if (e instanceof PaymentError) {
+      return sendError(res, e.code, e.message, e.statusCode);
+    }
     return sendError(res, 'CANCEL_FAILED', e instanceof Error ? e.message : 'Cancel failed', 400);
   }
 }

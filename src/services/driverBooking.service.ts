@@ -3,6 +3,7 @@ import { drivers, vehicles, serviceCategories } from '../db/schema';
 import { eq } from 'drizzle-orm';
 import { videoConfig } from '../config/video';
 import { BookingStatus } from '../constants/bookingStatus';
+import { resolveBookingCurrency } from '../constants/payment';
 import {
   findActiveBookingByDriver,
   findBookingById,
@@ -169,7 +170,7 @@ async function buildDriverBookingPayload(
       route,
       fare: {
         amount: booking.finalFare ? parseFloat(booking.finalFare) : null,
-        currency: 'BDT',
+        currency: resolveBookingCurrency(booking),
       },
       createdAt: historyFields.createdAt,
       acceptedAt: historyFields.acceptedAt,
@@ -250,7 +251,7 @@ export async function buildOfferEventPayload(
     route,
     fare: {
       amount: booking.finalFare ? parseFloat(booking.finalFare) : null,
-      currency: 'BDT',
+      currency: resolveBookingCurrency(booking),
     },
     passenger: {
       displayName: detail.customerName,

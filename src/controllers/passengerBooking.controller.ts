@@ -20,7 +20,6 @@ import { maskPlateNumber } from '../services/googleMaps/googleMaps.mapper';
 import {
   listActiveServiceCategories,
   listActivePromotions,
-  listPaymentMethods,
 } from '../repositories/serviceCategory.repository';
 import {
   createBookingQuote,
@@ -38,6 +37,15 @@ import { listPassengerRideHistory } from '../services/rideHistory.service';
 import { findNearbyDriversForCategory } from '../services/dispatch.service';
 import { listLiveSegmentsByBooking } from '../services/liveVideo.service';
 import { quoteAllServiceCategories } from '../services/fare.service';
+import { PaymentError } from '../services/payment.errors';
+import { resolveBookingCurrency } from '../constants/payment';
+import {
+  getPassengerPaymentsConfig,
+  listPassengerPaymentMethods,
+  prepareCardPaymentForBooking,
+} from '../services/payment.service';
+import { getBookingPaymentView } from '../services/stripePaymentIntent.service';
+import { activateAuthorizedCardBooking } from '../services/cardBookingActivation.service';
 import { previewRoute } from '../services/route.service';
 
 function mapsConfigGuard(res: Response): boolean {
@@ -233,16 +241,24 @@ export async function servicesHandler(_req: Request, res: Response) {
 }
 
 export async function paymentMethodsHandler(_req: Request, res: Response) {
-  const methods = await listPaymentMethods();
-  return sendSuccess(
-    res,
-    methods.filter((m) => m.isActive)
-  );
+  const methods = await listPassengerPaymentMethods();
+  return sendSuccess(res, methods);
+}
+
+export async function paymentsConfigHandler(_req: Request, res: Response) {
+  try {
+    return sendSuccess(res, getPassengerPaymentsConfig());
+  } catch (error) {
+    if (error instanceof PaymentError) {
+      return sendError(res, error.code, error.message, error.statusCode);
+    }
+    throw error;
+  }
 }
 
 export async function quoteHandler(req: Request, res: Response) {
   try {
-    const { pickup, dropoff, stops, serviceCategoryId } = req.body;
+    const { pickup, dropoff, stops, serviceCategoryId, pickupCountryCode } = req.body;
     const waypoints =
       stops?.map((s: any) => ({
         latitude: s.latitude,
@@ -254,9 +270,14 @@ export async function quoteHandler(req: Request, res: Response) {
       const quote = await createBookingQuote({
         customerId: (req as any).user?.userId ?? 'quote',
         serviceCategoryId,
-        pickup: { ...pickup, address: pickup.address ?? '' },
+        pickup: {
+          ...pickup,
+          address: pickup.address ?? '',
+          countryCode: pickup.countryCode ?? pickupCountryCode,
+        },
         dropoff: { ...dropoff, address: dropoff.address ?? '' },
         stops,
+        pickupCountryCode,
       });
       return sendSuccess(res, {
         route: quote.route,
@@ -275,11 +296,20 @@ export async function quoteHandler(req: Request, res: Response) {
             discountType: quote.discountType,
             discountValue: quote.discountValue,
             discountAmount: quote.discountAmount,
+            regularFare: quote.regularFare,
+            airportFee: quote.airportFee,
             finalFare: quote.finalFare,
+            airport: quote.airport,
             currency: quote.currency,
+            marketCode: quote.marketCode,
             promotion: quote.promotion,
           },
         ],
+        market: {
+          code: quote.marketCode,
+          countryCode: quote.pickupCountryCode,
+          currency: quote.currency,
+        },
       });
     }
 
@@ -293,9 +323,17 @@ export async function quoteHandler(req: Request, res: Response) {
       }
     }
 
-    const result = await quoteAllServiceCategories(pickup, dropoff, waypoints, etaMap);
+    const result = await quoteAllServiceCategories(
+      { ...pickup, countryCode: pickup.countryCode ?? pickupCountryCode },
+      dropoff,
+      waypoints,
+      etaMap
+    );
     return sendSuccess(res, result);
   } catch (error) {
+    if (error instanceof PaymentError) {
+      return sendError(res, error.code, error.message, error.statusCode);
+    }
     return handleGoogleMapsError(res, error);
   }
 }
@@ -305,19 +343,47 @@ export async function createBookingHandler(req: Request, res: Response) {
   const user = (req as any).user;
   try {
     const idempotencyKey = req.header('Idempotency-Key') ?? undefined;
-    const booking = await confirmBooking({
+    const result = await confirmBooking({
       ...req.body,
       customerId: user.userId,
       idempotencyKey,
     });
+    const booking = result.booking;
     console.info('[BookingCreate] success', {
       requestId,
       customerId: user.userId,
       bookingId: booking.id,
       status: booking.status,
+      paymentMethod: result.payment?.method ?? 'cash',
     });
+    if (result.payment) {
+      return sendSuccess(
+        res,
+        {
+          booking,
+          payment: {
+            method: result.payment.method,
+            paymentIntentId: result.payment.paymentIntentId,
+            clientSecret: result.payment.clientSecret,
+            status: result.payment.status,
+          },
+        },
+        201
+      );
+    }
     return sendSuccess(res, booking, 201);
   } catch (e) {
+    if (e instanceof PaymentError) {
+      console.warn('[BookingCreate] failed', {
+        requestId,
+        customerId: user?.userId,
+        code: e.code,
+        message: e.message,
+        status: e.statusCode,
+        serviceCategoryId: req.body?.serviceCategoryId,
+      });
+      return sendError(res, e.code, e.message, e.statusCode);
+    }
     const message = e instanceof Error ? e.message : 'Booking failed';
     const code = message.includes('active booking')
       ? 'ACTIVE_BOOKING_EXISTS'
@@ -351,6 +417,65 @@ export async function activeBookingHandler(req: Request, res: Response) {
   return sendSuccess(res, snapshot);
 }
 
+export async function getBookingPaymentHandler(req: Request, res: Response) {
+  const user = (req as any).user;
+  const booking = await findBookingById(req.params.bookingId);
+  if (!booking || booking.customerId !== user.userId) {
+    return sendError(res, 'NOT_FOUND', 'Booking not found', 404);
+  }
+  try {
+    let payment: Awaited<ReturnType<typeof getBookingPaymentView>> | undefined;
+    try {
+      payment = await getBookingPaymentView(booking.id, { reconcile: true });
+    } catch (error) {
+      if (!(error instanceof PaymentError) || error.code !== 'PAYMENT_NOT_FOUND') {
+        throw error;
+      }
+    }
+
+    if (
+      (!payment && booking.status === 'quoted') ||
+      (payment?.paymentMethod === 'card' && !payment.paymentIntentId)
+    ) {
+      const created = await prepareCardPaymentForBooking({
+        bookingId: booking.id,
+        passengerId: user.userId,
+        finalFare: booking.finalFare,
+        currency: resolveBookingCurrency(booking),
+      });
+      payment = {
+        paymentMethod: created.method,
+        status: created.status,
+        paymentIntentId: created.paymentIntentId,
+        amount: created.amount,
+        currency: created.currency,
+        clientSecret: created.clientSecret,
+      };
+    }
+
+    if (!payment) {
+      return sendError(res, 'PAYMENT_NOT_FOUND', 'No payment record for this booking.', 404);
+    }
+
+    if (payment.paymentIntentId && payment.status === 'authorized') {
+      await activateAuthorizedCardBooking(booking.id);
+    }
+    return sendSuccess(res, {
+      paymentMethod: payment.paymentMethod,
+      status: payment.status,
+      paymentIntentId: payment.paymentIntentId,
+      amount: payment.amount,
+      currency: payment.currency,
+      ...(payment.clientSecret ? { clientSecret: payment.clientSecret } : {}),
+    });
+  } catch (error) {
+    if (error instanceof PaymentError) {
+      return sendError(res, error.code, error.message, error.statusCode);
+    }
+    throw error;
+  }
+}
+
 export async function getBookingHandler(req: Request, res: Response) {
   const user = (req as any).user;
   const detail = await getBookingDetail(req.params.bookingId);
@@ -372,6 +497,9 @@ export async function cancelBookingHandler(req: Request, res: Response) {
     return sendSuccess(res, formatPassengerCancelResponse(updated));
   } catch (e) {
     if (e instanceof BookingCancellationError) {
+      return sendError(res, e.code, e.message, e.statusCode);
+    }
+    if (e instanceof PaymentError) {
       return sendError(res, e.code, e.message, e.statusCode);
     }
     return sendError(res, 'CANCEL_FAILED', e instanceof Error ? e.message : 'Cancel failed', 400);

@@ -135,6 +135,32 @@ describe('global rate limit skip paths', () => {
     ).toBe(true);
   });
 
+  it('skips Stripe webhook endpoint', () => {
+    expect(shouldSkipGlobalRateLimit('/api/v1/webhooks/stripe')).toBe(true);
+  });
+
+  it('skips passenger payment config and booking payment status', () => {
+    expect(shouldSkipGlobalRateLimit('/api/v1/config/payments')).toBe(true);
+    expect(
+      shouldSkipGlobalRateLimit(
+        '/api/v1/passenger/bookings/11111111-1111-1111-1111-111111111111/payment'
+      )
+    ).toBe(true);
+  });
+
+  it('skips driver payout endpoints', () => {
+    expect(shouldSkipGlobalRateLimit('/api/v1/driver/payouts/onboarding-link')).toBe(true);
+    expect(shouldSkipGlobalRateLimit('/api/v1/driver/payouts/status')).toBe(true);
+  });
+
+  it('skips driver payment history endpoints', () => {
+    expect(shouldSkipGlobalRateLimit('/api/v1/driver/payments')).toBe(true);
+    expect(shouldSkipGlobalRateLimit('/api/v1/driver/payments/summary')).toBe(true);
+    expect(
+      shouldSkipGlobalRateLimit('/api/v1/driver/payments/11111111-1111-1111-1111-111111111111')
+    ).toBe(true);
+  });
+
   it('skips auth endpoints', () => {
     expect(shouldSkipGlobalRateLimit('/api/auth/login')).toBe(true);
     expect(shouldSkipGlobalRateLimit('/api/auth/refresh')).toBe(true);

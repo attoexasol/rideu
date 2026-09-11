@@ -1,9 +1,12 @@
 import {
   boundsFromCoordinates,
   mapAutocompletePrediction,
+  mapGeocodeResult,
   mapGoogleViewport,
+  mapPlaceDetailsResult,
   maskPlateNumber,
   metersToKm,
+  parseAddressComponents,
   parseDurationSeconds,
   secondsToMinutes,
 } from '../src/services/googleMaps/googleMaps.mapper';
@@ -53,5 +56,41 @@ describe('googleMaps.mapper', () => {
   it('masks plate numbers', () => {
     expect(maskPlateNumber('DHK-1234')).toBe('DHK-****');
     expect(maskPlateNumber(null)).toBeNull();
+  });
+
+  it('uppercases countryCode from structured country components', () => {
+    expect(
+      parseAddressComponents([
+        { long_name: 'Bangladesh', short_name: 'bd', types: ['country', 'political'] },
+      ]).countryCode
+    ).toBe('BD');
+    expect(
+      parseAddressComponents([
+        { long_name: 'United States', short_name: 'us', types: ['country', 'political'] },
+      ]).countryCode
+    ).toBe('US');
+  });
+
+  it('maps reverse geocode and place details countryCode from components only', () => {
+    const geo = mapGeocodeResult({
+      place_id: 'ChIJ-geo',
+      formatted_address: 'Dhaka, Bangladesh',
+      geometry: { location: { lat: 23.81, lng: 90.41 } },
+      address_components: [
+        { long_name: 'Bangladesh', short_name: 'BD', types: ['country', 'political'] },
+      ],
+    });
+    expect(geo.countryCode).toBe('BD');
+
+    const details = mapPlaceDetailsResult({
+      place_id: 'ChIJ-details',
+      formatted_address: 'New York, NY, USA',
+      geometry: { location: { lat: 40.758, lng: -73.9855 } },
+      address_components: [
+        { long_name: 'United States', short_name: 'US', types: ['country', 'political'] },
+      ],
+    });
+    expect(details.countryCode).toBe('US');
+    expect(details.country).toBe('United States');
   });
 });

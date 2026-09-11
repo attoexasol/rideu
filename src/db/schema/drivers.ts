@@ -1,4 +1,14 @@
-import { pgTable, uuid, varchar, timestamp, index, pgEnum } from 'drizzle-orm/pg-core';
+import {
+  pgTable,
+  uuid,
+  varchar,
+  timestamp,
+  boolean,
+  jsonb,
+  index,
+  uniqueIndex,
+  pgEnum,
+} from 'drizzle-orm/pg-core';
 import { vehicles } from './vehicles';
 
 /**
@@ -46,6 +56,21 @@ export const drivers = pgTable(
     lastLoginAt: timestamp('last_login_at'), // Last successful login timestamp (for Auth0 token iat comparison)
     profileImageUrl: varchar('profile_image_url', { length: 500 }),
     accountStatus: varchar('account_status', { length: 30 }).default('active').notNull(),
+    // Stripe Connect (payouts). Never store bank numbers, KYC, tax IDs, or Stripe secrets.
+    stripeAccountId: varchar('stripe_account_id', { length: 255 }),
+    stripeAccountCountry: varchar('stripe_account_country', { length: 2 }),
+    stripeAccountStatus: varchar('stripe_account_status', { length: 50 }),
+    stripeDetailsSubmitted: boolean('stripe_details_submitted').default(false).notNull(),
+    stripeChargesEnabled: boolean('stripe_charges_enabled').default(false).notNull(),
+    stripePayoutsEnabled: boolean('stripe_payouts_enabled').default(false).notNull(),
+    stripeRequirementsCurrentlyDue: jsonb('stripe_requirements_currently_due')
+      .$type<string[]>()
+      .default([]),
+    stripeRequirementsEventuallyDue: jsonb('stripe_requirements_eventually_due')
+      .$type<string[]>()
+      .default([]),
+    stripeOnboardingCompletedAt: timestamp('stripe_onboarding_completed_at'),
+    stripeLastSyncedAt: timestamp('stripe_last_synced_at'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
@@ -57,6 +82,8 @@ export const drivers = pgTable(
     activeSessionIdx: index('idx_drivers_active_session').on(table.activeSessionId),
     qrCodeIdx: index('idx_drivers_qr_code').on(table.qrCode),
     vehicleQrCodeIdx: index('idx_drivers_vehicle_qr_code').on(table.vehicleQrCode),
+    stripeAccountIdUq: uniqueIndex('uq_drivers_stripe_account_id').on(table.stripeAccountId),
+    stripeAccountStatusIdx: index('idx_drivers_stripe_account_status').on(table.stripeAccountStatus),
   })
 );
 

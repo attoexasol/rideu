@@ -16,6 +16,30 @@ describe('passenger validators', () => {
     expect(result.success).toBe(false);
   });
 
+  it('normalizes autocomplete country to uppercase ISO alpha-2', () => {
+    expect(placesAutocompleteQuerySchema.parse({ input: 'Mirpur', country: 'bd' }).country).toBe('BD');
+    expect(placesAutocompleteQuerySchema.parse({ input: 'Broadway', country: 'US' }).country).toBe(
+      'US'
+    );
+  });
+
+  it('accepts omitted autocomplete country', () => {
+    const result = placesAutocompleteQuerySchema.safeParse({ input: 'Broadway' });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.country).toBeUndefined();
+    }
+  });
+
+  it('rejects invalid autocomplete country codes', () => {
+    expect(placesAutocompleteQuerySchema.safeParse({ input: 'Mirpur', country: 'USA' }).success).toBe(
+      false
+    );
+    expect(placesAutocompleteQuerySchema.safeParse({ input: 'Mirpur', country: '12' }).success).toBe(
+      false
+    );
+  });
+
   it('validates booking quote coordinates', () => {
     const result = bookingQuoteSchema.safeParse({
       pickup: { latitude: 23.81, longitude: 90.41 },

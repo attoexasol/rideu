@@ -127,6 +127,19 @@ export function clearDispatchTimer(bookingId: string): void {
   }
 }
 
+async function releaseCardAuthorizationForTerminalBooking(bookingId: string): Promise<void> {
+  try {
+    const { releaseCardPaymentAuthorization } = await import('./stripeCapture.service');
+    await releaseCardPaymentAuthorization(bookingId);
+  } catch (error) {
+    logger.warn({
+      type: 'stripe.payment_intent.terminal_release_failed',
+      bookingId,
+      message: error instanceof Error ? error.message : 'unknown',
+    });
+  }
+}
+
 export async function startDispatch(bookingId: string): Promise<void> {
   const booking = await findBookingById(bookingId);
   if (!booking) throw new Error('Booking not found');
@@ -154,6 +167,7 @@ export async function startDispatch(bookingId: string): Promise<void> {
       event: BookingStatus.NO_DRIVERS,
     });
     clearDispatchTimer(bookingId);
+    await releaseCardAuthorizationForTerminalBooking(bookingId);
     return;
   }
 
@@ -204,6 +218,7 @@ export async function startDispatch(bookingId: string): Promise<void> {
         event: BookingStatus.NO_DRIVERS,
       });
       clearDispatchTimer(bookingId);
+      await releaseCardAuthorizationForTerminalBooking(bookingId);
     } else {
       await updateBooking(bookingId, { dispatchBatch: batch });
       scheduleDispatchRetry(bookingId);

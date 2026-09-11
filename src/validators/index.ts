@@ -479,11 +479,21 @@ const nullishOptionalString = z.preprocess(
   z.string().optional()
 );
 
+const optionalCountryCode = z
+  .string()
+  .trim()
+  .length(2)
+  .transform((v) => v.toUpperCase())
+  .optional();
+
 export const bookingQuoteSchema = z.object({
   serviceCategoryId: z.string().uuid().optional(),
+  pickupCountryCode: optionalCountryCode,
   pickup: coordinatePointSchema.extend({
     address: z.string().optional(),
     spotLabel: nullishOptionalString,
+    placeId: nullishOptionalString,
+    countryCode: optionalCountryCode,
   }),
   dropoff: coordinatePointSchema.extend({
     address: z.string().optional(),
@@ -504,9 +514,12 @@ export const bookingQuoteSchema = z.object({
 export const createBookingSchema = z
   .object({
     serviceCategoryId: z.string().uuid(),
+    pickupCountryCode: optionalCountryCode,
     pickup: coordinatePointSchema.extend({
       address: z.string().min(1),
       spotLabel: nullishOptionalString,
+      placeId: nullishOptionalString,
+      countryCode: optionalCountryCode,
     }),
     dropoff: coordinatePointSchema.extend({
       address: z.string().min(1),
@@ -565,6 +578,15 @@ export const bookingHistoryQuerySchema = z.object({
   filter: z.enum(['all', 'completed', 'cancelled']).optional().default('all'),
 });
 
+export const driverPaymentHistoryQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).optional().default(1),
+  limit: z.coerce.number().int().min(1).max(50).optional().default(20),
+});
+
+export const paymentIdParamSchema = z.object({
+  paymentId: z.string().uuid(),
+});
+
 export const offerIdParamSchema = z.object({
   offerId: z.string().uuid(),
 });
@@ -597,7 +619,12 @@ export const placesAutocompleteQuerySchema = z.object({
   lat: latitudeQuerySchema.optional(),
   lng: longitudeQuerySchema.optional(),
   city: z.string().trim().max(100).optional(),
-  country: z.string().trim().length(2).optional(),
+  country: z
+    .string()
+    .trim()
+    .regex(/^[A-Za-z]{2}$/, 'country must be a 2-letter ISO code')
+    .transform((value) => value.toUpperCase())
+    .optional(),
   sessionToken: z.string().trim().max(256).optional(),
 });
 
@@ -803,6 +830,90 @@ export const adminRideVideoPlaybackManifestSchema = z
  */
 import { Request, Response, NextFunction } from 'express';
 import { sendValidationError } from '../utils/response';
+
+export const updateSettlementSettingsSchema = z
+  .object({
+    driverPercentage: z.union([z.number(), z.string()]),
+    companyPercentage: z.union([z.number(), z.string()]),
+  })
+  .strict();
+
+const airportFeeInput = z.union([z.number(), z.string()]);
+
+export const createAirportSchema = z
+  .object({
+    code: z.string().trim().min(1).max(16),
+    name: z.string().trim().min(1).max(255),
+    googlePlaceId: z.string().trim().min(1).max(255).optional().nullable(),
+    countryCode: z
+      .string()
+      .trim()
+      .length(2)
+      .transform((v) => v.toUpperCase()),
+    currency: z
+      .string()
+      .trim()
+      .min(3)
+      .max(10)
+      .transform((v) => v.toUpperCase()),
+    latitude: latitudeSchema,
+    longitude: longitudeSchema,
+    radiusMeters: z.number().int().positive(),
+    pickupFee: airportFeeInput,
+    dropoffFee: airportFeeInput,
+    isActive: z.boolean().optional().default(true),
+  })
+  .strict();
+
+export const updateAirportSchema = z
+  .object({
+    code: z.string().trim().min(1).max(16).optional(),
+    name: z.string().trim().min(1).max(255).optional(),
+    googlePlaceId: z.string().trim().min(1).max(255).optional().nullable(),
+    countryCode: z
+      .string()
+      .trim()
+      .length(2)
+      .transform((v) => v.toUpperCase())
+      .optional(),
+    currency: z
+      .string()
+      .trim()
+      .min(3)
+      .max(10)
+      .transform((v) => v.toUpperCase())
+      .optional(),
+    latitude: latitudeSchema.optional(),
+    longitude: longitudeSchema.optional(),
+    radiusMeters: z.number().int().positive().optional(),
+    pickupFee: airportFeeInput.optional(),
+    dropoffFee: airportFeeInput.optional(),
+    isActive: z.boolean().optional(),
+  })
+  .strict();
+
+export const airportIdParamSchema = z.object({
+  id: z.string().uuid(),
+});
+
+export const marketCodeParamSchema = z.object({
+  code: z.string().trim().min(2).max(8),
+});
+
+export const upsertMarketFaresSchema = z
+  .object({
+    fares: z
+      .array(
+        z.object({
+          serviceCategoryId: z.string().uuid(),
+          baseFare: z.union([z.number(), z.string()]),
+          perKmRate: z.union([z.number(), z.string()]),
+          minFare: z.union([z.number(), z.string()]),
+        })
+      )
+      .min(1),
+  })
+  .strict();
 
 export const validate = (schema: z.ZodSchema, source: 'body' | 'query' | 'params' = 'body') => {
   return (req: Request, res: Response, next: NextFunction): void => {

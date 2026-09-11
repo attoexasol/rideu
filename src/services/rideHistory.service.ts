@@ -3,6 +3,7 @@ import {
   resolveDriverHistoryStatuses,
   resolvePassengerHistoryStatuses,
 } from '../constants/bookingStatus';
+import { resolveBookingCurrency } from '../constants/payment';
 import {
   countRideHistoryByCustomer,
   countRideHistoryByDriver,
@@ -10,8 +11,6 @@ import {
   listRideHistoryByDriver,
   type RideHistoryRow,
 } from '../repositories/booking.repository';
-
-const HISTORY_CURRENCY = 'BDT';
 
 export interface RidePaymentSnapshot {
   methodCode: string | null;
@@ -206,7 +205,7 @@ export function formatPassengerRideSnapshot(detail: RideHistoryRow): PassengerRi
     },
     fare: {
       amount: parseDecimal(booking.finalFare),
-      currency: HISTORY_CURRENCY,
+      currency: resolveBookingCurrency(booking),
       estimatedAmount: parseDecimal(booking.estimatedFare),
       discountAmount: parseDecimal(booking.discountAmount),
     },
@@ -271,7 +270,7 @@ export function formatDriverHistorySnapshot(detail: RideHistoryRow): DriverHisto
     },
     fare: {
       amount: parseDecimal(booking.finalFare),
-      currency: HISTORY_CURRENCY,
+      currency: resolveBookingCurrency(booking),
     },
     service: {
       serviceCategoryId: booking.serviceCategoryId,
