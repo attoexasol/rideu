@@ -173,12 +173,12 @@ export async function createPairedDriversFixture(): Promise<PairedDriversFixture
   const tokenA = await issueVehicleQrToken(vehicleA.id, fleet.id, null);
   const tokenB = await issueVehicleQrToken(vehicleB.id, fleet.id, null);
 
-  // Reuse seeded canonical category — never mint ride-<uuid> orphans in shared DBs
+  // Reuse seeded DriveWize category — never mint economy-<uuid> orphans in shared DBs
   let serviceCategory = (
     await db
       .select()
       .from(serviceCategories)
-      .where(eq(serviceCategories.code, 'ride'))
+      .where(eq(serviceCategories.code, 'economy'))
       .limit(1)
   )[0];
   const createdServiceCategoryIds: string[] = [];
@@ -186,12 +186,12 @@ export async function createPairedDriversFixture(): Promise<PairedDriversFixture
     const [created] = await db
       .insert(serviceCategories)
       .values({
-        code: 'ride',
-        name: 'Ride',
-        baseFare: '50.00',
-        perKmRate: '25.00',
-        minFare: '80.00',
-        capacity: 4,
+        code: 'economy',
+        name: 'Economy Sedan',
+        baseFare: '0.00',
+        perKmRate: '0.00',
+        minFare: '0.00',
+        capacity: 3,
         isActive: true,
         sortOrder: 1,
       })
@@ -400,7 +400,7 @@ export async function cleanupExchangeFixture(fixture: PairedDriversFixture) {
       .where(
         and(
           inArray(serviceCategories.id, fixture.ids.serviceCategoryIds),
-          sql`code !~* '^(ride|bike|cng|moto|premium|comfort)$'`
+          sql`code !~* '^(economy|executive|suv|van|minivan|ada|ride|bike|cng|moto|premium|comfort)$'`
         )
       );
   }

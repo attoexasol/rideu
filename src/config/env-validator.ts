@@ -5,6 +5,7 @@
 
 import {
   areStripeKeyModesAligned,
+  classifyStripeSecretMode,
   describeStripeConfig,
   getStripePublishableKey,
   isStripeSecretConfigured,
@@ -38,12 +39,15 @@ const envConfigs: Record<string, EnvConfig> = {
       'SENTRY_DSN',
       'RATE_LIMIT_WINDOW_MS',
       'RATE_LIMIT_MAX_REQUESTS',
+      'RATE_LIMIT_UNAUTH_MAX_REQUESTS',
       'RATE_LIMIT_ENABLED',
       'RATE_LIMIT_USE_REDIS',
       'AUTH_RATE_LIMIT_MAX',
       'PASSENGER_MAPS_RATE_LIMIT_WINDOW_MS',
       'PASSENGER_MAPS_RATE_LIMIT_MAX',
       'PASSENGER_RATE_LIMIT_MAX',
+      'PASSENGER_BOOKING_READ_RATE_LIMIT_MAX',
+      'PASSENGER_CHECKOUT_RATE_LIMIT_MAX',
       'BOOKING_RATE_LIMIT_MAX',
       'PASSENGER_CANCEL_RATE_LIMIT_WINDOW_MS',
       'PASSENGER_CANCEL_RATE_LIMIT_MAX',
@@ -52,6 +56,7 @@ const envConfigs: Record<string, EnvConfig> = {
       'DRIVER_LOCATION_RATE_LIMIT_MAX',
       'DRIVER_OFFER_RATE_LIMIT_MAX',
       'DRIVER_RECOVERY_RATE_LIMIT_MAX',
+      'SOFT_METER_RATE_LIMIT_MAX',
       'VIDEO_UPLOAD_RATE_LIMIT_MAX',
       'LOG_LEVEL',
       'GOOGLE_MAPS_REGION',
@@ -74,6 +79,11 @@ const envConfigs: Record<string, EnvConfig> = {
       'VIDEO_STORAGE_CONTAINER',
       'VIDEO_STORAGE_ROOT',
       'VIDEO_SIGNING_SECRET',
+      'DRIVER_DOCUMENT_STORAGE_ROOT',
+      'DRIVER_DOCUMENT_STORAGE_CONTAINER',
+      'DRIVER_DOCUMENT_MAX_BYTES',
+      'DRIVER_DOCUMENT_READ_URL_TTL_SECONDS',
+      'DRIVER_DOCUMENT_SIGNING_SECRET',
       'QR_DUTY_REQUIRED',
       'FCM_ENABLED',
       'GOOGLE_APPLICATION_CREDENTIALS',
@@ -107,13 +117,17 @@ const envConfigs: Record<string, EnvConfig> = {
       'GOOGLE_MAPS_CACHE_TTL_SECONDS',
       'RATE_LIMIT_WINDOW_MS',
       'RATE_LIMIT_MAX_REQUESTS',
+      'RATE_LIMIT_UNAUTH_MAX_REQUESTS',
       'RATE_LIMIT_ENABLED',
       'RATE_LIMIT_USE_REDIS',
       'AUTH_RATE_LIMIT_MAX',
       'PASSENGER_MAPS_RATE_LIMIT_MAX',
+      'PASSENGER_BOOKING_READ_RATE_LIMIT_MAX',
+      'PASSENGER_CHECKOUT_RATE_LIMIT_MAX',
       'BOOKING_RATE_LIMIT_MAX',
       'DRIVER_LOCATION_RATE_LIMIT_MAX',
       'DRIVER_OFFER_RATE_LIMIT_MAX',
+      'SOFT_METER_RATE_LIMIT_MAX',
       'VIDEO_RECORDING_ENABLED',
       'VIDEO_RECORDING_CONSENT_REQUIRED',
       'VIDEO_SEGMENT_DURATION_SECONDS',
@@ -124,6 +138,8 @@ const envConfigs: Record<string, EnvConfig> = {
       'VIDEO_STORAGE_CONTAINER',
       'VIDEO_STORAGE_ROOT',
       'VIDEO_SIGNING_SECRET',
+      'DRIVER_DOCUMENT_STORAGE_ROOT',
+      'DRIVER_DOCUMENT_MAX_BYTES',
       'LOG_LEVEL',
       'FCM_ENABLED',
       'GOOGLE_APPLICATION_CREDENTIALS',
@@ -157,13 +173,17 @@ const envConfigs: Record<string, EnvConfig> = {
       'GOOGLE_MAPS_CACHE_TTL_SECONDS',
       'RATE_LIMIT_WINDOW_MS',
       'RATE_LIMIT_MAX_REQUESTS',
+      'RATE_LIMIT_UNAUTH_MAX_REQUESTS',
       'RATE_LIMIT_ENABLED',
       'RATE_LIMIT_USE_REDIS',
       'AUTH_RATE_LIMIT_MAX',
       'PASSENGER_MAPS_RATE_LIMIT_MAX',
+      'PASSENGER_BOOKING_READ_RATE_LIMIT_MAX',
+      'PASSENGER_CHECKOUT_RATE_LIMIT_MAX',
       'BOOKING_RATE_LIMIT_MAX',
       'DRIVER_LOCATION_RATE_LIMIT_MAX',
       'DRIVER_OFFER_RATE_LIMIT_MAX',
+      'SOFT_METER_RATE_LIMIT_MAX',
       'LOG_LEVEL',
       'DRIVER_LOCATION_STALE_SECONDS',
       'DISPATCH_RADIUS_KM',
@@ -180,6 +200,8 @@ const envConfigs: Record<string, EnvConfig> = {
       'VIDEO_STORAGE_CONTAINER',
       'VIDEO_STORAGE_ROOT',
       'VIDEO_SIGNING_SECRET',
+      'DRIVER_DOCUMENT_STORAGE_ROOT',
+      'DRIVER_DOCUMENT_MAX_BYTES',
       'FCM_ENABLED',
       'GOOGLE_APPLICATION_CREDENTIALS',
       'FIREBASE_SERVICE_ACCOUNT_JSON',
@@ -296,6 +318,12 @@ export function validateEnvironment(): void {
   if (isStripeSecretConfigured() && getStripePublishableKey() && !areStripeKeyModesAligned()) {
     throw new Error(
       'STRIPE_MODE_MISMATCH: Stripe secret and publishable keys must both be test or both be live. Cash bookings remain available if Stripe keys are removed.'
+    );
+  }
+
+  if (process.env.WALKUP_STRIPE_TEST_PAYMENTS?.trim() === 'true' && classifyStripeSecretMode() === 'live') {
+    console.warn(
+      '⚠️  WALKUP_STRIPE_TEST_PAYMENTS is true but STRIPE_SECRET_KEY is live. Walk-up test Checkout will fail closed. Quoted-fare card payments are unchanged. Live metered charging stays off.'
     );
   }
 

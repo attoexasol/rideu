@@ -6,6 +6,8 @@ import { passengerMapsRateLimit } from '../../../middleware/passenger-maps-rate-
 import { passengerBookingCancelRateLimit } from '../../../middleware/passenger-booking-cancel-rate-limit';
 import {
   passengerBookingRateLimit,
+  passengerBookingReadRateLimit,
+  passengerCheckoutRateLimit,
   passengerRecoveryRateLimit,
 } from '../../../middleware/rate-limiters';
 import {
@@ -50,7 +52,14 @@ import {
   shareBookingHandler,
   liveVideoHandler,
   nearbyDriversHandler,
+  passengerMeterPaymentHandler,
+  passengerMeterCheckoutHandler,
+  passengerMeterPaymentIntentHandler,
+  passengerMeterReceiptHandler,
+  latestUnpaidMeterRideHandler,
 } from '../../../controllers/passengerBooking.controller';
+import { passengerMeterHandler } from '../../../controllers/softMeter.controller';
+import { onDemandMeterCheckoutSchema } from '../../../validators/softMeter';
 
 const router = express.Router();
 const mapsGuard = [requireAuth, extractUserInfo, requireCustomer, passengerMapsRateLimit];
@@ -163,6 +172,7 @@ router.get(
   requireAuth,
   extractUserInfo,
   requireCustomer,
+  passengerBookingReadRateLimit,
   validate(bookingHistoryQuerySchema, 'query'),
   asyncHandler(listBookingsHandler)
 );
@@ -175,6 +185,14 @@ router.get(
   asyncHandler(activeBookingHandler)
 );
 router.get(
+  '/bookings/unpaid-meter-payment',
+  requireAuth,
+  extractUserInfo,
+  requireCustomer,
+  passengerRecoveryRateLimit,
+  asyncHandler(latestUnpaidMeterRideHandler)
+);
+router.get(
   '/bookings/:bookingId/payment',
   requireAuth,
   extractUserInfo,
@@ -184,10 +202,58 @@ router.get(
   asyncHandler(getBookingPaymentHandler)
 );
 router.get(
+  '/bookings/:bookingId/meter',
+  requireAuth,
+  extractUserInfo,
+  requireCustomer,
+  passengerRecoveryRateLimit,
+  validate(bookingIdParamSchema, 'params'),
+  asyncHandler(passengerMeterHandler)
+);
+router.get(
+  '/bookings/:bookingId/meter-payment',
+  requireAuth,
+  extractUserInfo,
+  requireCustomer,
+  passengerRecoveryRateLimit,
+  validate(bookingIdParamSchema, 'params'),
+  asyncHandler(passengerMeterPaymentHandler)
+);
+router.post(
+  '/bookings/:bookingId/meter-payment/payment-intent',
+  requireAuth,
+  extractUserInfo,
+  requireCustomer,
+  passengerCheckoutRateLimit,
+  validate(bookingIdParamSchema, 'params'),
+  validate(onDemandMeterCheckoutSchema),
+  asyncHandler(passengerMeterPaymentIntentHandler)
+);
+router.post(
+  '/bookings/:bookingId/meter-payment/checkout',
+  requireAuth,
+  extractUserInfo,
+  requireCustomer,
+  passengerCheckoutRateLimit,
+  validate(bookingIdParamSchema, 'params'),
+  validate(onDemandMeterCheckoutSchema),
+  asyncHandler(passengerMeterCheckoutHandler)
+);
+router.get(
+  '/bookings/:bookingId/meter-payment/receipt',
+  requireAuth,
+  extractUserInfo,
+  requireCustomer,
+  passengerRecoveryRateLimit,
+  validate(bookingIdParamSchema, 'params'),
+  asyncHandler(passengerMeterReceiptHandler)
+);
+router.get(
   '/bookings/:bookingId',
   requireAuth,
   extractUserInfo,
   requireCustomer,
+  passengerBookingReadRateLimit,
   validate(bookingIdParamSchema, 'params'),
   asyncHandler(getBookingHandler)
 );

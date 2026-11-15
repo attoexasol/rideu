@@ -211,6 +211,69 @@
       "when": 1789700000000,
       "tag": "0031_ride_markets_and_booking_currency",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1789800000000,
+      "tag": "0032_platform_organization_branding",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1789900000000,
+      "tag": "0033_drivewize_service_category_catalog",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1790000000000,
+      "tag": "0034_driver_documents",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1790100000000,
+      "tag": "0035_service_areas",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1790200000000,
+      "tag": "0036_soft_meter",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1790300000000,
+      "tag": "0037_soft_meter_pause",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1790400000000,
+      "tag": "0038_walkup_stripe_test",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1790500000000,
+      "tag": "0039_soft_meter_stopped_time",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1790600000000,
+      "tag": "0040_metered_post_trip_billing",
+      "breakpoints": true
     }
   ]
 }

@@ -58,6 +58,7 @@ export const bookings = pgTable(
     airportTripType: varchar('airport_trip_type', { length: 20 }),
     paymentMethodId: uuid('payment_method_id').references(() => paymentMethods.id),
     paymentStatus: varchar('payment_status', { length: 50 }).default('pending').notNull(),
+    billingMode: varchar('billing_mode', { length: 40 }),
     assignedDriverId: uuid('assigned_driver_id').references(() => drivers.id, {
       onDelete: 'set null',
     }),
@@ -112,6 +113,10 @@ export const bookings = pgTable(
     currencyCheck: check(
       'bookings_currency_check',
       sql`${table.currency} in ('BDT', 'USD')`
+    ),
+    billingModeCheck: check(
+      'bookings_billing_mode_check',
+      sql`${table.billingMode} is null or ${table.billingMode} in ('metered_post_trip', 'quoted_prepay')`
     ),
     airportIdx: index('idx_bookings_airport_id').on(table.airportId),
   })

@@ -162,9 +162,9 @@ describe('cash completion wiring', () => {
     const src = fs.readFileSync(path.join(__dirname, '../src/services/booking.service.ts'), 'utf8');
     const fn = src.slice(src.indexOf('export async function updateBookingStatusByDriver'));
     expect(fn).toContain('recordCompletedCashBookingPayment');
-    expect(fn).toMatch(/if \(!isCard\) \{\s*patch\.paymentStatus = 'paid'/);
+    expect(fn).toMatch(/if \(!isCard && !metered\) \{\s*patch\.paymentStatus = 'paid'/);
     expect(fn).toMatch(
-      /if \(newStatus === BookingStatus\.COMPLETED && !isCard\) \{\s*await recordCompletedCashBookingPayment/
+      /if \(newStatus === BookingStatus\.COMPLETED && !isCard && !metered\) \{\s*await recordCompletedCashBookingPayment/
     );
     expect(fn).not.toMatch(/getStripeClient/);
   });

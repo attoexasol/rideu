@@ -11,8 +11,9 @@ import {
 import { drivers } from './drivers';
 
 /**
- * FCM registration tokens for Driver Android devices.
+ * FCM registration tokens for Driver devices (Android and iOS).
  * device_id is the app device UUID (drivers.active_device_id), never the FCM token.
+ * Platform is not stored; one FCM message carries Android and APNs options.
  */
 export const driverPushTokens = pgTable(
   'driver_push_tokens',

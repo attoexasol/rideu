@@ -197,7 +197,19 @@ export async function listVehicleQrTokensHandler(req: Request, res: Response) {
   }
 
   const tokens = await getVehicleQrTokens(vehicleId);
-  const safeTokens = tokens.map(({ token: _token, ...meta }) => meta);
+  const safeTokens = await Promise.all(
+    tokens.map(async ({ token, ...meta }) => {
+      if (meta.status !== 'active' && meta.status !== 'issued') {
+        return meta;
+      }
+      try {
+        const image = await generateQrImage(token, 'base64');
+        return { ...meta, image };
+      } catch {
+        return meta;
+      }
+    })
+  );
   return sendSuccess(res, { vehicleId, tokens: safeTokens });
 }
 

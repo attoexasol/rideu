@@ -364,6 +364,6 @@ describe('Stripe Phase D — capture and authorization release', () => {
     const captureIdx = fn.lastIndexOf('await captureAuthorizedBookingPayment');
     expect(updateIdx).toBeGreaterThan(-1);
     expect(captureIdx).toBeGreaterThan(updateIdx);
-    expect(fn).toMatch(/if \(!isCard\) \{\s*patch\.paymentStatus = 'paid'/);
+    expect(fn).toMatch(/if \(!isCard && !metered\) \{\s*patch\.paymentStatus = 'paid'/);
   });
 });

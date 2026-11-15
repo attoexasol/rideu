@@ -12,6 +12,7 @@ const helmet_1 = __importDefault(require("helmet"));
 // Rate Limiting — centralized config with dedicated per-route limiters
 const rate_limiters_1 = require("./middleware/rate-limiters");
 const rate_limit_debug_1 = require("./middleware/rate-limit-debug");
+const rate_limit_identity_1 = require("./middleware/rate-limit-identity");
 const server_1 = require("./websocket/server");
 const bookingNotify_service_1 = require("./services/bookingNotify.service");
 const dispatch_service_1 = require("./services/dispatch.service");
@@ -41,6 +42,7 @@ const stripe_1 = __importDefault(require("./routes/v1/webhooks/stripe"));
 const path_1 = __importDefault(require("path"));
 const video_storage_service_1 = require("./services/video-storage.service");
 const avatar_storage_service_1 = require("./services/avatar-storage.service");
+const driver_document_storage_service_1 = require("./services/driver-document-storage.service");
 // Validate environment variables on startup
 try {
     (0, env_validator_1.validateEnvironment)();
@@ -92,6 +94,8 @@ app.use((0, cors_1.default)({
     ],
     credentials: true,
 }));
+// Best-effort JWT identity for rate-limit keys (does not enforce auth).
+app.use(rate_limit_identity_1.attachRateLimitIdentity);
 app.use(rate_limit_debug_1.rateLimitRequestCounter);
 app.use(rate_limiters_1.globalRateLimiter);
 // Stripe webhook must receive the raw body for signature verification.
@@ -108,12 +112,32 @@ app.use('/uploads', express_1.default.static(path_1.default.resolve(process.cwd(
 (0, avatar_storage_service_1.ensureAvatarDirectories)().catch((err) => {
     console.error('Failed to create avatar directories:', err);
 });
+(0, driver_document_storage_service_1.ensureDriverDocumentDirectories)().catch((err) => {
+    console.error('Failed to create driver document directories:', err);
+});
 // Request logging middleware
 app.use(logger_1.requestLogger);
 app.use(passenger_location_timing_1.passengerLocationTiming);
 // Health check endpoints
 app.get('/health', (0, startup_checks_1.createHealthCheckHandler)());
 app.get('/api/health', (0, startup_checks_1.createApiHealthCheckHandler)());
+// Soft Meter Checkout browser return pages.
+// These do not mark a ride paid. Stripe webhooks confirm payment.
+function meterCheckoutReturnPage(title, body) {
+    return `<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>${title}</title></head><body style="font-family:system-ui,sans-serif;padding:2rem;max-width:32rem"><h1>${title}</h1><p>${body}</p><p>Return to the DriveWize app. Status updates after the Stripe webhook is verified.</p></body></html>`;
+}
+app.get('/meter/payment/return', (_req, res) => {
+    res
+        .status(200)
+        .type('html')
+        .send(meterCheckoutReturnPage('Payment submitted', 'Your Soft Meter Checkout was submitted. This page does not confirm Paid.'));
+});
+app.get('/meter/payment/cancel', (_req, res) => {
+    res
+        .status(200)
+        .type('html')
+        .send(meterCheckoutReturnPage('Payment cancelled', 'Checkout was cancelled. The ride stays unpaid until a verified webhook marks it Paid.'));
+});
 // Basic route
 app.get('/', (_req, res) => {
     res.json({
@@ -124,6 +148,8 @@ app.get('/', (_req, res) => {
             health: '/health',
             apiHealth: '/api/health',
             api: '/api',
+            meterPaymentReturn: '/meter/payment/return',
+            meterPaymentCancel: '/meter/payment/cancel',
         },
     });
 });

@@ -4,8 +4,18 @@ import { withRedisTimeout } from '../utils/redisTimeout';
 
 /**
  * Redis-backed rate limit store for multi-instance deployments.
- * Uses INCR + EXPIRE per window; compatible with express-rate-limit v7.
- * Fails open when Redis is slow/unavailable so passenger APIs are not blocked.
+ *
+ * Algorithm: fixed window via atomic INCR + PEXPIRE (TTL = windowMs).
+ * Chosen over sliding-window/token-bucket because the observed 429s were caused
+ * by shared IP identity keys, not fixed-window burst edges. INCR is atomic and
+ * consistent across horizontally scaled instances that share REDIS_URL.
+ *
+ * Operational failure policy: **fail open** — when Redis is disabled, slow, or
+ * errors, increment returns totalHits=1 so legitimate traffic is not blocked.
+ * This prefers availability over strict limiting during Redis outages.
+ *
+ * Not suitable as the sole production mechanism without Redis when running
+ * multiple Node instances (each would keep a separate in-memory counter).
  */
 export class RedisRateLimitStore implements Store {
   prefix: string;

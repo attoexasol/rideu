@@ -12,12 +12,13 @@ import {
   CANONICAL_DISPLAY_NAMES,
   cleanServiceDisplayName,
   toPublicServiceCode,
-  isCanonicalExactCode,
+  isKnownExactProductCode,
   normalizeServiceCategoryBase,
 } from '../utils/serviceCategoryNormalize';
 
 /**
- * Active canonical product categories only (exact codes: ride, bike, …).
+ * Active canonical product categories only
+ * (exact codes: economy, executive, suv, van, minivan, ada).
  * Used by passenger quotes and admin vehicle Edit select lists.
  */
 export async function listCanonicalActiveServiceCategories() {
@@ -77,9 +78,9 @@ export function assertNoDuplicateServiceCategoryCode(code: string, name?: string
   const baseFromName = name ? normalizeServiceCategoryBase(name) : null;
   const base = baseFromCode ?? baseFromName;
 
-  if (base && !isCanonicalExactCode(code)) {
+  if (base && !isKnownExactProductCode(code)) {
     const err = new Error(
-      `Duplicate service category rejected: use canonical code "${base}" instead of "${code}"`
+      `Duplicate service category rejected: use exact product code "${base}" instead of "${code}"`
     ) as Error & { code: string };
     err.code = 'DUPLICATE_SERVICE_CATEGORY';
     throw err;

@@ -52,6 +52,19 @@ describe('driver FCM dispatch integration contract', () => {
     expect(BookingOfferStatus.EXPIRED).toBe('expired');
   });
 
+  it('sends booking_offer with APNs alert while keeping Android data-only', () => {
+    const payload = readSrc('src/services/driverOfferPush.payload.ts');
+    const service = readSrc('src/services/driverOfferPush.service.ts');
+    const fcm = readSrc('src/config/fcm.ts');
+    expect(payload).toContain('buildDriverOfferFcmMessage');
+    expect(payload).toContain("'apns-push-type': 'alert'");
+    expect(fcm).toContain('New ride request');
+    expect(fcm).toContain('Open the app to review this ride request.');
+    expect(service).toContain('buildDriverOfferFcmMessage');
+    expect(service).toContain('DriverPush.booking_offer_send_start');
+    expect(service).toContain('tokenSuffix');
+  });
+
   it('registers driver_push_tokens migration in the journal', () => {
     const journal = JSON.parse(
       readSrc('src/db/migrations/meta/_journal.json')

@@ -8,8 +8,9 @@ import { isFcmReady, sendFcmMessage } from './fcmAdmin.service';
 import { findEnabledPushTokenForDriverDevice, findDriverSessionForPush } from '../repositories/driverPushToken.repository';
 import { cleanupInvalidPushToken } from './driverPushToken.service';
 import {
-  buildAndroidOfferFcmMessage,
+  buildDriverOfferFcmMessage,
   classifyFcmError,
+  fcmTokenSuffix,
   getFcmErrorCode,
   remainingOfferTtlSeconds,
   shouldSendOfferPush,
@@ -48,6 +49,50 @@ function logPush(
     pushSent: result.pushSent,
     pushFailureCode: result.pushFailureCode,
     remainingTtlSeconds: result.remainingTtlSeconds,
+  });
+}
+
+function logSendStart(input: {
+  driverId: string;
+  bookingId: string;
+  offerId: string;
+  tokenSuffix: string;
+  deviceId: string;
+}): void {
+  logger.info({
+    event: 'DriverPush.booking_offer_send_start',
+    platform: 'android+apns',
+    tokenSuffix: input.tokenSuffix,
+    offerId: input.offerId,
+    bookingId: input.bookingId,
+    driverId: input.driverId,
+    deviceId: input.deviceId,
+  });
+}
+
+function logSendSuccess(input: {
+  offerId: string;
+  tokenSuffix: string;
+  messageId: string;
+}): void {
+  logger.info({
+    event: 'DriverPush.booking_offer_send_success',
+    messageId: input.messageId,
+    tokenSuffix: input.tokenSuffix,
+    offerId: input.offerId,
+  });
+}
+
+function logSendFailed(input: {
+  offerId: string;
+  tokenSuffix: string;
+  code: string;
+}): void {
+  logger.warn({
+    event: 'DriverPush.booking_offer_send_failed',
+    code: input.code,
+    tokenSuffix: input.tokenSuffix,
+    offerId: input.offerId,
   });
 }
 
@@ -129,7 +174,8 @@ export async function sendDriverOfferPush(
     return result;
   }
 
-  const message = buildAndroidOfferFcmMessage({
+  const tokenSuffix = fcmTokenSuffix(tokenRow.fcmToken);
+  const message = buildDriverOfferFcmMessage({
     token: tokenRow.fcmToken,
     offerId: input.offerId,
     bookingId: input.bookingId,
@@ -151,8 +197,21 @@ export async function sendDriverOfferPush(
       return result;
     }
 
+    logSendStart({
+      driverId: input.driverId,
+      bookingId: input.bookingId,
+      offerId: input.offerId,
+      tokenSuffix,
+      deviceId: tokenRow.deviceId,
+    });
+
     try {
-      await sendFcmMessage(message);
+      const messageId = await sendFcmMessage(message);
+      logSendSuccess({
+        offerId: input.offerId,
+        tokenSuffix,
+        messageId,
+      });
       const result: SendDriverOfferPushResult = {
         pushAttempted: true,
         pushSent: true,
@@ -165,6 +224,11 @@ export async function sendDriverOfferPush(
     } catch (error) {
       const failureClass = classifyFcmError(error);
       lastCode = getFcmErrorCode(error);
+      logSendFailed({
+        offerId: input.offerId,
+        tokenSuffix,
+        code: lastCode,
+      });
 
       if (failureClass === 'permanent_token') {
         await cleanupInvalidPushToken(tokenRow.id);

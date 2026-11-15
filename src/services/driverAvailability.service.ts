@@ -5,6 +5,7 @@ import { realtimeCache } from '../config/redis';
 import { dispatchConfig } from '../config/dispatch';
 import { qrDutyRequired, APPROVED_VEHICLE_STATUSES } from '../config/duty';
 import { listDriversWithActiveBookings } from '../repositories/booking.repository';
+import { driverHasOpenWalkUp } from '../repositories/walkUp.repository';
 import { findActiveAssignmentByDriverId } from '../repositories/driverVehicleAssignment.repository';
 import { findActiveDutySessionByDriverId } from '../repositories/dutySession.repository';
 import { driverServesCategory } from './vehicleEligibility.service';
@@ -12,6 +13,7 @@ import { hasPendingExchange } from './vehicleExchange.service';
 import { isDriverAcceptingOffer, isDispatchSuspended } from './driverAcceptanceLock.service';
 import { haversineKm } from '../utils/geo';
 import { isDeactivatedAccount } from './accountStatus.service';
+import { evaluateDriverServiceArea } from './serviceArea.service';
 
 export type VehicleEligibilitySource = 'active_assignment' | 'legacy_driver_vehicle';
 export type CategoryEligibilitySource = 'active_assignment' | 'legacy_driver_vehicle';
@@ -83,7 +85,9 @@ export interface DriverEligibilityResult {
     | 'SERVICE_CATEGORY_MISMATCH'
     | 'LOCATION_STALE'
     | 'NO_ACTIVE_VEHICLE'
-    | 'EXCHANGE_PENDING';
+    | 'EXCHANGE_PENDING'
+    | 'OUTSIDE_SERVICE_AREA'
+    | 'SERVICE_AREA_UNAVAILABLE';
   message?: string;
   vehicleSource?: VehicleEligibilitySource;
   categorySource?: CategoryEligibilitySource;
@@ -94,7 +98,12 @@ export async function checkDriverEligibility(
   serviceCategoryId: string,
   pickupLat: number,
   pickupLng: number,
-  options: { radiusKm?: number; skipBusyCheck?: boolean; skipAcceptingCheck?: boolean } = {}
+  options: {
+    radiusKm?: number;
+    skipBusyCheck?: boolean;
+    skipAcceptingCheck?: boolean;
+    marketCode?: string | null;
+  } = {}
 ): Promise<DriverEligibilityResult> {
   const radiusKm = options.radiusKm ?? dispatchConfig.dispatchRadiusKm;
 
@@ -111,6 +120,10 @@ export async function checkDriverEligibility(
   const busyIds = new Set(await listDriversWithActiveBookings());
   if (!options.skipBusyCheck && busyIds.has(driverId)) {
     return { eligible: false, code: 'DRIVER_BUSY', message: 'Driver has an active booking' };
+  }
+
+  if (!options.skipBusyCheck && (await driverHasOpenWalkUp(driverId))) {
+    return { eligible: false, code: 'DRIVER_BUSY', message: 'Driver has an active walk-up trip' };
   }
 
   if (await hasPendingExchange(driverId) || (await isDispatchSuspended(driverId))) {
@@ -205,6 +218,18 @@ export async function checkDriverEligibility(
     return { eligible: false, code: 'LOCATION_STALE', message: 'Driver location is stale' };
   }
 
+  const serviceArea = await evaluateDriverServiceArea(options.marketCode, lat, lng);
+  if (serviceArea.applies && !serviceArea.inside) {
+    return {
+      eligible: false,
+      code: serviceArea.code,
+      message:
+        serviceArea.code === 'OUTSIDE_SERVICE_AREA'
+          ? 'Driver is outside the service area'
+          : 'Service area is unavailable',
+    };
+  }
+
   const distanceKm = haversineKm(pickupLat, pickupLng, lat, lng);
   if (distanceKm > radiusKm) {
     return {
@@ -225,7 +250,8 @@ export async function diagnoseDriverEligibility(
   driverId: string,
   serviceCategoryId: string,
   pickupLat: number,
-  pickupLng: number
+  pickupLng: number,
+  marketCode?: string | null
 ): Promise<{ driverId: string; eligible: boolean; reasons: string[] }> {
   const reasons: string[] = [];
   const driverRows = await db.select().from(drivers).where(eq(drivers.id, driverId)).limit(1);
@@ -236,6 +262,7 @@ export async function diagnoseDriverEligibility(
 
   const busyIds = new Set(await listDriversWithActiveBookings());
   if (busyIds.has(driverId)) reasons.push('DRIVER_BUSY');
+  if (await driverHasOpenWalkUp(driverId)) reasons.push('WALK_UP_ACTIVE');
 
   if (await hasPendingExchange(driverId)) reasons.push('EXCHANGE_PENDING');
   if (await isDispatchSuspended(driverId)) reasons.push('DISPATCH_SUSPENDED');
@@ -279,6 +306,13 @@ export async function diagnoseDriverEligibility(
     const activityFresh =
       isLocationFresh(heartbeat ?? undefined) || isLocationFresh(location.timestamp);
     if (!activityFresh) reasons.push('LOCATION_STALE');
+
+    const serviceArea = await evaluateDriverServiceArea(
+      marketCode,
+      parseFloat(String(location.latitude)),
+      parseFloat(String(location.longitude))
+    );
+    if (serviceArea.applies && !serviceArea.inside) reasons.push(serviceArea.code);
 
     const distanceKm = haversineKm(
       pickupLat,

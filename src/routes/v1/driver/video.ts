@@ -54,6 +54,7 @@ router.put(
 router.post(
   '/sessions/:sessionId/segments/:segmentId/complete',
   ...driverAuth,
+  videoUploadRateLimit,
   validate(videoSegmentParamSchema, 'params'),
   validate(completeVideoSegmentSchema),
   asyncHandler(completeVideoSegmentHandler)
@@ -62,6 +63,7 @@ router.post(
 router.post(
   '/sessions/:sessionId/segments/:segmentId/failed',
   ...driverAuth,
+  videoUploadRateLimit,
   validate(videoSegmentParamSchema, 'params'),
   validate(failVideoSegmentSchema),
   asyncHandler(failVideoSegmentHandler)
@@ -70,6 +72,7 @@ router.post(
 router.get(
   '/sessions/:sessionId/segments',
   ...driverAuth,
+  videoUploadRateLimit,
   validate(videoSessionParamSchema, 'params'),
   validate(videoSegmentListQuerySchema, 'query'),
   asyncHandler(listVideoSegmentsHandler)
@@ -78,6 +81,7 @@ router.get(
 router.post(
   '/sessions/:sessionId/pause',
   ...driverAuth,
+  videoUploadRateLimit,
   validate(videoSessionParamSchema, 'params'),
   asyncHandler(pauseVideoSessionHandler)
 );
@@ -85,6 +89,7 @@ router.post(
 router.post(
   '/sessions/:sessionId/resume',
   ...driverAuth,
+  videoUploadRateLimit,
   validate(videoSessionParamSchema, 'params'),
   asyncHandler(resumeVideoSessionHandler)
 );
@@ -92,6 +97,7 @@ router.post(
 router.post(
   '/sessions/:sessionId/finalize',
   ...driverAuth,
+  videoUploadRateLimit,
   validate(videoSessionParamSchema, 'params'),
   asyncHandler(finalizeVideoSessionHandler)
 );

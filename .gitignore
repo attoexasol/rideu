@@ -16,6 +16,7 @@ build/
 # Uploads / media
 uploads/videos/
 uploads/avatars/
+private-media/driver-documents/
 uploads/**/*.mp4
 uploads/**/*.mov
 uploads/**/*.webm

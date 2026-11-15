@@ -11,6 +11,13 @@ import {
   listRideHistoryByDriver,
   type RideHistoryRow,
 } from '../repositories/booking.repository';
+import { resolvePublicProfileImageUrl } from './avatar-storage.service';
+import { bookingBillingFields } from './softMeter/billingMode';
+import { meterPaymentsForBookings } from './softMeter/onDemandMeterPayment.service';
+import { toOnDemandMeterPaymentView } from './softMeter/onDemandMeterPayment';
+import type { StoredTestPayment } from './softMeter/testPayment';
+import type { MeterPayment } from '../db/schema/meter_payments';
+import type { MeterPaymentStatusType, MeterSettlementModeType } from '../constants/softMeter';
 
 export interface RidePaymentSnapshot {
   methodCode: string | null;
@@ -23,6 +30,16 @@ export interface RideVehicleSnapshot {
   make: string | null;
   model: string | null;
   color: string | null;
+  year: number | null;
+  plateNumber: string | null;
+}
+
+export interface AssignedRideVehicle {
+  id: string;
+  make: string | null;
+  model: string | null;
+  color: string | null;
+  year: number | null;
   plateNumber: string | null;
 }
 
@@ -62,10 +79,32 @@ export interface PassengerRideSnapshot {
     id: string;
     name: string | null;
     phone: string | null;
+    profileImageUrl: string | null;
     plateNumber: string | null;
   } | null;
   vehicle: RideVehicleSnapshot | null;
+  etaMinutes: number | null;
   payment: RidePaymentSnapshot;
+  billingMode: string;
+  paymentRequiredBeforeDispatch: boolean;
+  paymentRequiredAfterCompletion: boolean;
+  fareClassification: string | null;
+  meterPayment?: {
+    bookingId: string;
+    rideStatus: string;
+    paymentStatus: string;
+    paymentRequired: boolean;
+    paymentMode: 'stripe_test' | null;
+    finalFareCents: number | null;
+    currency: string | null;
+    meterSessionId: string | null;
+    completedAt: string | null;
+    paidAt: string | null;
+    receiptAvailable: boolean;
+    testMode: boolean;
+    fareClassification: string | null;
+    paymentVersion: number;
+  } | null;
   recording: { available: boolean };
   createdAt: string;
   acceptedAt: string | null;
@@ -144,26 +183,67 @@ export function asRecordingAvailable(value: unknown): boolean {
   return value === true || value === 1 || value === 't' || value === 'true';
 }
 
+export function formatAssignedVehicle(
+  vehicle: AssignedRideVehicle | null | undefined
+): RideVehicleSnapshot | null {
+  if (!vehicle?.id) return null;
+  return {
+    id: vehicle.id,
+    make: vehicle.make ?? null,
+    model: vehicle.model ?? null,
+    color: vehicle.color ?? null,
+    year: vehicle.year ?? null,
+    plateNumber: vehicle.plateNumber ?? null,
+  };
+}
+
 function formatVehicle(row: {
   vehicleId?: string | null;
   vehicleMake?: string | null;
   vehicleModel?: string | null;
   vehicleColor?: string | null;
-  driverVehicleColor?: string | null;
+  vehicleYear?: number | null;
   vehiclePlate?: string | null;
 }): RideVehicleSnapshot | null {
-  const id = row.vehicleId ?? null;
-  const plateNumber = row.vehiclePlate ?? null;
-  const make = row.vehicleMake ?? null;
-  const model = row.vehicleModel ?? null;
-  const color = row.vehicleColor ?? row.driverVehicleColor ?? null;
-  if (!id && !plateNumber && !make && !model && !color) return null;
+  return formatAssignedVehicle(
+    row.vehicleId
+      ? {
+          id: row.vehicleId,
+          make: row.vehicleMake ?? null,
+          model: row.vehicleModel ?? null,
+          color: row.vehicleColor ?? null,
+          year: row.vehicleYear ?? null,
+          plateNumber: row.vehiclePlate ?? null,
+        }
+      : null
+  );
+}
+
+export function formatPassengerAcceptedEvent(input: {
+  bookingId: string;
+  status: string;
+  etaMinutes: number | null;
+  driver: {
+    id: string;
+    name: string | null;
+    phone: string | null;
+    profileImageUrl: string | null;
+  };
+  assignedVehicle: AssignedRideVehicle | null;
+}) {
+  const vehicle = formatAssignedVehicle(input.assignedVehicle);
   return {
-    id: id ?? '',
-    make,
-    model,
-    color,
-    plateNumber,
+    bookingId: input.bookingId,
+    status: input.status,
+    driver: {
+      id: input.driver.id,
+      name: input.driver.name,
+      phone: input.driver.phone,
+      profileImageUrl: resolvePublicProfileImageUrl(input.driver.profileImageUrl),
+      plateNumber: vehicle?.plateNumber ?? null,
+    },
+    vehicle,
+    etaMinutes: input.etaMinutes,
   };
 }
 
@@ -219,11 +299,14 @@ export function formatPassengerRideSnapshot(detail: RideHistoryRow): PassengerRi
           id: booking.assignedDriverId,
           name: detail.driverName ?? null,
           phone: detail.driverPhone ?? null,
-          plateNumber: detail.vehiclePlate ?? null,
+          profileImageUrl: resolvePublicProfileImageUrl(detail.driverProfileImageUrl),
+          plateNumber: detail.vehicleId ? (detail.vehiclePlate ?? null) : null,
         }
       : null,
     vehicle,
+    etaMinutes: booking.driverEtaMinutes ?? null,
     payment: formatPayment(detail),
+    ...bookingBillingFields(booking.billingMode, detail.paymentMethodCode),
     recording: { available: asRecordingAvailable(detail.recordingAvailable) },
     createdAt: iso(booking.createdAt) ?? new Date(0).toISOString(),
     acceptedAt: iso(booking.acceptedAt),
@@ -316,8 +399,50 @@ export async function listPassengerRideHistory(
     listRideHistoryByCustomer(customerId, statuses, limit, offset),
     countRideHistoryByCustomer(customerId, statuses),
   ]);
+  const formatted = items.map(formatPassengerRideSnapshot);
+  let payments: MeterPayment[] = [];
+  try {
+    payments = await meterPaymentsForBookings(formatted.map((item) => item.id));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '';
+    if (!message.includes('does not exist')) throw error;
+  }
+  const byBooking = new Map(
+    payments.filter((payment) => payment.bookingId).map((payment) => [payment.bookingId as string, payment])
+  );
   return {
-    items: items.map(formatPassengerRideSnapshot),
+    items: formatted.map((item) => {
+      const payment = byBooking.get(item.id);
+      if (!payment || payment.subjectType !== 'on_demand') return { ...item, meterPayment: null };
+      const stored: StoredTestPayment = {
+        id: payment.id,
+        status: payment.status as MeterPaymentStatusType,
+        hostedUrl: payment.hostedUrl,
+        stripeCheckoutSessionId: payment.stripeCheckoutSessionId,
+        stripePaymentIntentId: payment.stripePaymentIntentId,
+        receiptUrl: payment.receiptUrl,
+        amountCents: payment.amountCents,
+        currency: payment.currency,
+        settlementMode: payment.settlementMode as MeterSettlementModeType,
+        testOnly: payment.testOnly,
+        fareClassification: payment.fareClassification,
+        expiresAtMs: payment.expiresAt?.getTime() ?? null,
+        fareRecordId: payment.fareRecordId,
+        idempotencyKey: payment.idempotencyKey,
+        failureCode: payment.failureCode,
+        paidAtMs: payment.paidAt?.getTime() ?? null,
+        createdAtMs: payment.createdAt.getTime(),
+        updatedAtMs: payment.updatedAt.getTime(),
+      };
+      const view = toOnDemandMeterPaymentView({
+        bookingId: item.id,
+        rideStatus: item.status,
+        completedAt: item.completedAt,
+        meterSessionId: payment.meterSessionId,
+        payment: stored,
+      });
+      return { ...item, meterPayment: view };
+    }),
     total,
     page,
     limit,

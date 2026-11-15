@@ -37,6 +37,7 @@ import {
   isDriverAcceptingOffer,
 } from './driverAcceptanceLock.service';
 import { buildOfferEventPayload } from './driverBooking.service';
+import { formatPassengerAcceptedEvent } from './rideHistory.service';
 import { notifyDriverOfPersistedOffer } from './driverOfferNotify.service';
 import { notifyPassengerOfRideEvent } from './passengerRideNotify.service';
 import { logger } from '../middleware/logger';
@@ -61,7 +62,8 @@ export async function findNearbyDriversForCategory(
   pickupLat: number,
   pickupLng: number,
   radiusKm = dispatchConfig.dispatchRadiusKm,
-  excludeBookingId?: string
+  excludeBookingId?: string,
+  marketCode?: string | null
 ): Promise<DriverCandidate[]> {
   const excludedDriverIds = excludeBookingId
     ? new Set(await listExcludedDriverIdsForBooking(excludeBookingId))
@@ -78,7 +80,7 @@ export async function findNearbyDriversForCategory(
       serviceCategoryId,
       pickupLat,
       pickupLng,
-      { radiusKm }
+      { radiusKm, marketCode }
     );
     if (!eligibility.eligible) continue;
 
@@ -180,7 +182,8 @@ export async function startDispatch(bookingId: string): Promise<void> {
       pickupLat,
       pickupLng,
       dispatchConfig.dispatchRadiusKm,
-      bookingId
+      bookingId,
+      booking.marketCode
     )
   ).slice(0, DISPATCH_BATCH_SIZE);
 
@@ -198,7 +201,8 @@ export async function startDispatch(bookingId: string): Promise<void> {
         driverId,
         booking.serviceCategoryId,
         pickupLat,
-        pickupLng
+        pickupLng,
+        booking.marketCode
       );
       if (!diagnosis.eligible) {
         console.info('[Dispatch] driver ineligible', diagnosis);
@@ -433,7 +437,7 @@ async function acceptBookingOfferInternal(
     bookingPreview.serviceCategoryId,
     pickupLat,
     pickupLng,
-    { skipAcceptingCheck: true }
+    { skipAcceptingCheck: true, marketCode: bookingPreview.marketCode }
   );
   logger.info({
     event: 'driver.accept.eligibility',
@@ -672,23 +676,38 @@ async function acceptBookingOfferInternal(
     };
   }
 
-  let plateNumber: string | null = null;
-  let vehiclePayload: Record<string, unknown> | null = null;
-  if (driver.vehicleId) {
-    const v = await db.select().from(vehicles).where(eq(vehicles.id, driver.vehicleId)).limit(1);
-    plateNumber = v[0]?.plateNumber ?? null;
-    if (v[0]) {
-      vehiclePayload = {
-        id: v[0].id,
-        make: v[0].make ?? driver.vehicleMake,
-        model: v[0].model ?? driver.vehicleModel,
-        color: driver.vehicleColor,
-        plateNumber: v[0].plateNumber,
-      };
-    }
-  }
+  const assignedVehicle = booking.assignedVehicleId
+    ? (
+        await db
+          .select()
+          .from(vehicles)
+          .where(eq(vehicles.id, booking.assignedVehicleId))
+          .limit(1)
+      )[0] ?? null
+    : null;
 
   const etaMin = booking.driverEtaMinutes ?? txResult.etaMin;
+  const acceptedPayload = formatPassengerAcceptedEvent({
+    bookingId,
+    status: BookingStatus.DRIVER_EN_ROUTE,
+    etaMinutes: etaMin,
+    driver: {
+      id: driverId,
+      name: driver.name,
+      phone: driver.phone,
+      profileImageUrl: driver.profileImageUrl,
+    },
+    assignedVehicle: assignedVehicle
+      ? {
+          id: assignedVehicle.id,
+          make: assignedVehicle.make,
+          model: assignedVehicle.model,
+          color: assignedVehicle.color,
+          year: assignedVehicle.year,
+          plateNumber: assignedVehicle.plateNumber,
+        }
+      : null,
+  });
 
   let offerCancelledEmitted = 0;
   for (const offer of txResult.takenOffers) {
@@ -701,18 +720,7 @@ async function acceptBookingOfferInternal(
     await emitToDriver(offer.driverId, 'booking:taken', { bookingId });
   }
 
-  await emitToCustomer(booking.customerId, 'booking:accepted', {
-    bookingId,
-    status: BookingStatus.DRIVER_EN_ROUTE,
-    driver: {
-      id: driverId,
-      name: driver.name,
-      phone: driver.phone,
-      plateNumber,
-    },
-    vehicle: vehiclePayload,
-    etaMinutes: etaMin,
-  });
+  await emitToCustomer(booking.customerId, 'booking:accepted', acceptedPayload);
   notifyPassengerOfRideEvent({
     customerId: booking.customerId,
     bookingId,

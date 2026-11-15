@@ -26,6 +26,38 @@ export declare const refreshTokenSchema: z.ZodObject<{
 }, {
     refreshToken: string;
 }>;
+/** Public driver self-registration. confirmPassword is validated and then dropped. */
+export declare const driverSelfRegisterSchema: z.ZodEffects<z.ZodObject<{
+    name: z.ZodString;
+    email: z.ZodEffects<z.ZodString, string, string>;
+    phone: z.ZodString;
+    password: z.ZodString;
+    confirmPassword: z.ZodString;
+}, "strict", z.ZodTypeAny, {
+    name: string;
+    email: string;
+    phone: string;
+    password: string;
+    confirmPassword: string;
+}, {
+    name: string;
+    email: string;
+    phone: string;
+    password: string;
+    confirmPassword: string;
+}>, {
+    name: string;
+    email: string;
+    phone: string;
+    password: string;
+    confirmPassword: string;
+}, {
+    name: string;
+    email: string;
+    phone: string;
+    password: string;
+    confirmPassword: string;
+}>;
 export declare const registerDriverPushTokenSchema: z.ZodObject<{
     token: z.ZodString;
     deviceId: z.ZodOptional<z.ZodString>;
@@ -405,6 +437,24 @@ export declare const driverIdPathSchema: z.ZodObject<{
 }, {
     driverId: string;
 }>;
+export declare const driverDocumentTypeParamSchema: z.ZodObject<{
+    documentType: z.ZodEnum<["driving_license", "insurance"]>;
+}, "strip", z.ZodTypeAny, {
+    documentType: "driving_license" | "insurance";
+}, {
+    documentType: "driving_license" | "insurance";
+}>;
+export declare const adminDriverDocumentParamSchema: z.ZodObject<{
+    driverId: z.ZodString;
+} & {
+    documentType: z.ZodEnum<["driving_license", "insurance"]>;
+}, "strip", z.ZodTypeAny, {
+    driverId: string;
+    documentType: "driving_license" | "insurance";
+}, {
+    driverId: string;
+    documentType: "driving_license" | "insurance";
+}>;
 export declare const dutyLocationSchema: z.ZodOptional<z.ZodObject<{
     latitude: z.ZodNumber;
     longitude: z.ZodNumber;
@@ -493,7 +543,7 @@ export declare const listAdminFleetVehiclesQuerySchema: z.ZodObject<{
     fleetId?: string | undefined;
     serviceCategoryId?: string | undefined;
     page?: number | undefined;
-    qrStatus?: "active" | "revoked" | "none" | undefined;
+    qrStatus?: "none" | "active" | "revoked" | undefined;
     dutyStatus?: "on_duty" | "off_duty" | undefined;
 }, {
     limit?: number | undefined;
@@ -503,7 +553,7 @@ export declare const listAdminFleetVehiclesQuerySchema: z.ZodObject<{
     fleetId?: string | undefined;
     serviceCategoryId?: string | undefined;
     page?: number | undefined;
-    qrStatus?: "active" | "revoked" | "none" | undefined;
+    qrStatus?: "none" | "active" | "revoked" | undefined;
     dutyStatus?: "on_duty" | "off_duty" | undefined;
 }>;
 export declare const patchAdminFleetVehicleSchema: z.ZodEffects<z.ZodObject<{
@@ -518,7 +568,7 @@ export declare const patchAdminFleetVehicleSchema: z.ZodEffects<z.ZodObject<{
     approvalStatus: z.ZodOptional<z.ZodEnum<["approved", "pending", "rejected"]>>;
     serviceCategoryIds: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
 }, "strip", z.ZodTypeAny, {
-    status?: "active" | "pending" | "rejected" | "approved" | "inactive" | "maintenance" | undefined;
+    status?: "active" | "pending" | "approved" | "rejected" | "inactive" | "maintenance" | undefined;
     make?: string | undefined;
     model?: string | undefined;
     year?: number | undefined;
@@ -526,10 +576,10 @@ export declare const patchAdminFleetVehicleSchema: z.ZodEffects<z.ZodObject<{
     plateNumber?: string | undefined;
     fleetId?: string | undefined;
     capacity?: number | undefined;
-    approvalStatus?: "pending" | "rejected" | "approved" | undefined;
+    approvalStatus?: "pending" | "approved" | "rejected" | undefined;
     serviceCategoryIds?: string[] | undefined;
 }, {
-    status?: "active" | "pending" | "rejected" | "approved" | "inactive" | "maintenance" | undefined;
+    status?: "active" | "pending" | "approved" | "rejected" | "inactive" | "maintenance" | undefined;
     make?: unknown;
     model?: unknown;
     year?: unknown;
@@ -537,10 +587,10 @@ export declare const patchAdminFleetVehicleSchema: z.ZodEffects<z.ZodObject<{
     plateNumber?: unknown;
     fleetId?: string | undefined;
     capacity?: unknown;
-    approvalStatus?: "pending" | "rejected" | "approved" | undefined;
+    approvalStatus?: "pending" | "approved" | "rejected" | undefined;
     serviceCategoryIds?: string[] | undefined;
 }>, {
-    status?: "active" | "pending" | "rejected" | "approved" | "inactive" | "maintenance" | undefined;
+    status?: "active" | "pending" | "approved" | "rejected" | "inactive" | "maintenance" | undefined;
     make?: string | undefined;
     model?: string | undefined;
     year?: number | undefined;
@@ -548,10 +598,10 @@ export declare const patchAdminFleetVehicleSchema: z.ZodEffects<z.ZodObject<{
     plateNumber?: string | undefined;
     fleetId?: string | undefined;
     capacity?: number | undefined;
-    approvalStatus?: "pending" | "rejected" | "approved" | undefined;
+    approvalStatus?: "pending" | "approved" | "rejected" | undefined;
     serviceCategoryIds?: string[] | undefined;
 }, {
-    status?: "active" | "pending" | "rejected" | "approved" | "inactive" | "maintenance" | undefined;
+    status?: "active" | "pending" | "approved" | "rejected" | "inactive" | "maintenance" | undefined;
     make?: unknown;
     model?: unknown;
     year?: unknown;
@@ -559,7 +609,7 @@ export declare const patchAdminFleetVehicleSchema: z.ZodEffects<z.ZodObject<{
     plateNumber?: unknown;
     fleetId?: string | undefined;
     capacity?: unknown;
-    approvalStatus?: "pending" | "rejected" | "approved" | undefined;
+    approvalStatus?: "pending" | "approved" | "rejected" | undefined;
     serviceCategoryIds?: string[] | undefined;
 }>;
 export declare const vehicleQrTokenIdParamSchema: z.ZodObject<{
@@ -722,12 +772,12 @@ export declare const updateTripSchema: z.ZodObject<{
     distance: z.ZodOptional<z.ZodNumber>;
     status: z.ZodOptional<z.ZodEnum<["in_progress", "completed", "cancelled"]>>;
 }, "strip", z.ZodTypeAny, {
-    status?: "in_progress" | "completed" | "cancelled" | undefined;
+    status?: "in_progress" | "cancelled" | "completed" | undefined;
     endTime?: string | undefined;
     distance?: number | undefined;
     endLocationId?: string | undefined;
 }, {
-    status?: "in_progress" | "completed" | "cancelled" | undefined;
+    status?: "in_progress" | "cancelled" | "completed" | undefined;
     endTime?: string | undefined;
     distance?: number | undefined;
     endLocationId?: string | undefined;
@@ -741,12 +791,12 @@ export declare const getTripsQuerySchema: z.ZodObject<{
 }, "strip", z.ZodTypeAny, {
     limit: number;
     page: number;
-    status?: "in_progress" | "completed" | "cancelled" | undefined;
+    status?: "in_progress" | "cancelled" | "completed" | undefined;
     startDate?: string | undefined;
     endDate?: string | undefined;
 }, {
     limit?: string | undefined;
-    status?: "in_progress" | "completed" | "cancelled" | undefined;
+    status?: "in_progress" | "cancelled" | "completed" | undefined;
     page?: string | undefined;
     startDate?: string | undefined;
     endDate?: string | undefined;
@@ -1184,11 +1234,11 @@ export declare const bookingHistoryQuerySchema: z.ZodObject<{
     limit: z.ZodDefault<z.ZodOptional<z.ZodNumber>>;
     filter: z.ZodDefault<z.ZodOptional<z.ZodEnum<["all", "completed", "cancelled"]>>>;
 }, "strip", z.ZodTypeAny, {
-    filter: "completed" | "cancelled" | "all";
+    filter: "cancelled" | "completed" | "all";
     limit: number;
     page: number;
 }, {
-    filter?: "completed" | "cancelled" | "all" | undefined;
+    filter?: "cancelled" | "completed" | "all" | undefined;
     limit?: number | undefined;
     page?: number | undefined;
 }>;
@@ -1501,6 +1551,19 @@ export declare const nearbyDriversQuerySchema: z.ZodObject<{
     lat: number;
     lng: number;
     radiusKm?: number | undefined;
+}>;
+export declare const serviceAreaQuerySchema: z.ZodObject<{
+    lat: z.ZodNumber;
+    lng: z.ZodNumber;
+    placeId: z.ZodOptional<z.ZodString>;
+}, "strip", z.ZodTypeAny, {
+    lat: number;
+    lng: number;
+    placeId?: string | undefined;
+}, {
+    lat: number;
+    lng: number;
+    placeId?: string | undefined;
 }>;
 export declare const placeSuggestionsQuerySchema: z.ZodObject<{
     lat: z.ZodOptional<z.ZodNumber>;

@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { bookingBillingFields } from '../services/softMeter/billingMode';
 import { sendSuccess, sendError, calculatePagination } from '../utils/response';
 import { handleGoogleMapsError } from '../utils/googleMapsHandler';
 import { isGoogleMapsConfigured } from '../config/googleMaps';
@@ -34,10 +35,17 @@ import {
   findBookingById,
 } from '../services/booking.service';
 import { listPassengerRideHistory } from '../services/rideHistory.service';
+import {
+  openPassengerOnDemandMeterPaymentIntent,
+  readLatestUnpaidOnDemandMeterRide,
+  readPassengerOnDemandMeterPayment,
+  readPassengerOnDemandMeterReceipt,
+} from '../services/softMeter/onDemandMeterPayment.service';
 import { findNearbyDriversForCategory } from '../services/dispatch.service';
 import { listLiveSegmentsByBooking } from '../services/liveVideo.service';
 import { quoteAllServiceCategories } from '../services/fare.service';
 import { PaymentError } from '../services/payment.errors';
+import { MeterError } from '../services/softMeter/errors';
 import { resolveBookingCurrency } from '../constants/payment';
 import {
   getPassengerPaymentsConfig,
@@ -47,6 +55,17 @@ import {
 import { getBookingPaymentView } from '../services/stripePaymentIntent.service';
 import { activateAuthorizedCardBooking } from '../services/cardBookingActivation.service';
 import { previewRoute } from '../services/route.service';
+import { resolveRideMarket } from '../services/rideMarket.service';
+import {
+  assertNearbyQueryPermitted,
+  assertResolvedRidePermitted,
+  assertRidePermitted,
+  getServiceAreaForCoordinates,
+} from '../services/serviceArea.service';
+
+function sendPaymentError(res: Response, error: PaymentError) {
+  return sendError(res, error.code, error.message, error.statusCode, error.details);
+}
 
 function mapsConfigGuard(res: Response): boolean {
   if (!isGoogleMapsConfigured()) {
@@ -210,9 +229,15 @@ export async function routePreviewHandler(req: Request, res: Response) {
   if (!mapsConfigGuard(res)) return;
   try {
     const { pickup, dropoff, stops, travelMode, routePreference } = req.body;
+    await assertResolvedRidePermitted({
+      pickup,
+      dropoff,
+      stops,
+    });
     const route = await previewRoute({ pickup, dropoff, stops, travelMode, routePreference });
     return sendSuccess(res, route);
   } catch (error) {
+    if (error instanceof PaymentError) return sendPaymentError(res, error);
     return handleGoogleMapsError(res, error);
   }
 }
@@ -250,7 +275,7 @@ export async function paymentsConfigHandler(_req: Request, res: Response) {
     return sendSuccess(res, getPassengerPaymentsConfig());
   } catch (error) {
     if (error instanceof PaymentError) {
-      return sendError(res, error.code, error.message, error.statusCode);
+      return sendPaymentError(res, error);
     }
     throw error;
   }
@@ -265,6 +290,14 @@ export async function quoteHandler(req: Request, res: Response) {
         longitude: s.longitude,
         address: s.address,
       })) ?? [];
+
+    const market = await resolveRideMarket({
+      pickupLatitude: pickup.latitude,
+      pickupLongitude: pickup.longitude,
+      pickupPlaceId: pickup.placeId,
+      pickupCountryCode: pickup.countryCode ?? pickupCountryCode,
+    });
+    await assertRidePermitted(market.code, pickup, dropoff, waypoints);
 
     if (serviceCategoryId) {
       const quote = await createBookingQuote({
@@ -303,6 +336,10 @@ export async function quoteHandler(req: Request, res: Response) {
             currency: quote.currency,
             marketCode: quote.marketCode,
             promotion: quote.promotion,
+            billingMode: quote.billingMode,
+            paymentRequiredBeforeDispatch: quote.paymentRequiredBeforeDispatch,
+            paymentRequiredAfterCompletion: quote.paymentRequiredAfterCompletion,
+            fareClassification: quote.fareClassification,
           },
         ],
         market: {
@@ -317,7 +354,14 @@ export async function quoteHandler(req: Request, res: Response) {
     const categories = await listActiveServiceCategories();
     for (const cat of categories) {
       if (cat.code === 'rental') continue;
-      const nearby = await findNearbyDriversForCategory(cat.id, pickup.latitude, pickup.longitude);
+      const nearby = await findNearbyDriversForCategory(
+        cat.id,
+        pickup.latitude,
+        pickup.longitude,
+        undefined,
+        undefined,
+        market.code
+      );
       if (nearby[0]) {
         etaMap.set(cat.id, estimateMinutesFromKm(nearby[0].distanceKm));
       }
@@ -332,7 +376,7 @@ export async function quoteHandler(req: Request, res: Response) {
     return sendSuccess(res, result);
   } catch (error) {
     if (error instanceof PaymentError) {
-      return sendError(res, error.code, error.message, error.statusCode);
+      return sendPaymentError(res, error);
     }
     return handleGoogleMapsError(res, error);
   }
@@ -348,12 +392,19 @@ export async function createBookingHandler(req: Request, res: Response) {
       customerId: user.userId,
       idempotencyKey,
     });
-    const booking = result.booking;
+    const booking = {
+      ...result.booking,
+      ...bookingBillingFields(
+        result.booking.billingMode,
+        (req.body?.paymentMethodCode ?? result.payment?.method ?? 'cash').toLowerCase()
+      ),
+    };
     console.info('[BookingCreate] success', {
       requestId,
       customerId: user.userId,
       bookingId: booking.id,
       status: booking.status,
+      billingMode: booking.billingMode,
       paymentMethod: result.payment?.method ?? 'cash',
     });
     if (result.payment) {
@@ -382,7 +433,7 @@ export async function createBookingHandler(req: Request, res: Response) {
         status: e.statusCode,
         serviceCategoryId: req.body?.serviceCategoryId,
       });
-      return sendError(res, e.code, e.message, e.statusCode);
+      return sendPaymentError(res, e);
     }
     const message = e instanceof Error ? e.message : 'Booking failed';
     const code = message.includes('active booking')
@@ -422,6 +473,15 @@ export async function getBookingPaymentHandler(req: Request, res: Response) {
   const booking = await findBookingById(req.params.bookingId);
   if (!booking || booking.customerId !== user.userId) {
     return sendError(res, 'NOT_FOUND', 'Booking not found', 404);
+  }
+  if (booking.billingMode === 'metered_post_trip') {
+    return sendSuccess(res, {
+      ...bookingBillingFields(booking.billingMode, 'card'),
+      bookingStatus: booking.status,
+      paymentStatus: booking.paymentStatus,
+      paymentIntentId: null,
+      clientSecret: null,
+    });
   }
   try {
     let payment: Awaited<ReturnType<typeof getBookingPaymentView>> | undefined;
@@ -551,25 +611,90 @@ export async function liveVideoHandler(req: Request, res: Response) {
 
 export async function nearbyDriversHandler(req: Request, res: Response) {
   const { lat, lng, serviceCategoryId, radiusKm } = req.query as any;
-  const drivers = await findNearbyDriversForCategory(
-    serviceCategoryId,
-    Number(lat),
-    Number(lng),
-    radiusKm != null ? Number(radiusKm) : 15
+  try {
+    const latitude = Number(lat);
+    const longitude = Number(lng);
+    const market = await assertNearbyQueryPermitted(latitude, longitude);
+    const drivers = await findNearbyDriversForCategory(
+      serviceCategoryId,
+      latitude,
+      longitude,
+      radiusKm != null ? Number(radiusKm) : 15,
+      undefined,
+      market.code
+    );
+
+    const sanitized = drivers.slice(0, 20).map((d) => ({
+      driverId: d.driverId,
+      distanceKm: Math.round(d.distanceKm * 10) / 10,
+      estimatedArrivalMinutes: estimateMinutesFromKm(d.distanceKm),
+      vehicle: d.vehicleId
+        ? {
+            id: d.vehicleId,
+            type: null,
+            plateNumberMasked: maskPlateNumber(d.plateNumber),
+          }
+        : null,
+    }));
+
+    return sendSuccess(res, sanitized);
+  } catch (error) {
+    if (error instanceof PaymentError) return sendPaymentError(res, error);
+    throw error;
+  }
+}
+
+export async function serviceAreaConfigHandler(req: Request, res: Response) {
+  const { lat, lng, placeId } = req.query as { lat?: string; lng?: string; placeId?: string };
+  try {
+    const view = await getServiceAreaForCoordinates({
+      latitude: Number(lat),
+      longitude: Number(lng),
+      placeId: placeId ?? null,
+    });
+    return sendSuccess(res, view);
+  } catch (error) {
+    if (error instanceof PaymentError) return sendPaymentError(res, error);
+    throw error;
+  }
+}
+
+export async function passengerMeterPaymentHandler(req: Request, res: Response) {
+  const user = (req as any).user;
+  const view = await readPassengerOnDemandMeterPayment(req.params.bookingId, user.userId);
+  return sendSuccess(res, view);
+}
+
+export async function passengerMeterCheckoutHandler(_req: Request, res: Response) {
+  return sendError(
+    res,
+    'ONDEMAND_CHECKOUT_DISABLED',
+    'On-demand Soft Meter payments use the in-app PaymentIntent. Hosted Checkout is not created for this ride.',
+    409
   );
+}
 
-  const sanitized = drivers.slice(0, 20).map((d) => ({
-    driverId: d.driverId,
-    distanceKm: Math.round(d.distanceKm * 10) / 10,
-    estimatedArrivalMinutes: estimateMinutesFromKm(d.distanceKm),
-    vehicle: d.vehicleId
-      ? {
-          id: d.vehicleId,
-          type: null,
-          plateNumberMasked: maskPlateNumber(d.plateNumber),
-        }
-      : null,
-  }));
+export async function passengerMeterPaymentIntentHandler(req: Request, res: Response) {
+  const user = (req as any).user;
+  try {
+    const view = await openPassengerOnDemandMeterPaymentIntent(req.params.bookingId, user.userId);
+    return sendSuccess(res, view);
+  } catch (error) {
+    if (error instanceof MeterError) {
+      return sendError(res, error.code, error.message, error.statusCode);
+    }
+    throw error;
+  }
+}
 
-  return sendSuccess(res, sanitized);
+export async function passengerMeterReceiptHandler(req: Request, res: Response) {
+  const user = (req as any).user;
+  const view = await readPassengerOnDemandMeterReceipt(req.params.bookingId, user.userId);
+  return sendSuccess(res, view);
+}
+
+export async function latestUnpaidMeterRideHandler(req: Request, res: Response) {
+  const user = (req as any).user;
+  const view = await readLatestUnpaidOnDemandMeterRide(user.userId);
+  return sendSuccess(res, view);
 }

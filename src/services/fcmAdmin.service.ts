@@ -83,9 +83,11 @@ async function initializeFirebaseAdmin(): Promise<boolean> {
 
     const messaging = adminMessaging.getMessaging(firebaseApp);
     messagingSend = (message) => messaging.send(message as Parameters<typeof messaging.send>[0]);
+    const resolvedProjectId = firebaseApp.options.projectId || getFirebaseProjectId() || null;
     logger.info({
       event: 'fcm.initialized',
-      projectConfigured: Boolean(getFirebaseProjectId()),
+      projectId: resolvedProjectId,
+      projectConfigured: Boolean(resolvedProjectId),
       credentialMode: getFirebaseServiceAccountJson()
         ? 'FIREBASE_SERVICE_ACCOUNT_JSON'
         : 'GOOGLE_APPLICATION_CREDENTIALS',

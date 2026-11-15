@@ -25,6 +25,7 @@ const KNOWN_EVENT_PREFIXES = [
   'transfer.',
   'account.',
   'capability.',
+  'checkout.session.',
 ] as const;
 
 let testProcessHook: ((event: Stripe.Event) => Promise<void>) | null = null;
@@ -63,6 +64,8 @@ export async function dispatchStripeWebhookEvent(event: Stripe.Event): Promise<v
   });
 
   await handleStripeConnectWebhookEvent(event);
+  const { handleMeterCheckoutWebhook } = await import('./softMeter/meterPayment.service');
+  await handleMeterCheckoutWebhook(event);
   const paymentResult = await handleStripePaymentIntentEvent(event);
   if (
     paymentResult.bookingId &&

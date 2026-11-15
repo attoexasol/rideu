@@ -9,7 +9,20 @@ import postgres from 'postgres';
 import { writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 
-const CANONICAL_BASES = ['ride', 'bike', 'cng', 'moto', 'premium', 'comfort'] as const;
+const CANONICAL_BASES = [
+  'economy',
+  'executive',
+  'suv',
+  'van',
+  'minivan',
+  'ada',
+  'ride',
+  'bike',
+  'cng',
+  'moto',
+  'premium',
+  'comfort',
+] as const;
 
 function normalizeBase(codeOrName: string): string | null {
   const raw = codeOrName.trim().toLowerCase();
@@ -169,7 +182,8 @@ async function main() {
       });
 
     const rootCauseNotes = {
-      seedSource: 'src/db/migrations/0011_passenger_booking_system.sql (ride/bike/cng/moto/premium/comfort)',
+      seedSource:
+        '0011 legacy (ride/bike/cng/moto/premium/comfort) + 0033 DriveWize (economy/executive/suv/van/minivan/ada)',
       productionInsertPaths: 'none found in src/',
       testInsertPatterns: [
         'tests/admin-fleet-vehicle-update.test.ts → BIKE-${uuid.slice(0,8)} / Bike ${runId}',

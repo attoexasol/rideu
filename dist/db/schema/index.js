@@ -62,6 +62,12 @@ __exportStar(require("./airports"), exports);
 __exportStar(require("./ride_markets"), exports);
 __exportStar(require("./service_category_market_fares"), exports);
 __exportStar(require("./stripe_webhook_events"), exports);
+__exportStar(require("./driver_documents"), exports);
+__exportStar(require("./service_areas"), exports);
+__exportStar(require("./meter_rate_schedules"), exports);
+__exportStar(require("./walk_up_trips"), exports);
+__exportStar(require("./meter_sessions"), exports);
+__exportStar(require("./meter_payments"), exports);
 const drivers_1 = require("./drivers");
 const locations_1 = require("./locations");
 const trips_1 = require("./trips");
@@ -105,6 +111,12 @@ const airports_1 = require("./airports");
 const ride_markets_1 = require("./ride_markets");
 const service_category_market_fares_1 = require("./service_category_market_fares");
 const stripe_webhook_events_1 = require("./stripe_webhook_events");
+const driver_documents_1 = require("./driver_documents");
+const service_areas_1 = require("./service_areas");
+const meter_rate_schedules_1 = require("./meter_rate_schedules");
+const walk_up_trips_1 = require("./walk_up_trips");
+const meter_sessions_1 = require("./meter_sessions");
+const meter_payments_1 = require("./meter_payments");
 exports.schema = {
     drivers: drivers_1.drivers,
     locations: locations_1.locations,
@@ -149,5 +161,16 @@ exports.schema = {
     rideMarkets: ride_markets_1.rideMarkets,
     serviceCategoryMarketFares: service_category_market_fares_1.serviceCategoryMarketFares,
     stripeWebhookEvents: stripe_webhook_events_1.stripeWebhookEvents,
+    driverDocuments: driver_documents_1.driverDocuments,
+    serviceAreas: service_areas_1.serviceAreas,
+    meterRateSchedules: meter_rate_schedules_1.meterRateSchedules,
+    meterRateScheduleEvents: meter_rate_schedules_1.meterRateScheduleEvents,
+    walkUpTrips: walk_up_trips_1.walkUpTrips,
+    meterSessions: meter_sessions_1.meterSessions,
+    meterGpsSamples: meter_sessions_1.meterGpsSamples,
+    meterCalculationEvents: meter_sessions_1.meterCalculationEvents,
+    meterFareRecords: meter_sessions_1.meterFareRecords,
+    meterPauses: meter_sessions_1.meterPauses,
+    meterPayments: meter_payments_1.meterPayments,
 };
 //# sourceMappingURL=index.js.map

@@ -175,12 +175,12 @@ export declare const driverUtils: {
      */
     findWithVehicle(driverId: string): Promise<{
         name: string;
+        auth0Id: string;
         id: string;
         status: string;
         createdAt: Date;
         updatedAt: Date;
         qrCode: string | null;
-        auth0Id: string;
         email: string;
         phone: string | null;
         vehicleType: "sedan" | "suv" | "van" | "mini_bus" | "coach_bus" | null;
@@ -535,10 +535,10 @@ export declare const sessionUtils: {
         token: string;
         expiresAt: Date;
     }): Promise<{
-        id: string;
-        createdAt: Date;
         userId: string;
         userType: string;
+        id: string;
+        createdAt: Date;
         token: string;
         expiresAt: Date;
     }>;

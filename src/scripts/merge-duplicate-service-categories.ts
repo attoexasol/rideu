@@ -14,13 +14,27 @@ import { writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import {
   CANONICAL_SERVICE_CODES,
+  LEGACY_SERVICE_CODES,
   CANONICAL_DISPLAY_NAMES,
+  LEGACY_DISPLAY_NAMES,
   normalizeServiceCategoryBase,
-  isCanonicalExactCode,
-  type CanonicalServiceCode,
+  isKnownExactProductCode,
+  type KnownServiceCode,
 } from '../utils/serviceCategoryNormalize';
 
 const APPLY = process.argv.includes('--apply');
+
+const ALL_PRODUCT_CODES: readonly KnownServiceCode[] = [
+  ...CANONICAL_SERVICE_CODES,
+  ...LEGACY_SERVICE_CODES,
+];
+
+function displayNameFor(base: KnownServiceCode): string {
+  if ((CANONICAL_SERVICE_CODES as readonly string[]).includes(base)) {
+    return CANONICAL_DISPLAY_NAMES[base as keyof typeof CANONICAL_DISPLAY_NAMES];
+  }
+  return LEGACY_DISPLAY_NAMES[base as keyof typeof LEGACY_DISPLAY_NAMES];
+}
 
 type CategoryRow = {
   id: string;
@@ -71,8 +85,8 @@ async function main() {
       ORDER BY sc.code
     `) as unknown as CategoryRow[];
 
-    const byBase = new Map<CanonicalServiceCode, CategoryRow[]>();
-    for (const base of CANONICAL_SERVICE_CODES) byBase.set(base, []);
+    const byBase = new Map<KnownServiceCode, CategoryRow[]>();
+    for (const base of ALL_PRODUCT_CODES) byBase.set(base, []);
 
     for (const row of categories) {
       const base = normalizeServiceCategoryBase(row.code) ?? normalizeServiceCategoryBase(row.name);
@@ -81,7 +95,7 @@ async function main() {
     }
 
     const plans: Array<{
-      base: CanonicalServiceCode;
+      base: KnownServiceCode;
       canonical: { id: string; code: string; name: string } | null;
       duplicates: Array<{
         duplicateCategoryId: string;
@@ -100,7 +114,7 @@ async function main() {
 
     const actionsLog: Array<Record<string, unknown>> = [];
 
-    for (const base of CANONICAL_SERVICE_CODES) {
+    for (const base of ALL_PRODUCT_CODES) {
       const members = byBase.get(base) ?? [];
       if (!members.length) {
         plans.push({ base, canonical: null, duplicates: [] });
@@ -108,7 +122,7 @@ async function main() {
       }
 
       const canonical =
-        members.find((m) => isCanonicalExactCode(m.code)) ??
+        members.find((m) => isKnownExactProductCode(m.code)) ??
         members.find((m) => m.is_active) ??
         members[0];
 
@@ -166,13 +180,13 @@ async function main() {
 
       if (!APPLY) continue;
 
-      // Normalize canonical display name / code casing
+      // Normalize display name / code casing. Only current bookable products stay active.
       await sql`
         UPDATE service_categories
         SET
           code = ${base},
-          name = ${CANONICAL_DISPLAY_NAMES[base]},
-          is_active = true,
+          name = ${displayNameFor(base)},
+          is_active = ${(CANONICAL_SERVICE_CODES as readonly string[]).includes(base)},
           updated_at = NOW()
         WHERE id = ${canonical.id}::uuid
       `;
@@ -294,7 +308,7 @@ async function main() {
             {
               id: p.canonical!.id,
               code: p.canonical!.code,
-              displayName: CANONICAL_DISPLAY_NAMES[p.base],
+              displayName: displayNameFor(p.base),
             },
           ])
       ),

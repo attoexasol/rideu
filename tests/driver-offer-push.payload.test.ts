@@ -1,16 +1,21 @@
 import {
   buildAndroidOfferFcmMessage,
+  buildDriverOfferFcmMessage,
   buildOfferPushDataPayload,
   classifyFcmError,
+  fcmTokenSuffix,
   getFcmErrorCode,
   offerPushCollapseKey,
+  offerPushNotificationCopy,
   remainingOfferTtlSeconds,
   shouldSendOfferPush,
 } from '../src/services/driverOfferPush.payload';
 import { DISPATCH_OFFER_TTL_SECONDS } from '../src/constants/bookingStatus';
 
+const PRIVATE_DETAIL = /phone|pickup|dropoff|route|fare|jwt|https?:|passenger|address/i;
+
 describe('offer push payload', () => {
-  it('contains only type, offerId, and bookingId as strings', () => {
+  it('contains type and offerId, and bookingId when present', () => {
     const payload = buildOfferPushDataPayload({
       offerId: 'offer-1',
       bookingId: 'booking-1',
@@ -21,11 +26,30 @@ describe('offer push payload', () => {
       bookingId: 'booking-1',
     });
     expect(Object.keys(payload).sort()).toEqual(['bookingId', 'offerId', 'type']);
-    expect(JSON.stringify(payload)).not.toMatch(/phone|pickup|dropoff|route|fare|jwt|http/i);
+    expect(JSON.stringify(payload)).not.toMatch(PRIVATE_DETAIL);
+  });
+
+  it('omits bookingId when it is absent', () => {
+    const payload = buildOfferPushDataPayload({
+      offerId: 'offer-1',
+    });
+    expect(payload).toEqual({
+      type: 'booking_offer',
+      offerId: 'offer-1',
+    });
+    expect(payload).not.toHaveProperty('bookingId');
   });
 
   it('uses a stable collapse key per offerId', () => {
     expect(offerPushCollapseKey('offer-uuid')).toBe('booking_offer:offer-uuid');
+  });
+
+  it('exposes only a 4-character token suffix', () => {
+    expect(fcmTokenSuffix('abcdefghijklmnopqrstuvwxyzABCD')).toBe('ABCD');
+    expect(fcmTokenSuffix('short')).toBe('****');
+    expect(fcmTokenSuffix('abcdefghijklmnopqrstuvwxyzABCD')).not.toBe(
+      'abcdefghijklmnopqrstuvwxyzABCD'
+    );
   });
 });
 
@@ -72,6 +96,64 @@ describe('offer push TTL', () => {
       bookingId: 'booking-1',
     });
     expect(message).not.toHaveProperty('notification');
+    expect(message.android).not.toHaveProperty('notification');
+  });
+});
+
+describe('driver offer FCM message for Android + iOS', () => {
+  const now = new Date('2026-08-18T00:00:00.000Z');
+
+  it('keeps Android data-only behavior and adds an APNs user-visible alert', () => {
+    const message = buildDriverOfferFcmMessage({
+      token: 'secret-token-should-not-be-asserted-as-payload',
+      offerId: 'offer-1',
+      bookingId: 'booking-1',
+      ttlSeconds: 45,
+      now,
+    });
+
+    expect(message.data.type).toBe('booking_offer');
+    expect(message.data.offerId).toBe('offer-1');
+    expect(message.data.bookingId).toBe('booking-1');
+    expect(message.android.priority).toBe('high');
+    expect(message.android.ttl).toBe(45_000);
+    expect(message.android.collapseKey).toBe('booking_offer:offer-1');
+    expect(message).not.toHaveProperty('notification');
+    expect(message.android).not.toHaveProperty('notification');
+
+    expect(message.apns.headers['apns-push-type']).toBe('alert');
+    expect(message.apns.headers['apns-priority']).toBe('10');
+    expect(message.apns.headers['apns-collapse-id']).toBe('booking_offer:offer-1');
+    expect(message.apns.headers['apns-expiration']).toBe(String(Math.floor(now.getTime() / 1000) + 45));
+    expect(message.apns.payload.aps.alert.title).toBe('New ride request');
+    expect(message.apns.payload.aps.alert.body).toBe(
+      'Open the app to review this ride request.'
+    );
+    expect(message.apns.payload.aps.sound).toBe('default');
+    expect(JSON.stringify(message.data)).not.toMatch(PRIVATE_DETAIL);
+    expect(JSON.stringify(message.apns.payload.aps.alert)).not.toMatch(PRIVATE_DETAIL);
+  });
+
+  it('uses generic copy with no private ride details', () => {
+    const copy = offerPushNotificationCopy();
+    expect(copy.title).toBe('New ride request');
+    expect(copy.body).toContain('Open the app to review this ride request.');
+    expect(JSON.stringify(copy)).not.toMatch(PRIVATE_DETAIL);
+  });
+
+  it('retains Android-compatible data when bookingId is omitted', () => {
+    const message = buildDriverOfferFcmMessage({
+      token: 'secret-token-should-not-be-asserted-as-payload',
+      offerId: 'offer-2',
+      ttlSeconds: 20,
+      now,
+    });
+    expect(message.data).toEqual({
+      type: 'booking_offer',
+      offerId: 'offer-2',
+    });
+    expect(message.android.priority).toBe('high');
+    expect(message.apns.payload.aps.alert.title).toBe('New ride request');
   });
 });
 
@@ -87,5 +169,20 @@ describe('FCM error classification', () => {
   it('treats unavailable/timeout as transient', () => {
     expect(classifyFcmError({ code: 'messaging/unavailable' })).toBe('transient');
     expect(classifyFcmError({ code: 'TIMEOUT' })).toBe('transient');
+  });
+
+  it('maps sender mismatch and APNs auth errors without deleting the token class', () => {
+    expect(getFcmErrorCode({ code: 'messaging/mismatched-credential' })).toBe(
+      'messaging/mismatched-credential'
+    );
+    expect(classifyFcmError({ code: 'messaging/mismatched-credential' })).toBe('other');
+    expect(getFcmErrorCode({ message: 'third-party-auth-error from APNs' })).toBe(
+      'messaging/third-party-auth-error'
+    );
+    expect(classifyFcmError({ code: 'messaging/third-party-auth-error' })).toBe('other');
+    expect(getFcmErrorCode({ code: 'messaging/invalid-argument' })).toBe(
+      'messaging/invalid-argument'
+    );
+    expect(classifyFcmError({ code: 'messaging/invalid-argument' })).toBe('other');
   });
 });

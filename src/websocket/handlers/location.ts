@@ -17,6 +17,7 @@ import {
 } from '../types';
 import { realtimeCache, redisPub, PubSubChannels } from '../../config/redis';
 import { snapToRoadsBatch } from '../../services/mapboxMatching';
+import { ingestDriverLocationForActiveMeter } from '../../services/softMeter/meterSession.service';
 
 const MAPBOX_ACCESS_TOKEN = process.env.MAPBOX_ACCESS_TOKEN || '';
 
@@ -77,22 +78,6 @@ export function setupLocationHandler(io: Server, socket: Socket): void {
         return;
       }
 
-      // Filter out low-accuracy points (GPS drift/noise)
-      if (payload.accuracy && payload.accuracy > 20) {
-        console.log(`  ⚠️  Low accuracy location (${payload.accuracy.toFixed(1)}m) - skipped`);
-        if (callback) {
-          callback({
-            success: true,
-            data: {
-              skipped: true,
-              reason: 'Low accuracy (>20m)',
-              accuracy: payload.accuracy,
-            },
-          });
-        }
-        return;
-      }
-
       // Get driver from database to get driverId and name
       const driver = await db
         .select()
@@ -113,6 +98,34 @@ export function setupLocationHandler(io: Server, socket: Socket): void {
       const driverRecord = driver[0];
       const driverId = driverRecord.id;
       const driverName = driverRecord.name;
+
+      const recordedAtMs = payload.timestamp ? Date.parse(payload.timestamp) : null;
+      await ingestDriverLocationForActiveMeter({
+        driverId,
+        clientPointId: `socket:${payload.timestamp || 'none'}:${payload.latitude}:${payload.longitude}:${payload.accuracy ?? 'na'}`,
+        latitude: payload.latitude,
+        longitude: payload.longitude,
+        accuracyMeters: typeof payload.accuracy === 'number' ? payload.accuracy : null,
+        speedMps: typeof payload.speed === 'number' ? payload.speed : null,
+        recordedAtMs: recordedAtMs != null && Number.isFinite(recordedAtMs) ? recordedAtMs : null,
+      });
+
+      // Filter out low-accuracy points (GPS drift/noise) from the tracking store.
+      // The soft meter already recorded its own accept/reject decision.
+      if (payload.accuracy && payload.accuracy > 20) {
+        console.log(`  ⚠️  Low accuracy location (${payload.accuracy.toFixed(1)}m) - skipped`);
+        if (callback) {
+          callback({
+            success: true,
+            data: {
+              skipped: true,
+              reason: 'Low accuracy (>20m)',
+              accuracy: payload.accuracy,
+            },
+          });
+        }
+        return;
+      }
 
       // Check distance from last recorded location (server-side distance filter)
       const lastLocation = await db

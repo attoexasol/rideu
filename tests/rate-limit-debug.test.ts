@@ -43,6 +43,7 @@ describe('rate-limit-debug helpers', () => {
   it('infers key types from key prefixes', () => {
     expect(inferKeyType('customer:abc')).toBe('customer');
     expect(inferKeyType('driver:abc')).toBe('driver');
+    expect(inferKeyType('auth:passenger:abc')).toBe('authenticated');
     expect(inferKeyType('ip:1.2.3.4')).toBe('ip');
     expect(inferKeyType('cancel:user:booking')).toBe('customer+booking');
   });

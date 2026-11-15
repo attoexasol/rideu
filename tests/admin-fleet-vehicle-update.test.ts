@@ -106,26 +106,26 @@ const hasDatabase = Boolean(process.env.DATABASE_URL);
     };
     fixture = await createPairedDriversFixture();
 
-    // Reuse canonical bike — never insert BIKE-* orphans into shared DBs
-    const existingBike = await db
+    // Reuse a second DriveWize category — never insert BIKE-* orphans into shared DBs
+    const existingSecondary = await db
       .select()
       .from(serviceCategories)
-      .where(eq(serviceCategories.code, 'bike'))
+      .where(eq(serviceCategories.code, 'suv'))
       .limit(1);
-    if (existingBike[0]) {
-      secondaryCategoryId = existingBike[0].id;
+    if (existingSecondary[0]) {
+      secondaryCategoryId = existingSecondary[0].id;
     } else {
       const [secondaryCategory] = await db
         .insert(serviceCategories)
         .values({
-          code: 'bike',
-          name: 'Bike',
-          baseFare: '30.00',
-          perKmRate: '15.00',
-          minFare: '50.00',
-          capacity: 1,
+          code: 'suv',
+          name: 'SUV',
+          baseFare: '0.00',
+          perKmRate: '0.00',
+          minFare: '0.00',
+          capacity: 6,
           isActive: true,
-          sortOrder: 2,
+          sortOrder: 3,
         })
         .onConflictDoNothing()
         .returning();

@@ -2,6 +2,7 @@ import express from 'express';
 import { asyncHandler } from '../../../middleware/error-handler';
 import { requireAuth, extractUserInfo } from '../../../middleware/auth';
 import { requireDriver } from '../../../middleware/rbac';
+import { driverGeneralRateLimit } from '../../../middleware/rate-limiters';
 import { validate, dutyStartSchema, dutyEndSchema } from '../../../validators';
 import {
   dutyStartHandler,
@@ -11,7 +12,7 @@ import {
 } from '../../../controllers/duty.controller';
 
 const router = express.Router();
-const driverAuth = [requireAuth, extractUserInfo, ...requireDriver];
+const driverAuth = [requireAuth, extractUserInfo, ...requireDriver, driverGeneralRateLimit];
 
 router.post('/start', ...driverAuth, validate(dutyStartSchema), asyncHandler(dutyStartHandler));
 router.post('/end', ...driverAuth, validate(dutyEndSchema), asyncHandler(dutyEndHandler));

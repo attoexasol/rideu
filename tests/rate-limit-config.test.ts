@@ -10,6 +10,7 @@ import {
 } from '../src/config/rate-limit';
 import { shouldSkipGlobalRateLimit } from '../src/middleware/rate-limit-paths';
 import {
+  keyByAuthenticatedOrIp,
   keyByCustomer,
   keyByDriver,
   keyByIp,
@@ -99,6 +100,12 @@ describe('driver GPS allowance', () => {
     expect(prod.driverLocation.max).toBeGreaterThanOrEqual(12);
     expect(prod.driverLocation.windowMs).toBe(60_000);
   });
+
+  it('production authenticated global budget exceeds unauthenticated IP budget', () => {
+    const prod = loadConfigForTier('production');
+    expect(prod.global.max).toBeGreaterThan(prod.globalUnauthenticated.max);
+    expect(prod.globalUnauthenticated.max).toBeLessThanOrEqual(100);
+  });
 });
 
 describe('global rate limit skip paths', () => {
@@ -106,9 +113,12 @@ describe('global rate limit skip paths', () => {
     expect(shouldSkipGlobalRateLimit('/api/locations')).toBe(true);
   });
 
-  it('skips passenger booking create and active restore', () => {
+  it('skips passenger booking create, active restore, and booking detail', () => {
     expect(shouldSkipGlobalRateLimit('/api/v1/passenger/bookings')).toBe(true);
     expect(shouldSkipGlobalRateLimit('/api/v1/passenger/bookings/active')).toBe(true);
+    expect(
+      shouldSkipGlobalRateLimit('/api/v1/passenger/bookings/88683ab3-01d8-47af-a52f-c45363a43fa0')
+    ).toBe(true);
   });
 
   it('skips passenger cancel endpoint', () => {
@@ -139,6 +149,18 @@ describe('global rate limit skip paths', () => {
     expect(shouldSkipGlobalRateLimit('/api/v1/webhooks/stripe')).toBe(true);
   });
 
+  it('skips soft meter, video, duty, and vehicle-exchange operational paths', () => {
+    expect(shouldSkipGlobalRateLimit('/api/v1/driver/meter/active')).toBe(true);
+    expect(shouldSkipGlobalRateLimit('/api/v1/driver/walk-up')).toBe(true);
+    expect(shouldSkipGlobalRateLimit('/api/v1/driver/duty/current')).toBe(true);
+    expect(shouldSkipGlobalRateLimit('/api/v1/driver/vehicle-exchanges/current')).toBe(true);
+    expect(
+      shouldSkipGlobalRateLimit(
+        '/api/v1/driver/video/sessions/6e948d11-e7c6-4a1a-90ae-f40bed100d75/segments'
+      )
+    ).toBe(true);
+  });
+
   it('skips passenger payment config and booking payment status', () => {
     expect(shouldSkipGlobalRateLimit('/api/v1/config/payments')).toBe(true);
     expect(
@@ -151,6 +173,16 @@ describe('global rate limit skip paths', () => {
   it('skips driver payout endpoints', () => {
     expect(shouldSkipGlobalRateLimit('/api/v1/driver/payouts/onboarding-link')).toBe(true);
     expect(shouldSkipGlobalRateLimit('/api/v1/driver/payouts/status')).toBe(true);
+  });
+
+  it('skips driver document endpoints', () => {
+    expect(shouldSkipGlobalRateLimit('/api/v1/driver/documents')).toBe(true);
+    expect(shouldSkipGlobalRateLimit('/api/v1/driver/documents/driving_license')).toBe(true);
+    expect(
+      shouldSkipGlobalRateLimit(
+        '/api/v1/admin/fleet/drivers/11111111-1111-1111-1111-111111111111/documents'
+      )
+    ).toBe(true);
   });
 
   it('skips driver payment history endpoints', () => {
@@ -204,6 +236,20 @@ describe('rate limit key strategy', () => {
   it('falls back to IP for unauthenticated requests', () => {
     const req = mockReq({ ip: '10.0.0.5' });
     expect(keyByIp(req)).toBe('ip:10.0.0.5');
+  });
+
+  it('global authenticated key separates passenger and driver on same IP', () => {
+    const ip = '103.208.183.242';
+    const passenger = mockReq({
+      ip,
+      rateLimitIdentity: { userId: 'p1', role: 'passenger' },
+    } as any);
+    const driver = mockReq({
+      ip,
+      rateLimitIdentity: { userId: 'd1', role: 'driver' },
+    } as any);
+    expect(keyByAuthenticatedOrIp(passenger)).toBe('auth:passenger:p1');
+    expect(keyByAuthenticatedOrIp(driver)).toBe('auth:driver:d1');
   });
 });
 

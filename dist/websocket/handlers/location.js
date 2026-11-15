@@ -45,6 +45,7 @@ const drivers_1 = require("../../db/schema/drivers");
 const drizzle_orm_1 = require("drizzle-orm");
 const redis_1 = require("../../config/redis");
 const mapboxMatching_1 = require("../../services/mapboxMatching");
+const meterSession_service_1 = require("../../services/softMeter/meterSession.service");
 const MAPBOX_ACCESS_TOKEN = process.env.MAPBOX_ACCESS_TOKEN || '';
 /**
  * Setup location event handlers
@@ -102,21 +103,6 @@ function setupLocationHandler(io, socket) {
                     callback({ success: false, error });
                 return;
             }
-            // Filter out low-accuracy points (GPS drift/noise)
-            if (payload.accuracy && payload.accuracy > 20) {
-                console.log(`  ⚠️  Low accuracy location (${payload.accuracy.toFixed(1)}m) - skipped`);
-                if (callback) {
-                    callback({
-                        success: true,
-                        data: {
-                            skipped: true,
-                            reason: 'Low accuracy (>20m)',
-                            accuracy: payload.accuracy,
-                        },
-                    });
-                }
-                return;
-            }
             // Get driver from database to get driverId and name
             const driver = await connection_1.db
                 .select()
@@ -136,6 +122,32 @@ function setupLocationHandler(io, socket) {
             const driverRecord = driver[0];
             const driverId = driverRecord.id;
             const driverName = driverRecord.name;
+            const recordedAtMs = payload.timestamp ? Date.parse(payload.timestamp) : null;
+            await (0, meterSession_service_1.ingestDriverLocationForActiveMeter)({
+                driverId,
+                clientPointId: `socket:${payload.timestamp || 'none'}:${payload.latitude}:${payload.longitude}:${payload.accuracy ?? 'na'}`,
+                latitude: payload.latitude,
+                longitude: payload.longitude,
+                accuracyMeters: typeof payload.accuracy === 'number' ? payload.accuracy : null,
+                speedMps: typeof payload.speed === 'number' ? payload.speed : null,
+                recordedAtMs: recordedAtMs != null && Number.isFinite(recordedAtMs) ? recordedAtMs : null,
+            });
+            // Filter out low-accuracy points (GPS drift/noise) from the tracking store.
+            // The soft meter already recorded its own accept/reject decision.
+            if (payload.accuracy && payload.accuracy > 20) {
+                console.log(`  ⚠️  Low accuracy location (${payload.accuracy.toFixed(1)}m) - skipped`);
+                if (callback) {
+                    callback({
+                        success: true,
+                        data: {
+                            skipped: true,
+                            reason: 'Low accuracy (>20m)',
+                            accuracy: payload.accuracy,
+                        },
+                    });
+                }
+                return;
+            }
             // Check distance from last recorded location (server-side distance filter)
             const lastLocation = await connection_1.db
                 .select()

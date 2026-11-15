@@ -24,8 +24,18 @@ import {
   countCustomerBookings,
   findIdempotencyRecord,
 } from '../repositories/booking.repository';
-import { findPaymentMethodByCode } from '../repositories/serviceCategory.repository';
+import {
+  findPaymentMethodByCode,
+  findServiceCategoryById,
+} from '../repositories/serviceCategory.repository';
+import {
+  BillingMode,
+  classifyBookingBilling,
+  completionSettlementPlan,
+  planBookingCreate,
+} from './softMeter/billingMode';
 import { findBookingPaymentByBookingId } from '../repositories/bookingPayment.repository';
+import { findMeterByBooking } from '../repositories/meterSession.repository';
 import {
   assertCardPaymentAllowed,
   captureAuthorizedBookingPayment,
@@ -34,9 +44,9 @@ import {
   releaseCardPaymentAuthorization,
   type CardPaymentClientView,
 } from './payment.service';
+import { logger } from '../middleware/logger';
 import { quoteSingleCategory } from './fare.service';
 import { startDispatch, clearDispatchTimer } from './dispatch.service';
-import { shouldStartDispatchOnBookingCreate } from './cardBookingActivation.service';
 import {
   emitBookingStatus,
   emitRecordingConsent,
@@ -168,7 +178,7 @@ export async function confirmBooking(input: CreateBookingInput): Promise<Confirm
       const booking = await findBookingById(existing.bookingId);
       if (booking) {
         const paymentCode = (input.paymentMethodCode ?? 'cash').toLowerCase();
-        if (paymentCode === 'card') {
+        if (paymentCode === 'card' && booking.billingMode !== BillingMode.METERED_POST_TRIP) {
           const payment = await prepareCardPaymentForBooking({
             bookingId: booking.id,
             passengerId: input.customerId,
@@ -194,15 +204,20 @@ export async function confirmBooking(input: CreateBookingInput): Promise<Confirm
   }
   assertCardPaymentAllowed(payment.code);
 
-  const isCard = payment.code === 'card';
-  const isScheduled = input.schedulingType === 'scheduled' && input.scheduledPickupAt;
-  const initialStatus = isCard
-    ? isScheduled
-      ? BookingStatus.SCHEDULED
-      : BookingStatus.QUOTED
-    : isScheduled
-      ? BookingStatus.SCHEDULED
-      : BookingStatus.SEARCHING;
+  const category = await findServiceCategoryById(input.serviceCategoryId);
+  if (!category || !category.isActive) {
+    throw new Error('Service category not found');
+  }
+  const isScheduled = input.schedulingType === 'scheduled' && Boolean(input.scheduledPickupAt);
+  const plan = planBookingCreate({
+    billingMode: classifyBookingBilling({
+      serviceCode: category.code,
+      schedulingType: isScheduled ? 'scheduled' : 'instant',
+    }),
+    paymentMethodCode: payment.code,
+    isScheduled,
+  });
+  const initialStatus = plan.initialStatus;
   const idempotencyExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
   const booking = await db.transaction(async (tx) => {
@@ -243,6 +258,7 @@ export async function confirmBooking(input: CreateBookingInput): Promise<Confirm
         routeEncodedPolyline: quote.encodedPolyline ?? null,
         paymentMethodId: payment.id,
         paymentStatus: 'pending',
+        billingMode: plan.billingMode,
         shareToken: generateShareToken(),
         searchStartedAt: initialStatus === BookingStatus.SEARCHING ? new Date() : null,
       })
@@ -299,7 +315,7 @@ export async function confirmBooking(input: CreateBookingInput): Promise<Confirm
     return created;
   });
 
-  if (isCard) {
+  if (plan.createQuotePaymentIntent) {
     const cardPayment = await prepareCardPaymentForBooking({
       bookingId: booking.id,
       passengerId: input.customerId,
@@ -309,7 +325,7 @@ export async function confirmBooking(input: CreateBookingInput): Promise<Confirm
     return { booking, payment: cardPayment };
   }
 
-  if (shouldStartDispatchOnBookingCreate({ isScheduled: Boolean(isScheduled), paymentMethodCode: payment.code })) {
+  if (plan.startDispatch) {
     await startDispatch(booking.id);
   }
 
@@ -601,7 +617,33 @@ export async function updateBookingStatusByDriver(
   if (!booking) throw new Error('Booking not found');
   if (booking.assignedDriverId !== driverId) throw new Error('Access denied');
 
+  const meterSession =
+    newStatus === BookingStatus.COMPLETED ? await findMeterByBooking(bookingId) : null;
+  const meterAttached = Boolean(
+    meterSession &&
+      (meterSession.status === 'running' ||
+        meterSession.status === 'paused' ||
+        meterSession.status === 'stopped' ||
+        meterSession.status === 'finalized')
+  );
+  const settlement = completionSettlementPlan({
+    storedBillingMode: booking.billingMode,
+    meterAttached,
+    quoteAlreadyCaptured: false,
+  });
+  const metered = settlement !== 'capture_quote';
+
   if (booking.status === BookingStatus.COMPLETED && newStatus === BookingStatus.COMPLETED) {
+    if (metered) {
+      const { ensureOnDemandMeterSettlement, markMeterSettlementUnresolved } = await import(
+        './softMeter/onDemandMeterPayment.service'
+      );
+      const payment = await ensureOnDemandMeterSettlement(bookingId, driverId);
+      if (settlement === 'meter_unresolved' && !payment) {
+        await markMeterSettlementUnresolved(bookingId);
+      }
+      return (await findBookingById(bookingId)) ?? booking;
+    }
     await captureAuthorizedBookingPayment(bookingId);
     await recordCompletedCashBookingPayment({
       bookingId,
@@ -648,7 +690,7 @@ export async function updateBookingStatusByDriver(
 
   if (newStatus === BookingStatus.COMPLETED) {
     patch.completedAt = new Date();
-    if (!isCard) {
+    if (!isCard && !metered) {
       patch.paymentStatus = 'paid';
     }
     if (booking.linkedTripId) {
@@ -686,18 +728,49 @@ export async function updateBookingStatusByDriver(
     });
   }
 
-  if (newStatus === BookingStatus.COMPLETED && isCard) {
-    await captureAuthorizedBookingPayment(bookingId);
+  if (newStatus === BookingStatus.COMPLETED && metered) {
+    const { ensureOnDemandMeterSettlement, markMeterSettlementUnresolved } = await import(
+      './softMeter/onDemandMeterPayment.service'
+    );
+    const payment = await ensureOnDemandMeterSettlement(bookingId, driverId);
+    if (settlement === 'meter_unresolved' && !payment) {
+      await markMeterSettlementUnresolved(bookingId);
+    }
     return (await findBookingById(bookingId)) ?? updated;
   }
 
-  if (newStatus === BookingStatus.COMPLETED && !isCard) {
+  if (newStatus === BookingStatus.COMPLETED && isCard && !metered) {
+    await captureAuthorizedBookingPayment(bookingId);
+    const { previewFinalizeOnDemandMeter } = await import('./softMeter/onDemandMeter.service');
+    await previewFinalizeOnDemandMeter(bookingId, driverId);
+    return (await findBookingById(bookingId)) ?? updated;
+  }
+
+  if (newStatus === BookingStatus.COMPLETED && !isCard && !metered) {
     await recordCompletedCashBookingPayment({
       bookingId,
       finalFare: booking.finalFare,
       currency: booking.currency,
       completedAt: updated.completedAt,
     });
+    const { previewFinalizeOnDemandMeter } = await import('./softMeter/onDemandMeter.service');
+    await previewFinalizeOnDemandMeter(bookingId, driverId);
+  }
+
+  if (
+    newStatus === BookingStatus.IN_PROGRESS &&
+    booking.billingMode === BillingMode.METERED_POST_TRIP
+  ) {
+    try {
+      const { startOnDemandMeter } = await import('./softMeter/onDemandMeter.service');
+      await startOnDemandMeter(bookingId, driverId);
+    } catch (error) {
+      logger.warn({
+        type: 'meter.ondemand.auto_start_failed',
+        bookingId,
+        message: error instanceof Error ? error.message : 'start failed',
+      });
+    }
   }
 
   if (newStatus === BookingStatus.IN_PROGRESS) {

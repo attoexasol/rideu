@@ -90,6 +90,31 @@ export function toPublicAvatarUrl(role: AvatarRole, fileName: string): string {
   return base ? `${base}${relative}` : relative;
 }
 
+/**
+ * Passenger-facing avatar URL. Managed avatars are rewritten with the current
+ * public API base. Other absolute URLs are returned as stored. Non-avatar
+ * paths, storage keys, and document URLs are not exposed.
+ */
+export function resolvePublicProfileImageUrl(stored: string | null | undefined): string | null {
+  if (!stored?.trim()) return null;
+  const value = stored.trim();
+  const managed = parseManagedAvatarUrl(value);
+  if (managed) {
+    return toPublicAvatarUrl(managed.role, managed.fileName);
+  }
+  if (/^https?:\/\//i.test(value)) return value;
+  if (value.startsWith('/uploads/avatars/')) {
+    const base = publicApiBaseUrl();
+    return base ? `${base}${value}` : value;
+  }
+  if (value.startsWith('uploads/avatars/')) {
+    const relative = `/${value}`;
+    const base = publicApiBaseUrl();
+    return base ? `${base}${relative}` : relative;
+  }
+  return null;
+}
+
 const MANAGED_FILE =
   /\/uploads\/avatars\/(drivers|passengers)\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jpg)$/i;
 

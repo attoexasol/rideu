@@ -1,11 +1,16 @@
 import { DISPATCH_OFFER_TTL_SECONDS } from '../constants/bookingStatus';
 import { isOfferExpiredAt } from '../utils/offerTimestamps';
-import { FCM_COLLAPSE_KEY_PREFIX, FCM_OFFER_PUSH_TYPE } from '../config/fcm';
+import {
+  DRIVER_OFFER_NOTIFICATION_BODY,
+  DRIVER_OFFER_NOTIFICATION_TITLE,
+  FCM_COLLAPSE_KEY_PREFIX,
+  FCM_OFFER_PUSH_TYPE,
+} from '../config/fcm';
 
 export type OfferPushDataPayload = {
   type: string;
   offerId: string;
-  bookingId: string;
+  bookingId?: string;
 };
 
 export function remainingOfferTtlSeconds(
@@ -25,17 +30,27 @@ export function shouldSendOfferPush(expiresAt: Date, now: Date = new Date()): bo
 
 export function buildOfferPushDataPayload(input: {
   offerId: string;
-  bookingId: string;
+  bookingId?: string | null;
 }): OfferPushDataPayload {
-  return {
+  const data: OfferPushDataPayload = {
     type: FCM_OFFER_PUSH_TYPE,
     offerId: String(input.offerId),
-    bookingId: String(input.bookingId),
   };
+  if (input.bookingId != null && String(input.bookingId).trim() !== '') {
+    data.bookingId = String(input.bookingId);
+  }
+  return data;
 }
 
 export function offerPushCollapseKey(offerId: string): string {
   return `${FCM_COLLAPSE_KEY_PREFIX}:${offerId}`;
+}
+
+/** Last 4 chars only. Never log the full FCM token. */
+export function fcmTokenSuffix(token: string): string {
+  const value = token.trim();
+  if (value.length < 16) return '****';
+  return value.slice(-4);
 }
 
 export type AndroidOfferFcmMessage = {
@@ -48,11 +63,68 @@ export type AndroidOfferFcmMessage = {
   };
 };
 
-/** firebase-admin AndroidConfig.ttl is milliseconds. */
+export type DriverOfferApnsConfig = {
+  headers: {
+    'apns-push-type': 'alert';
+    'apns-priority': '10';
+    'apns-expiration': string;
+    'apns-collapse-id': string;
+  };
+  payload: {
+    aps: {
+      alert: {
+        title: string;
+        body: string;
+      };
+      sound: 'default';
+    };
+  };
+};
+
+export type DriverOfferFcmMessage = AndroidOfferFcmMessage & {
+  apns: DriverOfferApnsConfig;
+};
+
+export function offerPushNotificationCopy(): { title: string; body: string } {
+  return {
+    title: DRIVER_OFFER_NOTIFICATION_TITLE,
+    body: DRIVER_OFFER_NOTIFICATION_BODY,
+  };
+}
+
+export function buildApnsOfferConfig(input: {
+  offerId: string;
+  ttlSeconds: number;
+  now?: Date;
+}): DriverOfferApnsConfig {
+  const ttlSeconds = Math.max(0, Math.floor(input.ttlSeconds));
+  const now = input.now ?? new Date();
+  const expirationUnix = Math.floor(now.getTime() / 1000) + ttlSeconds;
+  const copy = offerPushNotificationCopy();
+  return {
+    headers: {
+      'apns-push-type': 'alert',
+      'apns-priority': '10',
+      'apns-expiration': String(expirationUnix),
+      'apns-collapse-id': offerPushCollapseKey(input.offerId),
+    },
+    payload: {
+      aps: {
+        alert: {
+          title: copy.title,
+          body: copy.body,
+        },
+        sound: 'default',
+      },
+    },
+  };
+}
+
+/** firebase-admin AndroidConfig.ttl is milliseconds. Data-only for Android. */
 export function buildAndroidOfferFcmMessage(input: {
   token: string;
   offerId: string;
-  bookingId: string;
+  bookingId?: string | null;
   ttlSeconds: number;
 }): AndroidOfferFcmMessage {
   const ttlSeconds = Math.max(0, Math.floor(input.ttlSeconds));
@@ -64,6 +136,28 @@ export function buildAndroidOfferFcmMessage(input: {
       ttl: ttlSeconds * 1000,
       collapseKey: offerPushCollapseKey(input.offerId),
     },
+  };
+}
+
+/**
+ * Common FCM data + Android data-only options + iOS APNs user-visible alert.
+ * No top-level `notification` so Android stays data-only.
+ */
+export function buildDriverOfferFcmMessage(input: {
+  token: string;
+  offerId: string;
+  bookingId?: string | null;
+  ttlSeconds: number;
+  now?: Date;
+}): DriverOfferFcmMessage {
+  const androidMessage = buildAndroidOfferFcmMessage(input);
+  return {
+    ...androidMessage,
+    apns: buildApnsOfferConfig({
+      offerId: input.offerId,
+      ttlSeconds: input.ttlSeconds,
+      now: input.now,
+    }),
   };
 }
 
@@ -101,6 +195,18 @@ export function getFcmErrorCode(error: unknown): string {
   }
   if (message.includes('invalid-registration-token') || message.includes('invalid registration')) {
     return 'messaging/invalid-registration-token';
+  }
+  if (message.includes('sender-id-mismatch') || message.includes('senderidmismatch')) {
+    return 'messaging/mismatched-credential';
+  }
+  if (message.includes('mismatched-credential')) {
+    return 'messaging/mismatched-credential';
+  }
+  if (message.includes('third-party-auth') || message.includes('third_party_auth')) {
+    return 'messaging/third-party-auth-error';
+  }
+  if (message.includes('invalid-argument') || message.includes('invalid argument')) {
+    return 'messaging/invalid-argument';
   }
   if (message.includes('unavailable')) return 'messaging/unavailable';
   if (message.includes('timeout')) return 'messaging/timeout';

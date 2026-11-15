@@ -11,7 +11,12 @@ import {
   driverCancelBookingSchema,
   bookingHistoryQuerySchema,
 } from '../../../validators';
-import { driverOfferRateLimit, driverRecoveryRateLimit } from '../../../middleware/rate-limiters';
+import {
+  driverOfferRateLimit,
+  driverRecoveryRateLimit,
+  softMeterRateLimit,
+  videoUploadRateLimit,
+} from '../../../middleware/rate-limiters';
 import {
   listOffersHandler,
   listPendingOffersHandler,
@@ -29,6 +34,14 @@ import {
   createVideoSessionHandler,
   getVideoSessionStatusHandler,
 } from '../../../controllers/rideVideo.controller';
+import {
+  bookingMeterPointsHandler,
+  finalizeBookingMeterHandler,
+  readBookingMeterHandler,
+  startBookingMeterHandler,
+  stopBookingMeterHandler,
+} from '../../../controllers/softMeter.controller';
+import { meterIdempotencySchema, meterPointsSchema } from '../../../validators/softMeter';
 
 const router = express.Router();
 const driverAuth = [requireAuth, extractUserInfo, ...requireDriver];
@@ -109,8 +122,52 @@ router.post(
 router.post(
   '/:bookingId/video/session',
   ...driverAuth,
+  videoUploadRateLimit,
   validate(bookingIdParamSchema, 'params'),
   asyncHandler(createVideoSessionHandler)
+);
+
+router.post(
+  '/:bookingId/meter/start',
+  ...driverAuth,
+  softMeterRateLimit,
+  validate(bookingIdParamSchema, 'params'),
+  validate(meterIdempotencySchema),
+  asyncHandler(startBookingMeterHandler)
+);
+
+router.get(
+  '/:bookingId/meter',
+  ...driverAuth,
+  softMeterRateLimit,
+  validate(bookingIdParamSchema, 'params'),
+  asyncHandler(readBookingMeterHandler)
+);
+
+router.post(
+  '/:bookingId/meter/stop',
+  ...driverAuth,
+  softMeterRateLimit,
+  validate(bookingIdParamSchema, 'params'),
+  validate(meterIdempotencySchema),
+  asyncHandler(stopBookingMeterHandler)
+);
+
+router.post(
+  '/:bookingId/meter/finalize',
+  ...driverAuth,
+  softMeterRateLimit,
+  validate(bookingIdParamSchema, 'params'),
+  asyncHandler(finalizeBookingMeterHandler)
+);
+
+router.post(
+  '/:bookingId/meter/points',
+  ...driverAuth,
+  softMeterRateLimit,
+  validate(bookingIdParamSchema, 'params'),
+  validate(meterPointsSchema),
+  asyncHandler(bookingMeterPointsHandler)
 );
 
 router.get(

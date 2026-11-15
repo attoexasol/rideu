@@ -2,6 +2,8 @@ import { getEnvVarAsBoolean } from './env-validator';
 
 export const FCM_COLLAPSE_KEY_PREFIX = 'booking_offer';
 export const FCM_OFFER_PUSH_TYPE = 'booking_offer';
+export const DRIVER_OFFER_NOTIFICATION_TITLE = 'New ride request';
+export const DRIVER_OFFER_NOTIFICATION_BODY = 'Open the app to review this ride request.';
 export const FCM_RIDE_EVENT_TYPE = 'ride_event';
 export const FCM_RIDE_EVENT_COLLAPSE_PREFIX = 'ride_event';
 export const FCM_RIDE_UPDATES_CHANNEL_ID = 'ride_updates';

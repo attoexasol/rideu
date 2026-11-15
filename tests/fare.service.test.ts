@@ -3,6 +3,10 @@ import { quoteAllServiceCategories } from '../src/services/fare.service';
 import * as airportDetection from '../src/services/airportDetection.service';
 import * as rideMarket from '../src/services/rideMarket.service';
 
+jest.mock('../src/services/serviceArea.service', () => ({
+  assertRidePermitted: jest.fn().mockResolvedValue(undefined),
+}));
+
 jest.mock('../src/services/rideMarket.service', () => ({
   resolveRideMarket: jest.fn().mockResolvedValue({
     id: 'market-bd',
@@ -56,28 +60,28 @@ jest.mock('../src/repositories/serviceCategory.repository', () => ({
   listCanonicalActiveServiceCategories: jest.fn().mockResolvedValue([
     {
       id: 'cat-1',
-      code: 'cng',
-      name: 'CNG',
-      description: 'Affordable rides',
-      iconKey: 'cng',
-      capacity: 4,
-      baseFare: '50.00',
-      perKmRate: '20.00',
-      minFare: '80.00',
+      code: 'economy',
+      name: 'Economy Sedan',
+      description: 'Comfortable, cost-effective sedan transportation for individuals and couples.',
+      iconKey: 'economy',
+      capacity: 3,
+      baseFare: '0.00',
+      perKmRate: '0.00',
+      minFare: '0.00',
       isActive: true,
     },
   ]),
   listActiveServiceCategories: jest.fn().mockResolvedValue([
     {
       id: 'cat-1',
-      code: 'cng',
-      name: 'CNG',
-      description: 'Affordable rides',
-      iconKey: 'cng',
-      capacity: 4,
-      baseFare: '50.00',
-      perKmRate: '20.00',
-      minFare: '80.00',
+      code: 'economy',
+      name: 'Economy Sedan',
+      description: 'Comfortable, cost-effective sedan transportation for individuals and couples.',
+      iconKey: 'economy',
+      capacity: 3,
+      baseFare: '0.00',
+      perKmRate: '0.00',
+      minFare: '0.00',
       isActive: true,
     },
   ]),

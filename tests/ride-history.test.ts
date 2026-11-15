@@ -209,6 +209,7 @@ describe('passenger history DTO', () => {
       id: 'driver-1',
       name: 'Karim',
       phone: '+8801711111111',
+      profileImageUrl: null,
       plateNumber: 'DHK-1234',
     });
     expect(snapshot.vehicle).toEqual({
@@ -216,8 +217,10 @@ describe('passenger history DTO', () => {
       make: 'Toyota',
       model: 'Axio',
       color: 'Silver',
+      year: null,
       plateNumber: 'DHK-1234',
     });
+    expect(snapshot.etaMinutes).toBe(5);
     expect(snapshot.recording).toEqual({ available: true });
   });
 

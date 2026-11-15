@@ -33,13 +33,14 @@ import {
   upsertMarketFaresForAdmin,
 } from '../src/services/rideMarket.service';
 
-const RIDE_ID = '59ab7ef9-0bb3-47c8-8afa-3313b295151e';
-const BIKE_ID = 'd793ac30-c749-48b9-9c63-0b6b7d50289a';
-const CNG_ID = '10ef8afd-7e45-4be2-97a4-00303a624cde';
-const MOTO_ID = '264247c5-af89-4fcb-802a-d576791dc300';
-const PREMIUM_ID = '2d7bcfdd-4343-4a07-b0df-214c807a8e87';
-const COMFORT_ID = '9a9da7dd-f122-4e9c-a351-1c2ab6fe4e00';
+const ECONOMY_ID = 'a1111111-1111-1111-1111-111111111111';
+const EXECUTIVE_ID = 'a2222222-2222-2222-2222-222222222222';
+const SUV_ID = 'a3333333-3333-3333-3333-333333333333';
+const VAN_ID = 'a4444444-4444-4444-4444-444444444444';
+const MINIVAN_ID = 'a5555555-5555-5555-5555-555555555555';
+const ADA_ID = 'a6666666-6666-6666-6666-666666666666';
 const LEGACY_BIKE_ID = '0f28ee39-d7f0-450f-8fa8-a797e164e4e2';
+const LEGACY_RIDE_ID = '59ab7ef9-0bb3-47c8-8afa-3313b295151e';
 
 const BD_MARKET = {
   id: 'aa038371-606e-4b1c-b95c-9ae095e29d75',
@@ -62,33 +63,33 @@ const US_MARKET = {
 };
 
 const BOOKABLE = [
-  { id: RIDE_ID, code: 'ride', name: 'Ride' },
-  { id: BIKE_ID, code: 'bike', name: 'Bike' },
-  { id: CNG_ID, code: 'cng', name: 'CNG' },
-  { id: MOTO_ID, code: 'moto', name: 'Moto' },
-  { id: PREMIUM_ID, code: 'premium', name: 'Premium' },
-  { id: COMFORT_ID, code: 'comfort', name: 'Comfort' },
+  { id: ECONOMY_ID, code: 'economy', name: 'Economy Sedan' },
+  { id: EXECUTIVE_ID, code: 'executive', name: 'Executive Sedan' },
+  { id: SUV_ID, code: 'suv', name: 'SUV' },
+  { id: VAN_ID, code: 'van', name: 'Passenger Van' },
+  { id: MINIVAN_ID, code: 'minivan', name: 'Mini-Van' },
+  { id: ADA_ID, code: 'ada', name: 'ADA Accessible' },
 ];
 
 const BD_FARES = [
   {
-    id: 'fare-ride',
+    id: 'fare-economy',
     marketId: BD_MARKET.id,
-    serviceCategoryId: RIDE_ID,
-    baseFare: '50.00',
-    perKmRate: '25.00',
-    minFare: '80.00',
+    serviceCategoryId: ECONOMY_ID,
+    baseFare: '10.00',
+    perKmRate: '2.00',
+    minFare: '12.00',
   },
   {
-    id: 'fare-bike',
+    id: 'fare-executive',
     marketId: BD_MARKET.id,
-    serviceCategoryId: BIKE_ID,
-    baseFare: '30.00',
-    perKmRate: '15.00',
-    minFare: '50.00',
+    serviceCategoryId: EXECUTIVE_ID,
+    baseFare: '20.00',
+    perKmRate: '3.00',
+    minFare: '25.00',
   },
   {
-    id: 'fare-legacy',
+    id: 'fare-legacy-bike',
     marketId: BD_MARKET.id,
     serviceCategoryId: LEGACY_BIKE_ID,
     baseFare: '30.00',
@@ -96,36 +97,12 @@ const BD_FARES = [
     minFare: '50.00',
   },
   {
-    id: 'fare-cng',
+    id: 'fare-legacy-ride',
     marketId: BD_MARKET.id,
-    serviceCategoryId: CNG_ID,
-    baseFare: '40.00',
-    perKmRate: '20.00',
-    minFare: '70.00',
-  },
-  {
-    id: 'fare-moto',
-    marketId: BD_MARKET.id,
-    serviceCategoryId: MOTO_ID,
-    baseFare: '35.00',
-    perKmRate: '18.00',
-    minFare: '55.00',
-  },
-  {
-    id: 'fare-premium',
-    marketId: BD_MARKET.id,
-    serviceCategoryId: PREMIUM_ID,
-    baseFare: '120.00',
-    perKmRate: '45.00',
-    minFare: '200.00',
-  },
-  {
-    id: 'fare-comfort',
-    marketId: BD_MARKET.id,
-    serviceCategoryId: COMFORT_ID,
-    baseFare: '80.00',
-    perKmRate: '35.00',
-    minFare: '150.00',
+    serviceCategoryId: LEGACY_RIDE_ID,
+    baseFare: '50.00',
+    perKmRate: '25.00',
+    minFare: '80.00',
   },
 ];
 
@@ -145,20 +122,20 @@ describe('admin market fare catalog', () => {
     const result = await getMarketFaresForAdmin('BD');
     expect(result.fares).toHaveLength(6);
     expect(result.fares.map((row) => row.code)).toEqual([
-      'ride',
-      'bike',
-      'cng',
-      'moto',
-      'premium',
-      'comfort',
+      'economy',
+      'executive',
+      'suv',
+      'van',
+      'minivan',
+      'ada',
     ]);
     expect(result.fares.map((row) => row.name)).toEqual([
-      'Ride',
-      'Bike',
-      'CNG',
-      'Moto',
-      'Premium',
-      'Comfort',
+      'Economy Sedan',
+      'Executive Sedan',
+      'SUV',
+      'Passenger Van',
+      'Mini-Van',
+      'ADA Accessible',
     ]);
   });
 
@@ -166,6 +143,7 @@ describe('admin market fare catalog', () => {
     mockListMarketFares.mockResolvedValue(BD_FARES);
     const result = await getMarketFaresForAdmin('BD');
     expect(result.fares.some((row) => row.serviceCategoryId === LEGACY_BIKE_ID)).toBe(false);
+    expect(result.fares.some((row) => row.serviceCategoryId === LEGACY_RIDE_ID)).toBe(false);
     expect(result.fares.some((row) => /[0-9a-f]{8}-[0-9a-f]{4}/i.test(row.name))).toBe(false);
     expect(JSON.stringify(result.fares)).not.toContain(LEGACY_BIKE_ID);
   });
@@ -173,12 +151,19 @@ describe('admin market fare catalog', () => {
   it('H. existing category fare amounts are preserved for valid categories', async () => {
     mockListMarketFares.mockResolvedValue(BD_FARES);
     const result = await getMarketFaresForAdmin('BD');
-    const ride = result.fares.find((row) => row.code === 'ride');
-    expect(ride).toMatchObject({
-      serviceCategoryId: RIDE_ID,
-      baseFare: '50.00',
-      perKmRate: '25.00',
-      minFare: '80.00',
+    const economy = result.fares.find((row) => row.code === 'economy');
+    expect(economy).toMatchObject({
+      serviceCategoryId: ECONOMY_ID,
+      baseFare: '10.00',
+      perKmRate: '2.00',
+      minFare: '12.00',
+    });
+    const suv = result.fares.find((row) => row.code === 'suv');
+    expect(suv).toMatchObject({
+      serviceCategoryId: SUV_ID,
+      baseFare: null,
+      perKmRate: null,
+      minFare: null,
     });
   });
 

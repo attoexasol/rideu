@@ -8,6 +8,7 @@ import {
   deleteManagedAvatar,
   detectImageKind,
   parseManagedAvatarUrl,
+  resolvePublicProfileImageUrl,
   storeAvatar,
   toPublicAvatarUrl,
 } from '../src/services/avatar-storage.service';
@@ -66,6 +67,30 @@ describe('managed avatar URLs', () => {
     expect(toPublicAvatarUrl('drivers', 'x.jpg')).toBe(
       'https://api.rydu.test/uploads/avatars/drivers/x.jpg'
     );
+    if (prev === undefined) {
+      delete process.env.API_PUBLIC_BASE_URL;
+    } else {
+      process.env.API_PUBLIC_BASE_URL = prev;
+    }
+  });
+
+  it('resolves managed relative and absolute avatar URLs and hides non-avatars', () => {
+    const prev = process.env.API_PUBLIC_BASE_URL;
+    process.env.API_PUBLIC_BASE_URL = 'https://api.rydu.test';
+    const fileName = '11111111-1111-1111-1111-111111111111.jpg';
+    expect(resolvePublicProfileImageUrl(null)).toBeNull();
+    expect(resolvePublicProfileImageUrl('')).toBeNull();
+    expect(resolvePublicProfileImageUrl(`/uploads/avatars/drivers/${fileName}`)).toBe(
+      `https://api.rydu.test/uploads/avatars/drivers/${fileName}`
+    );
+    expect(
+      resolvePublicProfileImageUrl(`https://old.example/uploads/avatars/drivers/${fileName}`)
+    ).toBe(`https://api.rydu.test/uploads/avatars/drivers/${fileName}`);
+    expect(resolvePublicProfileImageUrl('https://cdn.example/photos/driver.png')).toBe(
+      'https://cdn.example/photos/driver.png'
+    );
+    expect(resolvePublicProfileImageUrl('/uploads/driver-documents/license.jpg')).toBeNull();
+    expect(resolvePublicProfileImageUrl('private/storage-key')).toBeNull();
     if (prev === undefined) {
       delete process.env.API_PUBLIC_BASE_URL;
     } else {

@@ -66,6 +66,7 @@ import { resolveCabFieldsForInsert, resolveCabFieldsForUpdate } from '../utils/c
 import { generateUniqueDriverQrCode } from '../services/driverQrCode.service';
 import { ensureDriverVehicleQrCode } from '../services/vehicleQrCode.service';
 import { isDeactivatedAccount } from '../services/accountStatus.service';
+import { listDocumentsForDriver } from '../services/driverDocument.service';
 
 const router = express.Router();
 
@@ -323,6 +324,7 @@ router.get(
 
     // Get current location
     const currentLocation = await locationUtils.getLatestForDriver(id);
+    const documents = await listDocumentsForDriver(id, isAdmin ? 'admin' : 'driver');
 
     return sendSuccess(res, {
       ...driver,
@@ -334,6 +336,7 @@ router.get(
             timestamp: currentLocation.timestamp,
           }
         : null,
+      documents,
     });
   })
 );

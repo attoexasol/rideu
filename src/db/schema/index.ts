@@ -46,6 +46,12 @@ export * from './airports';
 export * from './ride_markets';
 export * from './service_category_market_fares';
 export * from './stripe_webhook_events';
+export * from './driver_documents';
+export * from './service_areas';
+export * from './meter_rate_schedules';
+export * from './walk_up_trips';
+export * from './meter_sessions';
+export * from './meter_payments';
 
 import { drivers } from './drivers';
 import { locations } from './locations';
@@ -90,6 +96,18 @@ import { airports } from './airports';
 import { rideMarkets } from './ride_markets';
 import { serviceCategoryMarketFares } from './service_category_market_fares';
 import { stripeWebhookEvents } from './stripe_webhook_events';
+import { driverDocuments } from './driver_documents';
+import { serviceAreas } from './service_areas';
+import { meterRateSchedules, meterRateScheduleEvents } from './meter_rate_schedules';
+import { walkUpTrips } from './walk_up_trips';
+import {
+  meterSessions,
+  meterGpsSamples,
+  meterCalculationEvents,
+  meterFareRecords,
+  meterPauses,
+} from './meter_sessions';
+import { meterPayments } from './meter_payments';
 
 export const schema = {
   drivers,
@@ -135,4 +153,15 @@ export const schema = {
   rideMarkets,
   serviceCategoryMarketFares,
   stripeWebhookEvents,
+  driverDocuments,
+  serviceAreas,
+  meterRateSchedules,
+  meterRateScheduleEvents,
+  walkUpTrips,
+  meterSessions,
+  meterGpsSamples,
+  meterCalculationEvents,
+  meterFareRecords,
+  meterPauses,
+  meterPayments,
 };

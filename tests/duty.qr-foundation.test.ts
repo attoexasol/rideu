@@ -4,7 +4,7 @@ import {
   isLegacyVehicleQrToken,
   VEHICLE_QR_TOKEN_PREFIX,
 } from '../src/utils/vehicleQrToken';
-import { qrDutyRequired } from '../src/config/duty';
+import { PLATFORM_ORG_LEGACY_NAMES, PLATFORM_ORG_NAME, qrDutyRequired } from '../src/config/duty';
 import { ACTIVE_BOOKING_STATUSES, BookingStatus } from '../src/constants/bookingStatus';
 
 describe('vehicle QR token utilities', () => {
@@ -34,6 +34,17 @@ describe('vehicle QR token utilities', () => {
 describe('QR duty feature flag', () => {
   it('defaults to false when env unset', () => {
     expect(qrDutyRequired).toBe(false);
+  });
+});
+
+describe('platform organization display name', () => {
+  it('uses DriveWize Platform as the user-visible brand, not Rydu', () => {
+    expect(PLATFORM_ORG_NAME).toBe('DriveWize Platform');
+    expect(PLATFORM_ORG_NAME).not.toMatch(/rydu/i);
+  });
+
+  it('keeps the legacy display name only as a lookup key for existing database rows', () => {
+    expect(PLATFORM_ORG_LEGACY_NAMES).toEqual(['RYDU Platform']);
   });
 });
 

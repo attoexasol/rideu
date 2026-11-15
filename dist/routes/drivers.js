@@ -79,6 +79,7 @@ const cabIdentifier_1 = require("../utils/cabIdentifier");
 const driverQrCode_service_1 = require("../services/driverQrCode.service");
 const vehicleQrCode_service_1 = require("../services/vehicleQrCode.service");
 const accountStatus_service_1 = require("../services/accountStatus.service");
+const driverDocument_service_1 = require("../services/driverDocument.service");
 const router = express_1.default.Router();
 /**
  * GET /api/drivers/me
@@ -244,6 +245,7 @@ router.get('/:id', auth_1.requireAuth, auth_1.extractUserInfo, (0, error_handler
     }
     // Get current location
     const currentLocation = await utils_1.locationUtils.getLatestForDriver(id);
+    const documents = await (0, driverDocument_service_1.listDocumentsForDriver)(id, isAdmin ? 'admin' : 'driver');
     return (0, response_1.sendSuccess)(res, {
         ...driver,
         vehicle,
@@ -254,6 +256,7 @@ router.get('/:id', auth_1.requireAuth, auth_1.extractUserInfo, (0, error_handler
                 timestamp: currentLocation.timestamp,
             }
             : null,
+        documents,
     });
 }));
 /**

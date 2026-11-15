@@ -19,6 +19,7 @@ import {
   EMPTY_AIRPORT_DETECTION,
   type AirportTripDetection,
 } from './airportDetection.service';
+import { classifyBookingBilling, planBookingCreate } from './softMeter/billingMode';
 import {
   assertMarketPricingConfigured,
   getMarketFareMap,
@@ -26,6 +27,7 @@ import {
   type ResolvedRideMarket,
 } from './rideMarket.service';
 import { minorToMajorString } from '../utils/money';
+import { assertRidePermitted } from './serviceArea.service';
 
 export interface FareQuote {
   serviceCategoryId: string;
@@ -62,6 +64,10 @@ export interface FareQuote {
     discountType: string;
     discountValue: number;
   } | null;
+  billingMode: string;
+  paymentRequiredBeforeDispatch: boolean;
+  paymentRequiredAfterCompletion: boolean;
+  fareClassification: string | null;
 }
 
 export interface QuoteLocation extends LatLng {
@@ -201,6 +207,14 @@ async function buildQuotesFromRoute(
     const applied = applyPromotion(originalFare, promo);
     const displayName = cleanServiceDisplayName(cat.name, cat.code);
     const publicCode = toPublicServiceCode(cat.code);
+    const billing = planBookingCreate({
+      billingMode: classifyBookingBilling({
+        serviceCode: cat.code,
+        schedulingType: 'instant',
+      }),
+      paymentMethodCode: 'card',
+      isScheduled: false,
+    });
     const withAirport = applyAirportFeeToRegularFare(
       applied.finalFare,
       airportDetection ?? EMPTY_AIRPORT_DETECTION,
@@ -231,6 +245,10 @@ async function buildQuotesFromRoute(
       marketCode: market.code,
       pickupCountryCode: market.countryCode,
       promotion: applied.promotion,
+      billingMode: billing.billingMode,
+      paymentRequiredBeforeDispatch: billing.paymentRequiredBeforeDispatch,
+      paymentRequiredAfterCompletion: billing.paymentRequiredAfterCompletion,
+      fareClassification: billing.fareClassification,
     });
   }
 
@@ -248,6 +266,7 @@ async function resolveQuoteContext(
     pickupPlaceId: pickup.placeId,
     pickupCountryCode: pickup.countryCode,
   });
+  await assertRidePermitted(market.code, pickup, dropoff, waypoints);
   await assertMarketPricingConfigured(market.id);
   const [route, airportDetection, marketFares] = await Promise.all([
     previewRoute({

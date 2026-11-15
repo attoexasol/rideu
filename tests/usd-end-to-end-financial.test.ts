@@ -53,6 +53,10 @@ jest.mock('../src/services/rideMarket.service', () => ({
   getMarketFareMap: jest.fn(),
 }));
 
+jest.mock('../src/services/serviceArea.service', () => ({
+  assertRidePermitted: jest.fn().mockResolvedValue(undefined),
+}));
+
 jest.mock('../src/repositories/airport.repository', () => ({
   listActiveAirports: (...args: unknown[]) => mockListActiveAirports(...args),
   listAirports: jest.fn(),

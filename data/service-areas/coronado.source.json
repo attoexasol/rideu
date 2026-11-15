@@ -1,0 +1,33 @@
+{
+  "sourceLabel": "U.S. Census Bureau TIGERweb — Incorporated Places",
+  "sourceUrl": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/4/query?where=STATE%3D%2706%27%20AND%20NAME%3D%27Coronado%20city%27&outFields=*&returnGeometry=true&outSR=4326&f=geojson",
+  "literalNameQueryReturnedZero": true,
+  "literalNameQuery": "Layer 4 query STATE='06' AND NAME='Coronado' returns 0 features. The stored NAME is the legal name.",
+  "layerUrl": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/4",
+  "retrievedAt": "2026-10-18T09:05:17.279Z",
+  "httpStatus": 200,
+  "contentType": "application/geo+json;charset=UTF-8",
+  "featureCount": 1,
+  "state": "06",
+  "name": "Coronado city",
+  "basename": "Coronado",
+  "geoid": "0616378",
+  "place": "16378",
+  "areaLand": "20999378",
+  "areaWater": "15500854",
+  "geometryType": "Polygon",
+  "polygonCount": 1,
+  "holeCount": 0,
+  "vertexCount": 687,
+  "bbox": [
+    -117.22722699957336,
+    32.58559200006586,
+    -117.11487599966425,
+    32.714627999781186
+  ],
+  "geometryFile": "data/service-areas/coronado.geojson",
+  "validation": {
+    "ok": true,
+    "type": "Polygon"
+  }
+}

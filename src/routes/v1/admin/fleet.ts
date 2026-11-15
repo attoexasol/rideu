@@ -30,6 +30,7 @@ import {
   forceEndDutyHandler,
   ensurePlatformHandler,
 } from '../../../controllers/adminFleet.controller';
+import adminDriverDocumentRoutes from './driverDocuments';
 import {
   adminListExchangesHandler,
   adminGetExchangeHandler,
@@ -118,6 +119,8 @@ router.get(
   validate(driverIdPathSchema, 'params'),
   asyncHandler(inspectDriverAssignmentHandler)
 );
+
+router.use('/drivers/:driverId/documents', adminDriverDocumentRoutes);
 
 router.post(
   '/drivers/:driverId/duty/force-end',

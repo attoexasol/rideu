@@ -28,6 +28,25 @@ export const refreshTokenSchema = z.object({
   refreshToken: z.string().min(1, 'Refresh token is required'),
 });
 
+/** Public driver self-registration. confirmPassword is validated and then dropped. */
+export const driverSelfRegisterSchema = z
+  .object({
+    name: z.string().trim().min(1, 'Name is required').max(255, 'Name must be 255 characters or less'),
+    email: z
+      .string()
+      .trim()
+      .email('Invalid email format')
+      .transform((value) => value.toLowerCase()),
+    phone: z.string().trim().min(1, 'Phone is required').max(50, 'Phone must be 50 characters or less'),
+    password: z.string().min(8, 'Password must be at least 8 characters'),
+    confirmPassword: z.string().min(1, 'Confirm password is required'),
+  })
+  .strict()
+  .refine((data) => data.password === data.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  });
+
 export const registerDriverPushTokenSchema = z.object({
   token: z.string().min(8, 'FCM registration token is required').max(4096),
   deviceId: z.string().min(1).max(255).optional(),
@@ -208,6 +227,14 @@ export const checkOutSchema = z.object({
 export const driverIdPathSchema = z.object({
   driverId: z.string().uuid('Invalid driver ID'),
 });
+
+export const driverDocumentTypeParamSchema = z.object({
+  documentType: z.enum(['driving_license', 'insurance'], {
+    errorMap: () => ({ message: 'documentType must be driving_license or insurance' }),
+  }),
+});
+
+export const adminDriverDocumentParamSchema = driverIdPathSchema.merge(driverDocumentTypeParamSchema);
 
 // ============================================================================
 // Duty & Fleet Schemas
@@ -692,6 +719,12 @@ export const nearbyDriversQuerySchema = z.object({
   lng: longitudeQuerySchema,
   serviceCategoryId: z.string().uuid(),
   radiusKm: z.coerce.number().min(0.5).max(30).optional(),
+});
+
+export const serviceAreaQuerySchema = z.object({
+  lat: latitudeQuerySchema,
+  lng: longitudeQuerySchema,
+  placeId: z.string().trim().min(1).max(255).optional(),
 });
 
 export const placeSuggestionsQuerySchema = z.object({

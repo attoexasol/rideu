@@ -22,6 +22,7 @@ import {
 import { findBookingById } from '../repositories/booking.repository';
 import { majorToMinorUnits } from '../utils/money';
 import { PaymentError } from './payment.errors';
+import { METER_CHECKOUT_PURPOSE } from '../constants/softMeter';
 import { getStripeClient } from './stripe.service';
 
 const paymentIntentLocks = new Map<string, Promise<CardPaymentClientView>>();
@@ -351,6 +352,9 @@ export async function handleStripePaymentIntentEvent(event: Stripe.Event): Promi
 }> {
   const intent = extractPaymentIntent(event);
   if (!intent) {
+    return { bookingId: null, status: null };
+  }
+  if (intent.metadata?.purpose === METER_CHECKOUT_PURPOSE.ON_DEMAND_TEST) {
     return { bookingId: null, status: null };
   }
 

@@ -35,6 +35,9 @@
   "license": "MIT",
   "dependencies": {
     "@socket.io/redis-adapter": "^8.3.0",
+    "@turf/boolean-point-in-polygon": "^7.4.0",
+    "@turf/helpers": "^7.4.0",
+    "@turf/kinks": "^7.4.0",
     "auth0": "^4.2.0",
     "axios": "^1.12.2",
     "cors": "^2.8.5",
