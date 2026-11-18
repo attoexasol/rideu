@@ -71,3 +71,8 @@ Desktop.ini
 # Secrets
 secrets/
 *.firebase-admin.json
+# Local gitleaks binary / reports
+gitleaks.exe
+gitleaks
+gitleaks-*.json
+

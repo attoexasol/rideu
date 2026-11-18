@@ -123,14 +123,14 @@ After printing the QR, drivers scan it. The app sends:
 **Base64 JSON:**
 
 ```bash
-curl -s -H "Authorization: Bearer YOUR_TOKEN" \
+curl -s -H "Authorization: Bearer $ACCESS_TOKEN" \
   "http://localhost:3000/api/company/checkin/qrcode?format=base64"
 ```
 
 **PNG file:**
 
 ```bash
-curl -s -H "Authorization: Bearer YOUR_TOKEN" \
+curl -s -H "Authorization: Bearer $ACCESS_TOKEN" \
   "http://localhost:3000/api/company/checkin/qrcode?format=png" \
   -o company-checkin-qrcode.png
 ```

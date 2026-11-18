@@ -1,18 +1,44 @@
+# DriveWize backend — Gitleaks config (CI: gitleaks v8.21.2)
+# Keep scanning enabled and blocking. Prefer removing secrets over allowlisting.
+#
+# Path allowlists skip: dependency trees, local scan artifacts, and gitignored
+# credential stores (.env*, secrets/). Those stores must remain untracked —
+# workflows assert `git ls-files` is empty for them so allowlisting cannot hide
+# an accidental commit.
+
 title = "DriveWize backend"
 
 [extend]
 useDefault = true
 
 [allowlist]
-description = "Test fixtures and documented placeholders"
+description = "Placeholders, fixtures, dependencies, and gitignored local credential stores"
 paths = [
-  '''tests/.*''',
+  # Dependencies / build (present locally; absent on Actions checkout before npm ci)
+  '''(^|[/\\])node_modules([/\\]|$)''',
+  '''(^|[/\\])coverage([/\\]|$)''',
+  '''(^|[/\\])dist([/\\]|$)''',
+  # Local scan tooling artifacts (never committed)
+  '''(^|[/\\])gitleaks(\.exe)?$''',
+  '''(^|[/\\])gitleaks-.*\.json$''',
+  # Gitignored local credential stores (must stay untracked — see workflow assert)
+  '''^\.env$''',
+  '''^\.env\.local$''',
+  '''^\.env\.production$''',
+  '''^\.env\.staging$''',
+  '''(^|[/\\])secrets([/\\]|$)''',
+  # Test fixtures use known fake Stripe/Auth values
+  '''(^|[/\\])tests([/\\]|$)''',
   '''.*\.test\.ts$''',
   '''.*\.spec\.ts$''',
-  '''docker/env/staging\.env\.example$''',
-  '''\.env\.example$''',
+  # Env templates with CHANGE_ME placeholders only
+  '''(^|[/\\])docker[/\\]env[/\\]production\.env\.example$''',
+  '''(^|[/\\])\.env\.example$''',
 ]
 regexes = [
+  # Explicit placeholders used in env templates and workflows
+  '''CHANGE_ME''',
+  # Known-safe Stripe / webhook fixtures used only in tests (also covered by tests/ path)
   '''sk_test_123''',
   '''sk_test_valid''',
   '''sk_test_abc''',
@@ -20,5 +46,4 @@ regexes = [
   '''pk_test_valid''',
   '''whsec_phase_a_test_secret''',
   '''whsec_soft_meter_test_secret''',
-  '''CHANGE_ME''',
 ]

@@ -170,7 +170,7 @@ curl -X POST http://localhost:3000/api/v1/passenger/auth/register \
 {
   "success": true,
   "data": {
-    "token": "eyJhbGciOiJIUzI1NiIs...",
+    "token": "<access_token>",
     "sessionId": "sess_...",
     "user": {
       "id": "uuid",

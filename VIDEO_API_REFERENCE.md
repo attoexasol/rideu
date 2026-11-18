@@ -237,7 +237,7 @@ Default base: `/uploads` (served by Express static)
 
 ```bash
 curl -X POST "http://localhost:3000/api/videos/upload" \
-  -H "Authorization: Bearer DRIVER_TOKEN" \
+  -H "Authorization: Bearer $DRIVER_TOKEN" \
   -H "X-Device-ID: device-001" \
   -F "video_file=@trip-recording.mp4" \
   -F "tripId=TRIP_UUID" \

@@ -191,21 +191,21 @@ WHERE id = '{{tripId}}';
 **Generate QR:**
 
 ```bash
-curl -X POST -H "Authorization: Bearer ADMIN_TOKEN" \
+curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" \
   "http://localhost:3000/api/trips/TRIP_UUID/generate-qr"
 ```
 
 **Get base64 image:**
 
 ```bash
-curl -H "Authorization: Bearer ADMIN_TOKEN" \
+curl -H "Authorization: Bearer $ADMIN_TOKEN" \
   "http://localhost:3000/api/trips/TRIP_UUID/qrcode?format=base64"
 ```
 
 **Driver scan:**
 
 ```bash
-curl -X POST -H "Authorization: Bearer DRIVER_TOKEN" \
+curl -X POST -H "Authorization: Bearer $DRIVER_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"driverId":"DRIVER_UUID","qrCode":"TRIP_TRIP_UUID_RANDOM"}' \
   "http://localhost:3000/api/trips/scan-passenger"
