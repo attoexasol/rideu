@@ -93,6 +93,23 @@ async function fullSwap(fixture: PairedDriversFixture, idempotencyKey = randomUU
   return { initiated, confirmed };
 }
 
+/** Cleanup that never masks a failed beforeEach (undefined fixture). */
+async function teardownExchangeFixture(
+  fixture: PairedDriversFixture | undefined,
+  options: { clearLocks?: boolean } = {}
+) {
+  if (!fixture) {
+    return;
+  }
+  if (options.clearLocks !== false) {
+    await clearDispatchSuspended(fixture.driverAId);
+    await clearDispatchSuspended(fixture.driverBId);
+    await clearDriverAcceptingOffer(fixture.driverAId);
+    await clearDriverAcceptingOffer(fixture.driverBId);
+  }
+  await cleanupExchangeFixture(fixture);
+}
+
 (describe as typeof describe | jest.EmptyFunction)(
   hasDatabase ? 'vehicle exchange integration' : 'vehicle exchange integration (skipped)',
   () => {
@@ -111,11 +128,7 @@ async function fullSwap(fixture: PairedDriversFixture, idempotencyKey = randomUU
       });
 
       afterEach(async () => {
-        await clearDispatchSuspended(fixture.driverAId);
-        await clearDispatchSuspended(fixture.driverBId);
-        await clearDriverAcceptingOffer(fixture.driverAId);
-        await clearDriverAcceptingOffer(fixture.driverBId);
-        await cleanupExchangeFixture(fixture);
+        await teardownExchangeFixture(fixture);
       });
 
       it('1. normal A/B exchange succeeds', async () => {
@@ -186,7 +199,7 @@ async function fullSwap(fixture: PairedDriversFixture, idempotencyKey = randomUU
       });
 
       afterEach(async () => {
-        await cleanupExchangeFixture(fixture);
+        await teardownExchangeFixture(fixture, { clearLocks: false });
       });
 
       it('6. initiator scans own vehicle rejected', async () => {
@@ -230,9 +243,7 @@ async function fullSwap(fixture: PairedDriversFixture, idempotencyKey = randomUU
       });
 
       afterEach(async () => {
-        await clearDispatchSuspended(fixture.driverAId);
-        await clearDispatchSuspended(fixture.driverBId);
-        await cleanupExchangeFixture(fixture);
+        await teardownExchangeFixture(fixture);
       });
 
       it('9. active ride appears between initiate and confirm', async () => {
@@ -525,7 +536,7 @@ async function fullSwap(fixture: PairedDriversFixture, idempotencyKey = randomUU
       });
 
       afterEach(async () => {
-        await cleanupExchangeFixture(fixture);
+        await teardownExchangeFixture(fixture, { clearLocks: false });
       });
 
       it('19. redis/socket failure after commit does not roll back swap', async () => {
@@ -574,9 +585,7 @@ async function fullSwap(fixture: PairedDriversFixture, idempotencyKey = randomUU
       });
 
       afterEach(async () => {
-        await clearDispatchSuspended(fixture.driverAId);
-        await clearDispatchSuspended(fixture.driverBId);
-        await cleanupExchangeFixture(fixture);
+        await teardownExchangeFixture(fixture);
       });
 
       it('suspends both drivers during pending exchange', async () => {

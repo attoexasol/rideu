@@ -77,6 +77,37 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx tsc --noEmit
+      - name: Migrate disposable CI database
+        run: npm run db:migrate
+        env:
+          DATABASE_URL: postgresql://drivewize_ci:drivewize_ci@localhost:5432/drivewize_ci
+          MIGRATIONS_FOLDER: ${{ github.workspace }}/src/db/migrations
+      - name: Verify CI schema (vehicles through color)
+        run: |
+          node <<'EOF'
+          const postgres = require('postgres');
+          (async () => {
+            const sql = postgres(process.env.DATABASE_URL, { max: 1 });
+            try {
+              const [{ vehicles_table }] = await sql`select to_regclass('public.vehicles') as vehicles_table`;
+              if (!vehicles_table) throw new Error('public.vehicles missing after migrate');
+              const cols = await sql`
+                select column_name from information_schema.columns
+                where table_schema = 'public' and table_name = 'vehicles' and column_name = 'color'`;
+              if (!cols.length) throw new Error('vehicles.color missing after migrate');
+              const polyline = await sql`
+                select column_name from information_schema.columns
+                where table_schema = 'public' and table_name = 'bookings'
+                  and column_name = 'route_encoded_polyline'`;
+              if (!polyline.length) throw new Error('bookings.route_encoded_polyline missing after migrate');
+              const [{ migration_rows }] = await sql`select count(*)::int as migration_rows from drizzle.__drizzle_migrations`;
+              if (migration_rows < 41) throw new Error('expected >=41 drizzle migrations, got ' + migration_rows);
+              console.log(JSON.stringify({ vehicles_table, color: true, route_encoded_polyline: true, migration_rows }));
+            } finally {
+              await sql.end({ timeout: 5 });
+            }
+          })().catch((err) => { console.error(err); process.exit(1); });
+          EOF
       - run: npm test -- --runInBand --forceExit
       - run: npm run build
 

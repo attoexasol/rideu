@@ -94,6 +94,13 @@
       "breakpoints": true
     },
     {
+      "idx": 13,
+      "version": "7",
+      "when": 1760956479123,
+      "tag": "0013_passenger_maps_route",
+      "breakpoints": true
+    },
+    {
       "idx": 14,
       "version": "7",
       "when": 1760956479124,
@@ -124,152 +131,159 @@
     {
       "idx": 18,
       "version": "7",
+      "when": 1760956479128,
+      "tag": "0018_service_category_normalized_unique",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
       "when": 1760956479129,
       "tag": "0019_booking_offers_timestamptz",
       "breakpoints": true
     },
     {
-      "idx": 19,
+      "idx": 20,
       "version": "7",
       "when": 1785441600000,
       "tag": "0020_ride_video_recording_foundation",
       "breakpoints": true
     },
     {
-      "idx": 20,
+      "idx": 21,
       "version": "7",
       "when": 1785800000000,
       "tag": "0021_ride_video_admin_api",
       "breakpoints": true
     },
     {
-      "idx": 21,
+      "idx": 22,
       "version": "7",
       "when": 1786000000000,
       "tag": "0022_ride_video_dvr_foundation",
       "breakpoints": true
     },
     {
-      "idx": 22,
+      "idx": 23,
       "version": "7",
       "when": 1786800000000,
       "tag": "0023_bookings_driver_created_at",
       "breakpoints": true
     },
     {
-      "idx": 23,
+      "idx": 24,
       "version": "7",
       "when": 1787000000000,
       "tag": "0024_driver_push_tokens",
       "breakpoints": true
     },
     {
-      "idx": 24,
+      "idx": 25,
       "version": "7",
       "when": 1787500000000,
       "tag": "0025_driver_profile_account",
       "breakpoints": true
     },
     {
-      "idx": 25,
+      "idx": 26,
       "version": "7",
       "when": 1788000000000,
       "tag": "0026_passenger_push_tokens",
       "breakpoints": true
     },
     {
-      "idx": 26,
+      "idx": 27,
       "version": "7",
       "when": 1788500000000,
       "tag": "0027_stripe_payment_foundation",
       "breakpoints": true
     },
     {
-      "idx": 27,
+      "idx": 28,
       "version": "7",
       "when": 1789000000000,
       "tag": "0028_driver_stripe_connect",
       "breakpoints": true
     },
     {
-      "idx": 28,
+      "idx": 29,
       "version": "7",
       "when": 1789500000000,
       "tag": "0029_settlement_settings",
       "breakpoints": true
     },
     {
-      "idx": 29,
+      "idx": 30,
       "version": "7",
       "when": 1789600000000,
       "tag": "0030_airports_and_commission_only",
       "breakpoints": true
     },
     {
-      "idx": 30,
+      "idx": 31,
       "version": "7",
       "when": 1789700000000,
       "tag": "0031_ride_markets_and_booking_currency",
       "breakpoints": true
     },
     {
-      "idx": 31,
+      "idx": 32,
       "version": "7",
       "when": 1789800000000,
       "tag": "0032_platform_organization_branding",
       "breakpoints": true
     },
     {
-      "idx": 32,
+      "idx": 33,
       "version": "7",
       "when": 1789900000000,
       "tag": "0033_drivewize_service_category_catalog",
       "breakpoints": true
     },
     {
-      "idx": 33,
+      "idx": 34,
       "version": "7",
       "when": 1790000000000,
       "tag": "0034_driver_documents",
       "breakpoints": true
     },
     {
-      "idx": 34,
+      "idx": 35,
       "version": "7",
       "when": 1790100000000,
       "tag": "0035_service_areas",
       "breakpoints": true
     },
     {
-      "idx": 35,
+      "idx": 36,
       "version": "7",
       "when": 1790200000000,
       "tag": "0036_soft_meter",
       "breakpoints": true
     },
     {
-      "idx": 36,
+      "idx": 37,
       "version": "7",
       "when": 1790300000000,
       "tag": "0037_soft_meter_pause",
       "breakpoints": true
     },
     {
-      "idx": 37,
+      "idx": 38,
       "version": "7",
       "when": 1790400000000,
       "tag": "0038_walkup_stripe_test",
       "breakpoints": true
     },
     {
-      "idx": 38,
+      "idx": 39,
       "version": "7",
       "when": 1790500000000,
       "tag": "0039_soft_meter_stopped_time",
       "breakpoints": true
     },
     {
-      "idx": 39,
+      "idx": 40,
       "version": "7",
       "when": 1790600000000,
       "tag": "0040_metered_post_trip_billing",

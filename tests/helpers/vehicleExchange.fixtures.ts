@@ -18,6 +18,14 @@ import { eq, inArray, and, sql } from 'drizzle-orm';
 import { queryClient } from '../../src/db/connection';
 
 async function ensureVehicleColorColumn() {
+  const [{ vehicles_table }] = await queryClient`
+    SELECT to_regclass('public.vehicles') AS vehicles_table
+  `;
+  if (!vehicles_table) {
+    throw new Error(
+      'CI/test database is missing public.vehicles. Run Drizzle migrations (npm run db:migrate) against DATABASE_URL before integration tests.'
+    );
+  }
   await queryClient`ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS color varchar(50)`;
 }
 
@@ -364,42 +372,59 @@ export async function insertCompletedHistoricalBooking(
   return booking;
 }
 
-export async function cleanupExchangeFixture(fixture: PairedDriversFixture) {
-  if (fixture.ids.bookingIds.length) {
-    await db.delete(bookings).where(inArray(bookings.id, fixture.ids.bookingIds));
+export async function cleanupExchangeFixture(
+  fixture: PairedDriversFixture | null | undefined
+) {
+  // Safe no-op when beforeEach setup failed (keeps the original setup error visible).
+  if (!fixture?.ids) {
+    return;
   }
-  if (fixture.ids.exchangeIds.length) {
+
+  const { ids } = fixture;
+
+  if (ids.bookingIds.length) {
+    await db.delete(bookings).where(inArray(bookings.id, ids.bookingIds));
+  }
+  if (ids.exchangeIds.length) {
     await db
       .delete(vehicleExchangeEvents)
-      .where(inArray(vehicleExchangeEvents.exchangeRequestId, fixture.ids.exchangeIds));
+      .where(inArray(vehicleExchangeEvents.exchangeRequestId, ids.exchangeIds));
     await db
       .delete(vehicleExchangeResourceLocks)
-      .where(inArray(vehicleExchangeResourceLocks.exchangeRequestId, fixture.ids.exchangeIds));
+      .where(inArray(vehicleExchangeResourceLocks.exchangeRequestId, ids.exchangeIds));
     await db
       .delete(vehicleExchangeRequests)
-      .where(inArray(vehicleExchangeRequests.id, fixture.ids.exchangeIds));
+      .where(inArray(vehicleExchangeRequests.id, ids.exchangeIds));
   }
-  await db
-    .delete(driverVehicleAssignments)
-    .where(inArray(driverVehicleAssignments.driverId, fixture.ids.driverIds));
-  await db.delete(dutySessions).where(inArray(dutySessions.driverId, fixture.ids.driverIds));
-  await db
-    .delete(driverFleetMemberships)
-    .where(inArray(driverFleetMemberships.driverId, fixture.ids.driverIds));
-  await db.delete(drivers).where(inArray(drivers.id, fixture.ids.driverIds));
-  await db.delete(vehicles).where(inArray(vehicles.id, fixture.ids.vehicleIds));
-  await db.delete(fleets).where(inArray(fleets.id, fixture.ids.fleetIds));
-  await db.delete(organizations).where(inArray(organizations.id, fixture.ids.orgIds));
-  if (fixture.ids.customerIds.length) {
-    await db.delete(customers).where(inArray(customers.id, fixture.ids.customerIds));
+  if (ids.driverIds.length) {
+    await db
+      .delete(driverVehicleAssignments)
+      .where(inArray(driverVehicleAssignments.driverId, ids.driverIds));
+    await db.delete(dutySessions).where(inArray(dutySessions.driverId, ids.driverIds));
+    await db
+      .delete(driverFleetMemberships)
+      .where(inArray(driverFleetMemberships.driverId, ids.driverIds));
+    await db.delete(drivers).where(inArray(drivers.id, ids.driverIds));
   }
-  if (fixture.ids.serviceCategoryIds.length) {
+  if (ids.vehicleIds.length) {
+    await db.delete(vehicles).where(inArray(vehicles.id, ids.vehicleIds));
+  }
+  if (ids.fleetIds.length) {
+    await db.delete(fleets).where(inArray(fleets.id, ids.fleetIds));
+  }
+  if (ids.orgIds.length) {
+    await db.delete(organizations).where(inArray(organizations.id, ids.orgIds));
+  }
+  if (ids.customerIds.length) {
+    await db.delete(customers).where(inArray(customers.id, ids.customerIds));
+  }
+  if (ids.serviceCategoryIds.length) {
     // Never delete seed/canonical product categories from shared environments
     await db
       .delete(serviceCategories)
       .where(
         and(
-          inArray(serviceCategories.id, fixture.ids.serviceCategoryIds),
+          inArray(serviceCategories.id, ids.serviceCategoryIds),
           sql`code !~* '^(economy|executive|suv|van|minivan|ada|ride|bike|cng|moto|premium|comfort)$'`
         )
       );
