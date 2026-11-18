@@ -26,8 +26,20 @@ RUN npm ci
 
 COPY tsconfig.json ./
 COPY src ./src
-RUN npm run build \
-  && npm prune --omit=dev
+RUN npm run build
+
+# Production dependency tree only (no Jest/eslint/drizzle-kit/etc.)
+FROM node:${NODE_VERSION}-bookworm-slim AS prod-deps
+
+WORKDIR /app
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev \
+  && npm cache clean --force
 
 # ---------------------------------------------------------------------------
 # Production runtime image
@@ -46,10 +58,20 @@ RUN apt-get update \
   && groupadd --system --gid 1001 nodejs \
   && useradd --system --uid 1001 --gid nodejs --create-home --home-dir /home/nodejs nodejs \
   && mkdir -p /app/private-media /app/uploads \
-  && chown -R nodejs:nodejs /app /home/nodejs
+  && chown -R nodejs:nodejs /app /home/nodejs \
+  # Runtime needs Node only. Remove base-image npm/corepack so Trivy does not
+  # flag unused CLI tooling (pacote/sigstore/picomatch/brace-expansion/etc.).
+  && rm -rf /usr/local/lib/node_modules/npm \
+            /usr/local/lib/node_modules/corepack \
+            /usr/local/bin/npm \
+            /usr/local/bin/npx \
+            /usr/local/bin/corepack \
+            /opt/yarn-v1.22.22 \
+            /usr/local/bin/yarn \
+            /usr/local/bin/yarnpkg
 
 COPY package.json package-lock.json ./
-COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
+COPY --from=prod-deps --chown=nodejs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
 COPY --from=builder --chown=nodejs:nodejs /app/src/db/migrations ./src/db/migrations
 COPY docker/entrypoint.sh /entrypoint.sh
