@@ -1,0 +1,83 @@
+# DriveWize production Caddy
+#
+# TEMPORARY IP / SSH-tunnel mode (default until a domain is purchased):
+#   CADDY_SITE_ADDRESS=:80
+#   ADMIN_SITE_ADDRESS=:8081
+#   CADDY_AUTO_HTTPS=off
+#   CADDY_BIND_ADDRESS=127.0.0.1   (Compose publishes only on loopback)
+#
+#   Secure test from your laptop:
+#     ssh -L 8080:127.0.0.1:80 -L 8081:127.0.0.1:8081 deploy@82.180.139.178
+#     curl -fsS http://127.0.0.1:8080/api/health
+#     curl -fsS http://127.0.0.1:8081/   # Admin placeholder (503 until Admin image)
+#
+# FUTURE domain + HTTPS (after DNS points at 82.180.139.178):
+#   CADDY_SITE_ADDRESS=api.yourdomain.com
+#   ADMIN_SITE_ADDRESS=admin.yourdomain.com
+#   CADDY_AUTO_HTTPS=on
+#   CADDY_BIND_ADDRESS=0.0.0.0
+#   Then add HSTS (see comments in site blocks) and update Auth0/CORS/public URLs.
+#
+# Socket.IO (/socket.io/) upgrades via reverse_proxy.
+# Stripe webhook: POST /api/v1/webhooks/stripe (raw body preserved by Express).
+# Express trust proxy = 1 (single Caddy hop).
+
+{
+	email {$CADDY_ACME_EMAIL:ops@drivewize.co}
+	auto_https {$CADDY_AUTO_HTTPS:off}
+}
+
+# API — default :80 for IP/tunnel; switch to api.yourdomain.com for HTTPS
+{$CADDY_SITE_ADDRESS::80} {
+	encode gzip zstd
+
+	request_body {
+		max_size 35MB
+	}
+
+	header {
+		# Add after domain HTTPS is live:
+		# Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+
+	reverse_proxy backend:3000 {
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Forwarded-Host {host}
+
+		transport http {
+			read_timeout 0
+			write_timeout 0
+		}
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}
+
+# Admin — temporary :8081 (localhost/tunnel); later admin.yourdomain.com
+# When the Admin Compose service is enabled, replace `respond` with:
+#   reverse_proxy admin:80
+{$ADMIN_SITE_ADDRESS::8081} {
+	encode gzip zstd
+
+	header {
+		# Add after domain HTTPS is live:
+		# Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		-Server
+	}
+
+	respond "DriveWize Admin — container not attached yet" 503
+
+	log {
+		output stdout
+		format console
+	}
+}

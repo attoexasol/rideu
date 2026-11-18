@@ -1,0 +1,24 @@
+title = "DriveWize backend"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Test fixtures and documented placeholders"
+paths = [
+  '''tests/.*''',
+  '''.*\.test\.ts$''',
+  '''.*\.spec\.ts$''',
+  '''docker/env/staging\.env\.example$''',
+  '''\.env\.example$''',
+]
+regexes = [
+  '''sk_test_123''',
+  '''sk_test_valid''',
+  '''sk_test_abc''',
+  '''pk_test_123''',
+  '''pk_test_valid''',
+  '''whsec_phase_a_test_secret''',
+  '''whsec_soft_meter_test_secret''',
+  '''CHANGE_ME''',
+]

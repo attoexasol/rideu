@@ -3,16 +3,25 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+require("dotenv/config");
 const axios_1 = __importDefault(require("axios"));
 const postgres_1 = __importDefault(require("postgres"));
 const crypto_1 = __importDefault(require("crypto"));
 const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
-// ── Config ──────────────────────────────────────────────────────────────────
-const AUTH0_DOMAIN = 'dev-3t82y4zqjstv66qp.us.auth0.com';
-const AUTH0_MGMT_CLIENT_ID = 'rjWwtSrC1rWZwkgz2EpNetoVQGHLsJEN';
-const AUTH0_MGMT_CLIENT_SECRET = '0LeWmq9oH8nCVAtn5unhkkoEQUrZUkIT7qKIw-55J6jfryECf5VYT42hzm6hbe3u';
-const DATABASE_URL = 'postgresql://postgres:zZEzdQIcIcumpgTLogbWZGnLVdHfUOLq@tramway.proxy.rlwy.net:32928/railway';
+// ── Config (all secrets must come from environment — never hardcode) ─────────
+function requireEnv(name) {
+    const value = process.env[name]?.trim();
+    if (!value) {
+        throw new Error(`Missing required environment variable ${name}. ` +
+            'Set AUTH0_DOMAIN, AUTH0_MANAGEMENT_CLIENT_ID, AUTH0_MANAGEMENT_CLIENT_SECRET, and DATABASE_URL.');
+    }
+    return value;
+}
+const AUTH0_DOMAIN = requireEnv('AUTH0_DOMAIN');
+const AUTH0_MGMT_CLIENT_ID = requireEnv('AUTH0_MANAGEMENT_CLIENT_ID');
+const AUTH0_MGMT_CLIENT_SECRET = requireEnv('AUTH0_MANAGEMENT_CLIENT_SECRET');
+const DATABASE_URL = requireEnv('DATABASE_URL');
 // ── Driver Data ─────────────────────────────────────────────────────────────
 // Format: [name, cabName, cabNumber, phone]
 const DRIVERS = [

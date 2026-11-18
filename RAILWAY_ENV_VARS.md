@@ -1,40 +1,43 @@
-# Railway Environment Variables
+# Railway / Hosting Environment Variables
 
-## Add these to Railway Backend Service
+## Add these to your backend service variables
 
-Go to your Railway backend service and add these environment variables:
+Use your own Auth0 Management API and Mapbox credentials. **Never commit real secret values.**
 
 ### Auth0 Management API (REQUIRED for user creation)
+
 ```
-AUTH0_MANAGEMENT_CLIENT_ID=rjWwtSrC1rWZwkgz2EpNetoVQGHLsJEN
-AUTH0_MANAGEMENT_CLIENT_SECRET=0LeWmq9oH8nCVAtn5unhkkoEQUrZUkIT7qKIw-55J6jfryECf5VYT42hzm6hbe3u
+AUTH0_MANAGEMENT_CLIENT_ID=<your-m2m-client-id>
+AUTH0_MANAGEMENT_CLIENT_SECRET=<your-m2m-client-secret>
 ```
 
-### Mapbox (REQUIRED for road snapping)
+Create a Machine-to-Machine application in Auth0 with Management API scopes
+(`create:users`, `update:users`, `delete:users`, `read:roles`, `create:role_members`, etc.).
+See `AUTH0_SETUP.md`.
+
+### Mapbox (REQUIRED for road snapping / admin map)
+
 ```
-MAPBOX_ACCESS_TOKEN=sk.eyJ1IjoibG91aXN4c2hlaWQiLCJhIjoiY21neG54ams0MG8zZjJpc2RseWNsbTl5YiJ9.NSnyhAwG2FJGqF9-Yti_kw
+MAPBOX_ACCESS_TOKEN=<your-mapbox-secret-or-token>
 ```
 
-## How to Add in Railway
+## How to Add
 
-1. Go to https://railway.app
-2. Select your project
-3. Click on the **backend** service
-4. Go to **Variables** tab
-5. Click **+ New Variable**
-6. Add each variable above
-7. Railway will automatically redeploy
+1. Open your host dashboard (Railway, VPS env file, or GitHub Environment secrets).
+2. Select the **backend** service / staging env.
+3. Add each variable with values from Auth0 / Mapbox dashboards (not from git).
+4. Redeploy / restart the backend.
 
 ## Verify in Auth0
 
-Make sure these roles exist in Auth0:
-1. Go to Auth0 Dashboard → User Management → Roles
-2. Create these exact role names if they don't exist:
-   - `Driver`
-   - `Admin`
-   - `Super Admin`
+Ensure these roles exist:
 
-## Test
+- `Driver`
+- `Admin`
+- `Super Admin`
 
-After deployment, try creating a new admin user in the admin portal.
-It should now work properly!
+## Security
+
+- Rotate any credentials that were previously committed to git (see
+  `docs/docker/CREDENTIAL_ROTATION_CHECKLIST.md`).
+- Prefer separate M2M apps and Mapbox tokens for staging vs production.

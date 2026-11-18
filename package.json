@@ -18,6 +18,7 @@
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "db:migrate": "tsx src/db/migrate.ts",
+    "db:migrate:prod": "node dist/db/migrate.js",
     "db:backfill-qr": "tsx src/scripts/backfill-driver-qr-codes.ts",
     "db:backfill-vehicle-qr": "tsx src/scripts/backfill-vehicle-qr-codes.ts",
     "db:multi-fleet-backfill": "tsx src/scripts/multi-fleet-backfill.ts",

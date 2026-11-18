@@ -40,21 +40,51 @@ const postgres_js_1 = require("drizzle-orm/postgres-js");
 const migrator_1 = require("drizzle-orm/postgres-js/migrator");
 const postgres_1 = __importDefault(require("postgres"));
 const dotenv = __importStar(require("dotenv"));
-// Load environment variables
+const fs = __importStar(require("fs"));
+const path = __importStar(require("path"));
 dotenv.config();
 /**
- * Database migration runner
- * Applies all pending migrations to the database
+ * Resolve migrations folder for local (src/) and container layouts.
+ * Override with MIGRATIONS_FOLDER when needed.
+ */
+function resolveMigrationsFolder() {
+    const configured = process.env.MIGRATIONS_FOLDER?.trim();
+    if (configured) {
+        return path.resolve(configured);
+    }
+    const candidates = [
+        path.resolve(process.cwd(), 'src/db/migrations'),
+        path.resolve(__dirname, 'migrations'),
+        path.resolve(process.cwd(), 'migrations'),
+    ];
+    for (const candidate of candidates) {
+        if (fs.existsSync(candidate)) {
+            return candidate;
+        }
+    }
+    return candidates[0];
+}
+/**
+ * Database migration runner.
+ * Applies pending Drizzle migrations only. Does not seed or reset data.
  */
 async function runMigrations() {
     const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://user:password@localhost:5432/drivewize';
+    const migrationsFolder = resolveMigrationsFolder();
     console.log('🔄 Starting database migrations...');
     console.log(`📍 Database: ${DATABASE_URL.replace(/:[^:@]+@/, ':****@')}`);
-    // Create connection for migrations
-    const migrationClient = (0, postgres_1.default)(DATABASE_URL, { max: 1 });
+    console.log(`📁 Migrations folder: ${migrationsFolder}`);
+    if (!fs.existsSync(migrationsFolder)) {
+        console.error(`❌ Migrations folder not found: ${migrationsFolder}`);
+        process.exit(1);
+    }
+    const migrationClient = (0, postgres_1.default)(DATABASE_URL, { max: 1, connect_timeout: 15 });
     const db = (0, postgres_js_1.drizzle)(migrationClient);
     try {
-        await (0, migrator_1.migrate)(db, { migrationsFolder: './src/db/migrations' });
+        console.log('🔌 Verifying database connectivity...');
+        await migrationClient `SELECT 1 AS ok`;
+        console.log('✓ Database reachable');
+        await (0, migrator_1.migrate)(db, { migrationsFolder });
         console.log('✅ Migrations completed successfully!');
         process.exit(0);
     }
@@ -63,7 +93,7 @@ async function runMigrations() {
         process.exit(1);
     }
     finally {
-        await migrationClient.end();
+        await migrationClient.end({ timeout: 5 });
     }
 }
 runMigrations();

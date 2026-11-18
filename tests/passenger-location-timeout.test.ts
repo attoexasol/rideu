@@ -152,8 +152,11 @@ describe('admin video middleware isolation', () => {
     expect(shouldSkipGlobalRateLimit('/api/v1/admin/ride-videos/11111111-1111-1111-1111-111111111111')).toBe(
       true
     );
+    // Booking detail uses a dedicated limiter (see rate-limit-paths + rate-limit-config tests).
     expect(shouldSkipGlobalRateLimit('/api/v1/passenger/bookings/11111111-1111-1111-1111-111111111111')).toBe(
-      false
+      true
     );
+    // Non-video admin routes still hit the global limiter.
+    expect(shouldSkipGlobalRateLimit('/api/v1/admin/users')).toBe(false);
   });
 });

@@ -1,52 +1,75 @@
-# Build stage
-FROM node:18-alpine AS builder
+# syntax=docker/dockerfile:1
+#
+# DriveWize backend — multi-stage image
+# Targets:
+#   runtime  (default) — API process: node dist/index.js
+#   migrate            — one-shot Drizzle migrator (do not run concurrent migrate jobs)
+#
+# Base: Node 22 bookworm-slim (glibc) for sharp prebuilt binaries.
+# Never bake .env / secrets into layers.
+
+ARG NODE_VERSION=22.23.5
+
+# ---------------------------------------------------------------------------
+# Builder: install all deps + compile TypeScript
+# ---------------------------------------------------------------------------
+FROM node:${NODE_VERSION}-bookworm-slim AS builder
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
 
-# Install dependencies
+COPY package.json package-lock.json ./
 RUN npm ci
 
-# Copy source code
-COPY . .
+COPY tsconfig.json ./
+COPY src ./src
+RUN npm run build \
+  && npm prune --omit=dev
 
-# Build TypeScript
-RUN npm run build
-
-# Production stage
-FROM node:18-alpine
-
-# Create non-root user for security
-RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
+# ---------------------------------------------------------------------------
+# Production runtime image
+# ---------------------------------------------------------------------------
+FROM node:${NODE_VERSION}-bookworm-slim AS runtime
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+ENV NODE_ENV=production \
+    PORT=3000 \
+    MIGRATIONS_FOLDER=/app/src/db/migrations
 
-# Install production dependencies only
-RUN npm ci --only=production
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates tini gosu \
+  && rm -rf /var/lib/apt/lists/* \
+  && groupadd --system --gid 1001 nodejs \
+  && useradd --system --uid 1001 --gid nodejs --create-home --home-dir /home/nodejs nodejs \
+  && mkdir -p /app/private-media /app/uploads \
+  && chown -R nodejs:nodejs /app /home/nodejs
 
-# Copy built files from builder
-COPY --from=builder /app/dist ./dist
+COPY package.json package-lock.json ./
+COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
+COPY --from=builder --chown=nodejs:nodejs /app/src/db/migrations ./src/db/migrations
+COPY docker/entrypoint.sh /entrypoint.sh
+RUN chmod 755 /entrypoint.sh
 
-# Change ownership to non-root user
-RUN chown -R nodejs:nodejs /app
+# Start as root so entrypoint can chown volume mounts, then gosu → nodejs
+USER root
 
-# Switch to non-root user
-USER nodejs
-
-# Expose port
 EXPOSE 3000
 
-# Set environment to production
-ENV NODE_ENV=production
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
+  CMD node -e "require('http').get('http://127.0.0.1:'+(process.env.PORT||3000)+'/api/health',(r)=>{let d='';r.on('data',c=>d+=c);r.on('end',()=>process.exit(r.statusCode===200?0:1));}).on('error',()=>process.exit(1))"
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
-
-# Start the application
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["node", "dist/index.js"]
+
+# ---------------------------------------------------------------------------
+# Migrate target
+# ---------------------------------------------------------------------------
+FROM runtime AS migrate
+
+ENV NODE_ENV=production
+CMD ["node", "dist/db/migrate.js"]
