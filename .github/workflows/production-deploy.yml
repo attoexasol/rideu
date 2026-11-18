@@ -163,7 +163,8 @@ jobs:
             NODE_VERSION=${{ env.NODE_VERSION }}
           provenance: false
       - name: Trivy scan runtime
-        uses: aquasecurity/trivy-action@0.28.0
+        # Pin to full commit SHA of immutable release v0.36.0 (tag 0.28.0 no longer resolves).
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: ${{ steps.meta.outputs.runtime_ref }}
           format: table
