@@ -88,10 +88,31 @@ record_image() {
   echo "==> Recorded deploy: runtime=$BACKEND_IMAGE migrate=$MIGRATE_IMAGE"
 }
 
+https_check() {
+  # Verifies the public certificate on the API host via loopback (no DNS/hairpin
+  # dependency). Non-fatal: ACME issuance problems must not roll back a healthy backend.
+  local host="${CADDY_SITE_ADDRESS:-}"
+  case "$host" in
+    "" | :*) echo "==> HTTPS check skipped (CADDY_SITE_ADDRESS is not a hostname)"; return 0 ;;
+  esac
+  local port="${CADDY_HTTPS_PORT:-443}"
+  echo "==> HTTPS check https://$host/api/health"
+  local i
+  for i in $(seq 1 30); do
+    if curl -fsS --max-time 10 --resolve "$host:$port:127.0.0.1" "https://$host:$port/api/health" >/dev/null 2>&1; then
+      echo "==> HTTPS OK ($host)"
+      return 0
+    fi
+    sleep 4
+  done
+  echo "WARNING: HTTPS check failed for $host — inspect: docker compose logs caddy | grep -i -E 'acme|tls|certificate'"
+  return 0
+}
+
 health_check() {
-  # Prefer HEALTHCHECK_URL from .env.production (IP/tunnel mode: loopback HTTP).
-  # Fallback hits Caddy on loopback — works when CADDY_BIND_ADDRESS=127.0.0.1.
-  local url="${HEALTHCHECK_URL:-http://127.0.0.1:${CADDY_HTTP_PORT:-80}/api/health}"
+  # HEALTHCHECK_URL defaults to the loopback-only :8081 site, which proxies
+  # /api to the backend over plain HTTP regardless of certificate state.
+  local url="${HEALTHCHECK_URL:-http://127.0.0.1:${CADDY_ADMIN_HTTP_PORT:-8081}/api/health}"
   echo "==> Health check $url"
   local i
   for i in $(seq 1 30); do
@@ -138,8 +159,15 @@ main() {
   echo "==> Starting backend + caddy"
   "${COMPOSE[@]}" up -d backend caddy
 
+  # Caddyfile is a bind mount: content changes do not recreate the container.
+  echo "==> Validating + reloading Caddy config"
+  "${COMPOSE[@]}" exec -T caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+  "${COMPOSE[@]}" exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile \
+    || "${COMPOSE[@]}" restart caddy
+
   record_image
   health_check
+  https_check
   echo "==> Production deploy finished"
 }
 

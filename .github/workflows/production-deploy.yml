@@ -246,6 +246,14 @@ jobs:
             echo \"MIGRATE_IMAGE=${MIGRATE_REF}\" >> .env.production"
           ssh drivewize-production "cd \"$REMOTE_DIR\" && ./scripts/deploy/production-deploy.sh"
       - name: Production health
-        # Loopback only — matches CADDY_BIND_ADDRESS=127.0.0.1 (SSH-tunnel / IP mode).
+        # Loopback emergency site (:8081 → backend), then public HTTPS on the API host.
+        env:
+          REMOTE_DIR: ${{ secrets.PRODUCTION_DEPLOY_PATH }}
         run: |
-          ssh drivewize-production 'curl -fsS http://127.0.0.1:80/api/health || curl -fsS http://127.0.0.1/api/health'
+          set -euo pipefail
+          ssh drivewize-production 'curl -fsS http://127.0.0.1:8081/api/health'
+          API_HOST="$(ssh drivewize-production "grep -E '^CADDY_SITE_ADDRESS=' \"$REMOTE_DIR/.env.production\" | tail -n1 | cut -d= -f2- | tr -d '\r\" '")"
+          case "$API_HOST" in
+            "" | :*) echo "CADDY_SITE_ADDRESS is not a hostname; skipping public HTTPS check" ;;
+            *) curl -fsS --retry 10 --retry-delay 6 --retry-all-errors "https://${API_HOST}/api/health" ;;
+          esac

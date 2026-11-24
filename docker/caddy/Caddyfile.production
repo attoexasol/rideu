@@ -1,83 +1,88 @@
-# DriveWize production Caddy
+# DriveWize production Caddy — public HTTPS
 #
-# TEMPORARY IP / SSH-tunnel mode (default until a domain is purchased):
-#   CADDY_SITE_ADDRESS=:80
-#   ADMIN_SITE_ADDRESS=:8081
-#   CADDY_AUTO_HTTPS=off
-#   CADDY_BIND_ADDRESS=127.0.0.1   (Compose publishes only on loopback)
+#   CADDY_SITE_ADDRESS=api.corryde.com     → backend:3000 (REST, Socket.IO, uploads, meter pages)
+#   ADMIN_SITE_ADDRESS=admin.corryde.com   → /api, /socket.io, /uploads → backend:3000
+#                                            everything else → drivewize-admin:8080 (SPA)
+#   :8081 (Compose binds it to 127.0.0.1 only) → emergency Admin access over SSH tunnel:
+#     ssh -L 8081:127.0.0.1:8081 deploy@82.180.139.178
+#     curl -fsS http://127.0.0.1:8081/api/health
 #
-#   Secure test from your laptop:
-#     ssh -L 8080:127.0.0.1:80 -L 8081:127.0.0.1:8081 deploy@82.180.139.178
-#     curl -fsS http://127.0.0.1:8080/api/health
-#     curl -fsS http://127.0.0.1:8081/   # Admin placeholder (503 until Admin image)
+# Both site addresses must be hostnames whose DNS A records point at this VPS.
+# Automatic HTTPS (ACME issuance + renewal) is on; certificates and ACME
+# account state persist in the drivewize_production_caddy_data volume (/data).
+# Port 80 on the hostnames redirects to HTTPS (ACME HTTP-01 is still served).
 #
-# FUTURE domain + HTTPS (after DNS points at 82.180.139.178):
-#   CADDY_SITE_ADDRESS=api.yourdomain.com
-#   ADMIN_SITE_ADDRESS=admin.yourdomain.com
-#   CADDY_AUTO_HTTPS=on
-#   CADDY_BIND_ADDRESS=0.0.0.0
-#   Then add HSTS (see comments in site blocks) and update Auth0/CORS/public URLs.
-#
-# Socket.IO (/socket.io/) upgrades via reverse_proxy.
 # Stripe webhook: POST /api/v1/webhooks/stripe (raw body preserved by Express).
 # Express trust proxy = 1 (single Caddy hop).
-
 {
 	email {$CADDY_ACME_EMAIL:ops@drivewize.co}
-	auto_https {$CADDY_AUTO_HTTPS:off}
 }
 
-# API — default :80 for IP/tunnel; switch to api.yourdomain.com for HTTPS
-{$CADDY_SITE_ADDRESS::80} {
-	encode gzip zstd
-
-	request_body {
-		max_size 35MB
-	}
-
+(security_headers) {
 	header {
-		# Add after domain HTTPS is live:
-		# Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		X-Content-Type-Options nosniff
 		Referrer-Policy strict-origin-when-cross-origin
 		-Server
 	}
+}
 
+(hsts) {
+	header Strict-Transport-Security "max-age=31536000"
+}
+
+# Long-lived streaming (Socket.IO long-polling / WebSocket upgrades).
+(backend_proxy) {
+	request_body {
+		max_size 35MB
+	}
 	reverse_proxy backend:3000 {
 		header_up X-Real-IP {remote_host}
-		header_up X-Forwarded-For {remote_host}
-		header_up X-Forwarded-Proto {scheme}
-		header_up X-Forwarded-Host {host}
 
 		transport http {
 			read_timeout 0
 			write_timeout 0
 		}
 	}
+}
 
+(admin_routes) {
+	@backend path /api /api/* /socket.io /socket.io/* /uploads /uploads/*
+	handle @backend {
+		import backend_proxy
+	}
+
+	handle {
+		reverse_proxy drivewize-admin:8080
+	}
+}
+
+(access_log) {
 	log {
 		output stdout
 		format console
 	}
 }
 
-# Admin — temporary :8081 (localhost/tunnel); later admin.yourdomain.com
-# When the Admin Compose service is enabled, replace `respond` with:
-#   reverse_proxy admin:80
-{$ADMIN_SITE_ADDRESS::8081} {
+{$CADDY_SITE_ADDRESS} {
 	encode gzip zstd
+	import security_headers
+	import hsts
+	import backend_proxy
+	import access_log
+}
 
-	header {
-		# Add after domain HTTPS is live:
-		# Strict-Transport-Security "max-age=31536000; includeSubDomains"
-		X-Content-Type-Options nosniff
-		-Server
-	}
+{$ADMIN_SITE_ADDRESS} {
+	encode gzip zstd
+	import security_headers
+	import hsts
+	import admin_routes
+	import access_log
+}
 
-	respond "DriveWize Admin — container not attached yet" 503
-
-	log {
-		output stdout
-		format console
-	}
+# Emergency loopback Admin + API (plain HTTP, never published publicly).
+:8081 {
+	encode gzip zstd
+	import security_headers
+	import admin_routes
+	import access_log
 }

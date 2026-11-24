@@ -165,18 +165,17 @@ services:
     image: caddy:2.11.9-alpine
     restart: *default-restart
     logging: *default-logging
-    # Default bind 127.0.0.1 = HTTP only via SSH tunnel (not public).
-    # After domain purchase set CADDY_BIND_ADDRESS=0.0.0.0 and enable HTTPS in env.
+    # 80/443 are public only when CADDY_PUBLIC_BIND_ADDRESS=0.0.0.0 is set in
+    # .env.production; the 127.0.0.1 default keeps an unedited env private.
+    # 8081 (emergency Admin over SSH tunnel) is always loopback-only.
     ports:
-      - "${CADDY_BIND_ADDRESS:-127.0.0.1}:${CADDY_HTTP_PORT:-80}:80"
-      - "${CADDY_BIND_ADDRESS:-127.0.0.1}:${CADDY_HTTPS_PORT:-443}:443"
-      - "${CADDY_BIND_ADDRESS:-127.0.0.1}:${CADDY_ADMIN_HTTP_PORT:-8081}:8081"
+      - "${CADDY_PUBLIC_BIND_ADDRESS:-127.0.0.1}:${CADDY_HTTP_PORT:-80}:80"
+      - "${CADDY_PUBLIC_BIND_ADDRESS:-127.0.0.1}:${CADDY_HTTPS_PORT:-443}:443"
+      - "${CADDY_PUBLIC_BIND_ADDRESS:-127.0.0.1}:${CADDY_HTTPS_PORT:-443}:443/udp"
+      - "127.0.0.1:${CADDY_ADMIN_HTTP_PORT:-8081}:8081"
     environment:
-      # Defaults live in production.env.example (:80 / :8081). Avoid ${VAR:-:80}
-      # here — Compose treats the extra colon as ambiguous.
-      CADDY_SITE_ADDRESS: ${CADDY_SITE_ADDRESS:?CADDY_SITE_ADDRESS is required (e.g. :80)}
-      ADMIN_SITE_ADDRESS: ${ADMIN_SITE_ADDRESS:?ADMIN_SITE_ADDRESS is required (e.g. :8081)}
-      CADDY_AUTO_HTTPS: ${CADDY_AUTO_HTTPS:-off}
+      CADDY_SITE_ADDRESS: ${CADDY_SITE_ADDRESS:?CADDY_SITE_ADDRESS is required (e.g. api.corryde.com)}
+      ADMIN_SITE_ADDRESS: ${ADMIN_SITE_ADDRESS:?ADMIN_SITE_ADDRESS is required (e.g. admin.corryde.com)}
       CADDY_ACME_EMAIL: ${CADDY_ACME_EMAIL:-ops@drivewize.co}
     volumes:
       - ./caddy/Caddyfile.production:/etc/caddy/Caddyfile:ro

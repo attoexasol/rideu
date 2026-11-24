@@ -76,3 +76,9 @@ gitleaks.exe
 gitleaks
 gitleaks-*.json
 
+
+# Local Trivy tooling / reports
+bin-trivy/
+trivy-*.txt
+trivy-*.tar
+
