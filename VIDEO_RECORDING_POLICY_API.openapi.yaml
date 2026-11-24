@@ -1,0 +1,264 @@
+openapi: 3.0.3
+info:
+  title: Global Video Recording Policy API
+  version: 1.0.0
+  description: |
+    One global switch (platform_settings.video_recording_enabled, default false)
+    that controls ride video recording for every Driver app.
+
+    Two gates decide whether recording may happen:
+      * enabled — the saved Admin preference (PostgreSQL).
+      * serverRecordingAvailable — the deployment's recording pipeline
+        (env VIDEO_RECORDING_ENABLED). Changing it requires a backend restart.
+    effectiveEnabled = enabled AND serverRecordingAvailable. The Driver endpoint
+    and the Driver socket event expose only the effective value as `enabled`.
+
+    Missing, invalid or unreadable settings are OFF. Socket.IO event
+    `video_recording_config_updated` is supplemental; REST is authoritative.
+servers:
+  - url: http://localhost:3000/api/v1
+    description: Local development
+  - url: https://api.corryde.com/api/v1
+    description: Production
+tags:
+  - name: Admin
+  - name: Driver
+paths:
+  /admin/settings/video-recording:
+    get:
+      tags: [Admin]
+      operationId: getAdminVideoRecordingConfig
+      summary: Read the global recording policy
+      description: Requires role admin or super_admin and permission ride_video.view.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current policy
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success: { type: boolean, enum: [true] }
+                  data: { $ref: '#/components/schemas/AdminVideoRecordingConfig' }
+              example:
+                success: true
+                data:
+                  enabled: false
+                  effectiveEnabled: false
+                  serverRecordingAvailable: false
+                  version: 1
+                  updatedAt: '2026-11-23T10:00:00.000Z'
+                  updatedBy: null
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '503': { $ref: '#/components/responses/PolicyUnavailable' }
+    patch:
+      tags: [Admin]
+      operationId: updateAdminVideoRecordingConfig
+      summary: Enable or disable recording for all drivers
+      description: |
+        Requires role admin or super_admin and permission ride_video.manage
+        (super_admin by default; an admin only with an explicit Auth0
+        ride_video.manage permission). The change and its audit row commit
+        atomically; drivers are then notified over Socket.IO. Setting the
+        current value again returns changed=false with no audit and no event.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateVideoRecordingConfigRequest' }
+            example: { enabled: true, expectedVersion: 1 }
+      responses:
+        '200':
+          description: Policy after the update
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success: { type: boolean, enum: [true] }
+                  data:
+                    allOf:
+                      - $ref: '#/components/schemas/AdminVideoRecordingConfig'
+                      - type: object
+                        required: [changed]
+                        properties:
+                          changed:
+                            type: boolean
+                            description: false when the requested value was already saved.
+              example:
+                success: true
+                data:
+                  enabled: true
+                  effectiveEnabled: true
+                  serverRecordingAvailable: true
+                  version: 2
+                  updatedAt: '2026-11-23T10:05:00.000Z'
+                  updatedBy: { email: 'ops@example.com' }
+                  changed: true
+        '400':
+          description: VALIDATION_ERROR — enabled missing or not a JSON boolean, unknown field, or bad expectedVersion
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+              example:
+                success: false
+                error:
+                  code: VALIDATION_ERROR
+                  message: Request validation failed
+                  details:
+                    - path: [enabled]
+                      message: enabled must be a boolean
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409':
+          description: VIDEO_RECORDING_POLICY_VERSION_CONFLICT — expectedVersion is stale; reload and retry
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+              example:
+                success: false
+                error:
+                  code: VIDEO_RECORDING_POLICY_VERSION_CONFLICT
+                  message: Setting was changed by another administrator (current version 2). Reload and retry.
+        '503': { $ref: '#/components/responses/PolicyUnavailable' }
+  /driver/video/recording-config:
+    get:
+      tags: [Driver]
+      operationId: getDriverVideoRecordingConfig
+      summary: Effective recording permission for the authenticated driver
+      description: |
+        Requires role driver. `enabled` is the effective permission to record
+        (Admin setting AND server pipeline). Response is Cache-Control: no-store.
+        Clients must treat any non-200 response, a missing body, or a
+        non-boolean `enabled` as OFF.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Effective policy
+          headers:
+            Cache-Control:
+              schema: { type: string, enum: [no-store] }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success: { type: boolean, enum: [true] }
+                  data: { $ref: '#/components/schemas/DriverVideoRecordingConfig' }
+              example:
+                success: true
+                data: { enabled: false, version: 1, updatedAt: '2026-11-23T10:00:00.000Z' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '503': { $ref: '#/components/responses/PolicyUnavailable' }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    UpdateVideoRecordingConfigRequest:
+      type: object
+      additionalProperties: false
+      required: [enabled]
+      properties:
+        enabled:
+          type: boolean
+          description: JSON boolean only; "true", 1 and null are rejected.
+        expectedVersion:
+          type: integer
+          minimum: 0
+          description: Optional optimistic-concurrency guard (version from the last GET).
+    AdminVideoRecordingConfig:
+      type: object
+      required: [enabled, effectiveEnabled, serverRecordingAvailable, version, updatedAt, updatedBy]
+      properties:
+        enabled:
+          type: boolean
+          description: Saved Admin preference.
+        effectiveEnabled:
+          type: boolean
+          description: enabled AND serverRecordingAvailable — what drivers actually receive.
+        serverRecordingAvailable:
+          type: boolean
+          description: Server recording pipeline (VIDEO_RECORDING_ENABLED). Changing it needs a backend restart.
+        version:
+          type: integer
+          description: Increments on every change. 0 means the row is missing (treated as OFF).
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        updatedBy:
+          type: object
+          nullable: true
+          properties:
+            email: { type: string, nullable: true }
+    DriverVideoRecordingConfig:
+      type: object
+      required: [enabled, version, updatedAt]
+      properties:
+        enabled:
+          type: boolean
+          description: Effective permission to record now.
+        version: { type: integer }
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+    VideoRecordingConfigUpdatedEvent:
+      description: |
+        Socket.IO event `video_recording_config_updated`, sent to every
+        authenticated driver socket (room `drivers`). Drivers receive this
+        shape; the Admin room receives AdminVideoRecordingConfig plus `reason`.
+      allOf:
+        - $ref: '#/components/schemas/DriverVideoRecordingConfig'
+        - type: object
+          required: [reason]
+          properties:
+            reason:
+              type: string
+              enum: [admin_update, connection_sync]
+    ErrorEnvelope:
+      type: object
+      required: [success, error]
+      properties:
+        success: { type: boolean, enum: [false] }
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details: {}
+  responses:
+    Unauthenticated:
+      description: Missing or invalid token
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    Forbidden:
+      description: Wrong role (UNAUTHORIZED) or missing ride_video permission (MISSING_PERMISSION)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    PolicyUnavailable:
+      description: VIDEO_RECORDING_POLICY_UNAVAILABLE — PostgreSQL could not be read or written. Recording is not permitted.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+          example:
+            success: false
+            error:
+              code: VIDEO_RECORDING_POLICY_UNAVAILABLE
+              message: Video recording policy is temporarily unavailable; recording is not permitted

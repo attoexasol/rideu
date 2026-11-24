@@ -7,8 +7,11 @@ export interface BookingWsPayload {
   [key: string]: unknown;
 }
 
+/** Every authenticated driver socket (resolved driver UUID) joins this room. */
+export const ALL_DRIVERS_ROOM = 'drivers';
+
 interface BookingPubSubMessage {
-  target: 'customer' | 'driver' | 'admin';
+  target: 'customer' | 'driver' | 'admin' | 'all_drivers';
   customerId?: string;
   driverId?: string;
   event: string;
@@ -39,6 +42,8 @@ export function setupBookingEventSubscriber(io: Server): void {
         ioRef.to(`driver-${parsed.driverId}`).emit(parsed.event, parsed.data);
       } else if (parsed.target === 'admin') {
         ioRef.to('admin').emit(parsed.event, parsed.data);
+      } else if (parsed.target === 'all_drivers') {
+        ioRef.to(ALL_DRIVERS_ROOM).emit(parsed.event, parsed.data);
       }
     } catch (err) {
       console.error('Booking pub/sub handler error:', err);
@@ -55,6 +60,8 @@ async function publishBookingEvent(message: BookingPubSubMessage): Promise<void>
       ioRef.to(`driver-${message.driverId}`).emit(message.event, message.data);
     } else if (message.target === 'admin') {
       ioRef.to('admin').emit(message.event, message.data);
+    } else if (message.target === 'all_drivers') {
+      ioRef.to(ALL_DRIVERS_ROOM).emit(message.event, message.data);
     }
     return;
   }
@@ -87,6 +94,10 @@ export async function emitToDriver(driverId: string, event: string, data: unknow
 
 export async function emitToAdmins(event: string, data: unknown): Promise<void> {
   await publishBookingEvent({ target: 'admin', event, data });
+}
+
+export async function emitToAllDrivers(event: string, data: unknown): Promise<void> {
+  await publishBookingEvent({ target: 'all_drivers', event, data });
 }
 
 export async function emitOfferCancelled(

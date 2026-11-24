@@ -81,6 +81,30 @@ jest.mock('../src/middleware/logger', () => ({
   logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() },
 }));
 
+const recordingPolicyState: {
+  enabled: boolean;
+  updatedAt: Date;
+  fail: boolean;
+} = { enabled: true, updatedAt: new Date('2026-07-30T00:00:00.000Z'), fail: false };
+
+jest.mock('../src/repositories/platformSettings.repository', () => ({
+  findPlatformSettings: jest.fn(async () => {
+    if (recordingPolicyState.fail) throw new Error('connection refused');
+    return {
+      id: 1,
+      videoRecordingEnabled: recordingPolicyState.enabled,
+      version: 2,
+      updatedByAdminUserId: null,
+      updatedByAuth0Id: null,
+      updatedByEmail: null,
+      createdAt: new Date('2026-07-01T00:00:00.000Z'),
+      updatedAt: recordingPolicyState.updatedAt,
+    };
+  }),
+  setVideoRecordingEnabledWithAudit: jest.fn(),
+  listRecordingPolicyAuditEvents: jest.fn(),
+}));
+
 jest.mock('../src/services/ride-video-storage.service', () => {
   const actual = jest.requireActual('../src/services/ride-video-storage.service') as Record<
     string,
@@ -187,6 +211,9 @@ beforeEach(() => {
   videoConfigState.consentRequired = true;
   videoConfigState.maxSegmentSizeBytes = 1_000_000;
   videoConfigState.uploadUrlTtlSeconds = 300;
+  recordingPolicyState.enabled = true;
+  recordingPolicyState.updatedAt = new Date('2026-07-30T00:00:00.000Z');
+  recordingPolicyState.fail = false;
   mockSavePrivateSegment.mockResolvedValue({
     fileSizeBytes: 100,
     checksum: createHash('sha256').update(Buffer.alloc(100)).digest('hex'),
@@ -1091,6 +1118,204 @@ describe('schema and migration constraints', () => {
     expect(bookingsSource).toContain('recordingConsentStatus');
     expect(bookingsSource).toContain('recording_consent_status');
     expect(bookingsSource).toContain('recordingConsentRevokedAt');
+  });
+});
+
+describe('global recording policy gates (platform_settings.video_recording_enabled)', () => {
+  const driverId = '22222222-2222-4222-8222-222222222222';
+  const bookingId = '11111111-1111-4111-8111-111111111111';
+  const sessionId = '55555555-5555-4555-8555-555555555555';
+  const disabledAt = new Date('2026-07-30T12:30:00.000Z');
+  const newSegment = {
+    clientSegmentId: '99999999-9999-4999-8999-999999999999',
+    sequenceNumber: 3,
+    mimeType: 'video/mp4',
+    fileSizeBytes: 100,
+  };
+
+  beforeEach(() => {
+    recordingPolicyState.enabled = false;
+    recordingPolicyState.updatedAt = disabledAt;
+  });
+
+  it('blocks creating a new session when the Admin setting is OFF', async () => {
+    const { createOrRestoreRideVideoSession } = await loadService();
+    mockFindBookingById.mockResolvedValue(makeBooking());
+    enqueueSelect([]); // findRecoverableSession
+
+    await expect(createOrRestoreRideVideoSession(bookingId, driverId)).rejects.toMatchObject({
+      code: 'VIDEO_RECORDING_DISABLED',
+      statusCode: 503,
+    });
+    expect(mockDb.insert).not.toHaveBeenCalled();
+  });
+
+  it('still restores an existing session so footage already recorded can drain', async () => {
+    const { createOrRestoreRideVideoSession } = await loadService();
+    const existing = makeSession();
+    mockFindBookingById.mockResolvedValue(makeBooking());
+    enqueueSelect([existing]);
+
+    await expect(createOrRestoreRideVideoSession(bookingId, driverId)).resolves.toMatchObject({
+      id: existing.id,
+    });
+    expect(mockDb.insert).not.toHaveBeenCalled();
+  });
+
+  it('fails closed with 503 VIDEO_RECORDING_POLICY_UNAVAILABLE when the DB read fails', async () => {
+    recordingPolicyState.fail = true;
+    const { createOrRestoreRideVideoSession } = await loadService();
+    mockFindBookingById.mockResolvedValue(makeBooking());
+    enqueueSelect([]);
+
+    await expect(createOrRestoreRideVideoSession(bookingId, driverId)).rejects.toMatchObject({
+      code: 'VIDEO_RECORDING_POLICY_UNAVAILABLE',
+      statusCode: 503,
+    });
+    expect(mockDb.insert).not.toHaveBeenCalled();
+  });
+
+  it('rejects a new segment recorded after the policy was switched OFF', async () => {
+    const { registerRideVideoSegment } = await loadService();
+    mockFindBookingById.mockResolvedValue(makeBooking());
+    enqueueSelect([makeSession()]); // startedAt 12:00 < disabledAt 12:30
+    enqueueSelect([]); // duplicates
+
+    await expect(
+      registerRideVideoSegment(sessionId, driverId, {
+        ...newSegment,
+        recordedAt: new Date('2026-07-30T12:45:00.000Z'),
+      })
+    ).rejects.toMatchObject({ code: 'VIDEO_RECORDING_DISABLED', statusCode: 503 });
+    expect(mockDb.insert).not.toHaveBeenCalled();
+  });
+
+  it('rejects a new segment without recordedAt while OFF', async () => {
+    const { registerRideVideoSegment } = await loadService();
+    mockFindBookingById.mockResolvedValue(makeBooking());
+    enqueueSelect([makeSession()]);
+    enqueueSelect([]);
+
+    await expect(registerRideVideoSegment(sessionId, driverId, newSegment)).rejects.toMatchObject({
+      code: 'VIDEO_RECORDING_DISABLED',
+    });
+  });
+
+  it('accepts a new segment recorded before switch-off (drain)', async () => {
+    const { registerRideVideoSegment } = await loadService();
+    const inserted = makeSegment({
+      id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      clientSegmentId: newSegment.clientSegmentId,
+      sequenceNumber: newSegment.sequenceNumber,
+    });
+    mockFindBookingById.mockResolvedValue(makeBooking());
+    enqueueSelect([makeSession()]);
+    enqueueSelect([]); // duplicates
+    enqueueInsert([inserted]);
+
+    const result = await registerRideVideoSegment(sessionId, driverId, {
+      ...newSegment,
+      recordedAt: new Date('2026-07-30T12:29:55.000Z'),
+    });
+    expect(result.segment.id).toBe(inserted.id);
+    expect(result.upload.method).toBe('PUT');
+  });
+
+  it('rejects draining into a session that started after switch-off', async () => {
+    const { registerRideVideoSegment } = await loadService();
+    mockFindBookingById.mockResolvedValue(makeBooking());
+    enqueueSelect([makeSession({ startedAt: new Date('2026-07-30T12:40:00.000Z') })]);
+    enqueueSelect([]);
+
+    await expect(
+      registerRideVideoSegment(sessionId, driverId, {
+        ...newSegment,
+        recordedAt: new Date('2026-07-30T12:29:00.000Z'),
+      })
+    ).rejects.toMatchObject({ code: 'VIDEO_RECORDING_DISABLED' });
+  });
+
+  it('keeps idempotent re-registration of an already registered segment working while OFF', async () => {
+    const { registerRideVideoSegment } = await loadService();
+    const existing = makeSegment();
+    mockFindBookingById.mockResolvedValue(makeBooking());
+    enqueueSelect([makeSession()]);
+    enqueueSelect([existing]);
+
+    const result = await registerRideVideoSegment(sessionId, driverId, {
+      clientSegmentId: existing.clientSegmentId as string,
+      sequenceNumber: 0,
+      mimeType: 'video/mp4',
+      fileSizeBytes: 100,
+    });
+    expect(result.segment.id).toBe(existing.id);
+  });
+
+  it('keeps PUT uploads of already authorised segments working while OFF', async () => {
+    const { uploadRideVideoSegment } = await loadService();
+    const { createUploadToken } = await loadStorage();
+    const buffer = Buffer.from('recorded-before-switch-off');
+    const checksum = createHash('sha256').update(buffer).digest('hex');
+    const segment = makeSegment({ fileSizeBytes: buffer.length, checksum: null });
+    mockFindBookingById.mockResolvedValue(makeBooking());
+    enqueueSelect([segment], [makeSession()]);
+    enqueueUpdate([
+      makeSegment({ uploadStatus: 'uploaded', fileSizeBytes: buffer.length, checksum }),
+    ]);
+    mockSavePrivateSegment.mockResolvedValue({ fileSizeBytes: buffer.length, checksum });
+    const { token } = createUploadToken({
+      segmentId: segment.id as string,
+      driverId,
+      storageKey: segment.storageKey as string,
+    });
+
+    const result = await uploadRideVideoSegment({
+      segmentId: segment.id as string,
+      driverId,
+      token,
+      mimeType: 'video/mp4',
+      buffer,
+    });
+    expect(result.uploadStatus).toBe('uploaded');
+  });
+
+  it('blocks resuming a paused session while OFF but still allows pause', async () => {
+    const { resumeRideVideoSession, pauseRideVideoSession } = await loadService();
+    mockFindBookingById.mockResolvedValue(makeBooking());
+    enqueueSelect([makeSession({ status: 'paused' })]);
+    await expect(resumeRideVideoSession(sessionId, driverId)).rejects.toMatchObject({
+      code: 'VIDEO_RECORDING_DISABLED',
+    });
+
+    enqueueSelect([makeSession({ status: 'active' })]);
+    enqueueUpdate([makeSession({ status: 'paused', pausedAt: disabledAt })]);
+    await expect(pauseRideVideoSession(sessionId, driverId)).resolves.toMatchObject({
+      status: 'paused',
+    });
+  });
+
+  it('reports recordingEnabled=false and stops shouldContinueRecording in session status', async () => {
+    const { getRideVideoSessionStatus } = await loadService();
+    mockFindBookingById.mockResolvedValue(makeBooking());
+    enqueueSelect([makeSession()]);
+    enqueueSelect([makeSegment({ uploadStatus: 'pending' })]);
+
+    const status = await getRideVideoSessionStatus(bookingId, driverId);
+    expect(status.recordingEnabled).toBe(false);
+    expect(status.shouldContinueRecording).toBe(false);
+    expect(status.pendingOrFailedSegmentCount).toBe(1);
+  });
+
+  it('treats an unreadable policy as OFF in session status', async () => {
+    recordingPolicyState.enabled = true;
+    recordingPolicyState.fail = true;
+    const { getRideVideoSessionStatus } = await loadService();
+    mockFindBookingById.mockResolvedValue(makeBooking());
+    enqueueSelect([]);
+
+    const status = await getRideVideoSessionStatus(bookingId, driverId);
+    expect(status.recordingEnabled).toBe(false);
+    expect(status.shouldContinueRecording).toBe(false);
   });
 });
 

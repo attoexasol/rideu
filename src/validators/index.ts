@@ -871,6 +871,16 @@ export const updateSettlementSettingsSchema = z
   })
   .strict();
 
+export const updateVideoRecordingConfigSchema = z
+  .object({
+    enabled: z.boolean({
+      required_error: 'enabled is required',
+      invalid_type_error: 'enabled must be a boolean',
+    }),
+    expectedVersion: z.number().int().nonnegative().optional(),
+  })
+  .strict();
+
 const airportFeeInput = z.union([z.number(), z.string()]);
 
 export const createAirportSchema = z

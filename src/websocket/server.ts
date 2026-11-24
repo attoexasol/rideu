@@ -20,6 +20,8 @@ import { verifyBearerToken } from '../utils/jwt-verifier';
 import { db } from '../db/connection';
 import { drivers } from '../db/schema/drivers';
 import { eq } from 'drizzle-orm';
+import { ALL_DRIVERS_ROOM } from '../services/bookingNotify.service';
+import { syncVideoRecordingConfigToSocket } from '../services/videoRecordingPolicy.service';
 
 /**
  * Connection state manager (in-memory tracking)
@@ -199,6 +201,7 @@ export function setupWebSocketServer(httpServer: HTTPServer): Server {
       if (looksLikeUuid) {
         const room = `driver-${socketData.userId}`;
         socket.join(room);
+        socket.join(ALL_DRIVERS_ROOM);
         const roomSize = io.sockets.adapter.rooms.get(room)?.size || 0;
         console.info('[Socket] driver room joined', {
           driverId: socketData.userId,
@@ -260,6 +263,9 @@ export function setupWebSocketServer(httpServer: HTTPServer): Server {
         room,
         rooms: Array.from(socket.rooms),
       });
+      if (socket.rooms.has(ALL_DRIVERS_ROOM)) {
+        void syncVideoRecordingConfigToSocket(socket);
+      }
     }
 
     // Handle heartbeat

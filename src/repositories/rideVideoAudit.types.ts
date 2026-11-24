@@ -11,4 +11,5 @@ export type RideVideoAuditAction =
   | 'VIEWED_HEALTH'
   | 'VIEWED_TIMELINE'
   | 'VIEWED_SEGMENTS'
-  | 'VIEWED_AUDIT';
+  | 'VIEWED_AUDIT'
+  | 'RECORDING_POLICY_UPDATED';

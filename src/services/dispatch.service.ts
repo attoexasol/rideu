@@ -40,6 +40,7 @@ import { buildOfferEventPayload } from './driverBooking.service';
 import { formatPassengerAcceptedEvent } from './rideHistory.service';
 import { notifyDriverOfPersistedOffer } from './driverOfferNotify.service';
 import { notifyPassengerOfRideEvent } from './passengerRideNotify.service';
+import { isVideoRecordingEffectivelyEnabled } from './videoRecordingPolicy.service';
 import { logger } from '../middleware/logger';
 
 interface DriverCandidate {
@@ -350,6 +351,28 @@ export async function acceptBookingOffer(
     return await acceptBookingOfferInternal(bookingId, driverId, offerId);
   } finally {
     await clearDriverAcceptingOffer(driverId);
+  }
+}
+
+/** Emits `recording:session_available` only while recording is effectively enabled. */
+export async function emitRecordingSessionAvailableIfPermitted(params: {
+  bookingId: string;
+  driverId: string;
+  passengerId: string;
+}): Promise<boolean> {
+  if (!(await isVideoRecordingEffectivelyEnabled('dispatch.accept'))) return false;
+  const { emitRideVideoAvailable } = await import('./rideVideo.service');
+  try {
+    await emitRideVideoAvailable(params);
+    return true;
+  } catch (error) {
+    logger.warn({
+      event: 'recording.session_available_emit_failed',
+      bookingId: params.bookingId,
+      driverId: params.driverId,
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+    return false;
   }
 }
 
@@ -733,22 +756,11 @@ async function acceptBookingOfferInternal(
     status: BookingStatus.DRIVER_EN_ROUTE,
   });
 
-  const { videoConfig } = await import('../config/video');
-  if (videoConfig.enabled) {
-    const { emitRideVideoAvailable } = await import('./rideVideo.service');
-    await emitRideVideoAvailable({
-      bookingId,
-      driverId,
-      passengerId: booking.customerId,
-    }).catch((error) => {
-      logger.warn({
-        event: 'recording.session_available_emit_failed',
-        bookingId,
-        driverId,
-        message: error instanceof Error ? error.message : 'Unknown error',
-      });
-    });
-  }
+  await emitRecordingSessionAvailableIfPermitted({
+    bookingId,
+    driverId,
+    passengerId: booking.customerId,
+  });
 
   logger.info({
     event: 'driver.accept.emits',

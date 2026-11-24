@@ -10,6 +10,7 @@ import {
   getBookingDetail,
 } from '../repositories/booking.repository';
 import { findActiveSessionByBooking } from './liveVideo.service';
+import { isVideoRecordingEffectivelyEnabled } from './videoRecordingPolicy.service';
 import { resolveBookingRoute, type BookingRouteDto } from './bookingRoute.service';
 import { historyDetailFields } from './rideHistory.service';
 import { logger } from '../middleware/logger';
@@ -62,6 +63,7 @@ async function loadOptionalVideoMetadata(
   bookingStatus: string
 ): Promise<DriverVideoMetadata | null> {
   try {
+    const recordingEffective = await isVideoRecordingEffectivelyEnabled('driver.booking.video');
     const session = await findActiveSessionByBooking(bookingId);
     const segments = session
       ? await (await import('./liveVideo.service')).listLiveSegments(session.id)
@@ -70,12 +72,12 @@ async function loadOptionalVideoMetadata(
       segments.length > 0 ? Math.max(...segments.map((s) => s.sequenceNumber)) + 1 : 0;
 
     return {
-      required: videoConfig.enabled,
+      required: recordingEffective,
       sessionId: session?.id ?? null,
       nextSegmentIndex,
       segmentDurationSeconds: videoConfig.segmentDurationSeconds,
       active:
-        videoConfig.enabled &&
+        recordingEffective &&
         DRIVER_ACTIVE_STATUSES.includes(bookingStatus as (typeof DRIVER_ACTIVE_STATUSES)[number]) &&
         session?.status === 'active',
     };

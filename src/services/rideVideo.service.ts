@@ -39,6 +39,12 @@ const REGISTERABLE_SESSION_STATUSES = ['active', 'paused'];
 const UPLOADABLE_SESSION_STATUSES = ['active', 'paused', 'finalizing'];
 
 import { RideVideoError } from './rideVideo.errors';
+import {
+  assertVideoRecordingPolicyEnabled,
+  getVideoRecordingSetting,
+  isVideoRecordingSettingEnabled,
+  videoRecordingDisabled,
+} from './videoRecordingPolicy.service';
 
 export { RideVideoError } from './rideVideo.errors';
 
@@ -54,6 +60,41 @@ function consentStatus(booking: Awaited<ReturnType<typeof findBookingById>>) {
 function assertRecordingEnabled(): void {
   if (!videoConfig.enabled) {
     throw new RideVideoError('VIDEO_RECORDING_DISABLED', 'Ride video recording is disabled', 503);
+  }
+}
+
+/**
+ * While the global policy is OFF, a new segment is accepted only if it was
+ * recorded before the policy was switched off, in a session that started
+ * before then (draining footage already on the device). One segment duration
+ * of tolerance covers the segment in progress at switch-off and clock skew.
+ */
+async function assertNewSegmentAllowedByPolicy(
+  session: typeof videoSessions.$inferSelect,
+  recordedAt: Date | undefined
+): Promise<void> {
+  const setting = await getVideoRecordingSetting();
+  if (setting.enabled) return;
+
+  const disabledAt = setting.updatedAt?.getTime();
+  const startedAt = (session.startedAt ?? session.createdAt)?.getTime();
+  const recordedAtMs = recordedAt?.getTime();
+  const toleranceMs = videoConfig.segmentDurationSeconds * 1000;
+  const recordedBeforeDisable =
+    disabledAt !== undefined &&
+    startedAt !== undefined &&
+    recordedAtMs !== undefined &&
+    Number.isFinite(recordedAtMs) &&
+    startedAt < disabledAt &&
+    recordedAtMs <= disabledAt + toleranceMs;
+  if (!recordedBeforeDisable) {
+    logger.info({
+      event: 'recording.segment_rejected_policy_off',
+      bookingId: session.bookingId,
+      sessionId: session.id,
+      driverId: session.driverId,
+    });
+    throw videoRecordingDisabled();
   }
 }
 
@@ -310,6 +351,7 @@ export async function createOrRestoreRideVideoSession(bookingId: string, driverI
     return formatSession(existing);
   }
 
+  await assertVideoRecordingPolicyEnabled();
   const now = new Date();
   let session: typeof videoSessions.$inferSelect;
   try {
@@ -379,6 +421,7 @@ export async function getRideVideoSessionStatus(bookingId: string, driverId: str
   }
   const session = await findRecoverableSession(bookingId, driverId);
   const authoritativeConsent = consentStatus(booking);
+  const recordingEnabled = await isVideoRecordingSettingEnabled('session_status');
   if (!session) {
     return {
       session: null,
@@ -386,7 +429,9 @@ export async function getRideVideoSessionStatus(bookingId: string, driverId: str
       nextExpectedSequenceNumber: 0,
       uploadedSegmentCount: 0,
       pendingOrFailedSegmentCount: 0,
+      recordingEnabled,
       shouldContinueRecording:
+        recordingEnabled &&
         RECORDABLE_BOOKING_STATUSES.includes(booking.status) &&
         ['granted', 'not_required'].includes(authoritativeConsent),
       bookingStatus: booking.status,
@@ -411,7 +456,9 @@ export async function getRideVideoSessionStatus(bookingId: string, driverId: str
     pendingOrFailedSegmentCount: segments.filter((segment) =>
       ['pending', 'uploading', 'failed'].includes(segment.uploadStatus)
     ).length,
+    recordingEnabled,
     shouldContinueRecording:
+      recordingEnabled &&
       REGISTERABLE_SESSION_STATUSES.includes(session.status) &&
       RECORDABLE_BOOKING_STATUSES.includes(booking.status) &&
       ['granted', 'not_required'].includes(authoritativeConsent),
@@ -513,6 +560,7 @@ export async function registerRideVideoSegment(
       409
     );
   }
+  await assertNewSegmentAllowedByPolicy(session, input.recordedAt);
 
   const segmentId = randomUUID();
   const storageKey = createPrivateStorageKey({
@@ -893,6 +941,7 @@ export async function resumeRideVideoSession(sessionId: string, driverId: string
       409
     );
   }
+  await assertVideoRecordingPolicyEnabled();
   const { consentStatus: status } = await assertRecordableBooking(session.bookingId, driverId);
   const updated = await db
     .update(videoSessions)

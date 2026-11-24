@@ -6,6 +6,7 @@ import { emitLiveVideoSegment } from './bookingNotify.service';
 import { BookingStatus } from '../constants/bookingStatus';
 import { findBookingById } from '../repositories/booking.repository';
 import { videoConfig } from '../config/video';
+import { isVideoRecordingSettingEnabled } from './videoRecordingPolicy.service';
 
 export async function startVideoSessionForTrip(params: {
   tripId: string;
@@ -85,6 +86,11 @@ export async function uploadLiveChunk(params: {
   if (videoConfig.enabled) {
     const err = new Error('Legacy public live-chunk uploads are disabled');
     (err as any).code = 'LEGACY_VIDEO_UPLOAD_DISABLED';
+    throw err;
+  }
+  if (!(await isVideoRecordingSettingEnabled('legacy_live_chunk'))) {
+    const err = new Error('Ride video recording is disabled');
+    (err as any).code = 'VIDEO_RECORDING_DISABLED';
     throw err;
   }
 

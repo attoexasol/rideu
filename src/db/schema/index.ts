@@ -42,6 +42,7 @@ export * from './passenger_push_tokens';
 export * from './booking_payments';
 export * from './booking_settlements';
 export * from './settlement_settings';
+export * from './platform_settings';
 export * from './airports';
 export * from './ride_markets';
 export * from './service_category_market_fares';
@@ -92,6 +93,7 @@ import { passengerPushTokens } from './passenger_push_tokens';
 import { bookingPayments } from './booking_payments';
 import { bookingSettlements } from './booking_settlements';
 import { settlementSettings } from './settlement_settings';
+import { platformSettings } from './platform_settings';
 import { airports } from './airports';
 import { rideMarkets } from './ride_markets';
 import { serviceCategoryMarketFares } from './service_category_market_fares';
@@ -149,6 +151,7 @@ export const schema = {
   bookingPayments,
   bookingSettlements,
   settlementSettings,
+  platformSettings,
   airports,
   rideMarkets,
   serviceCategoryMarketFares,

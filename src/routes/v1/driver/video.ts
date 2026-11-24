@@ -10,6 +10,7 @@ import {
   resumeVideoSessionHandler,
   uploadRegisteredVideoSegmentHandler,
 } from '../../../controllers/rideVideo.controller';
+import { getDriverVideoRecordingConfigHandler } from '../../../controllers/videoRecordingConfig.controller';
 import { requireAuth, extractUserInfo } from '../../../middleware/auth';
 import { asyncHandler } from '../../../middleware/error-handler';
 import { validateUploadTokenBeforeBody } from '../../../middleware/videoUploadToken';
@@ -28,6 +29,12 @@ import {
 
 const router = express.Router();
 const driverAuth = [requireAuth, extractUserInfo, ...requireDriver];
+
+router.get(
+  '/recording-config',
+  ...driverAuth,
+  asyncHandler(getDriverVideoRecordingConfigHandler)
+);
 
 router.post(
   '/sessions/:sessionId/segments',

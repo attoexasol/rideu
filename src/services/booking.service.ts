@@ -57,6 +57,7 @@ import {
 } from './bookingNotify.service';
 import { releaseDriverAvailability } from './driverAvailability.service';
 import { videoConfig } from '../config/video';
+import { isVideoRecordingEffectivelyEnabled } from './videoRecordingPolicy.service';
 import { generateBookingNumber, generateShareToken } from '../utils/geo';
 import { scopeCancelIdempotencyKey } from '../utils/booking-idempotency';
 import { bookingOffers } from '../db/schema/booking_offers';
@@ -670,9 +671,14 @@ export async function updateBookingStatusByDriver(
     patch.arrivedAt = new Date();
   }
 
+  const recordingEffective =
+    newStatus === BookingStatus.IN_PROGRESS
+      ? await isVideoRecordingEffectivelyEnabled('booking.start_ride')
+      : false;
+
   if (newStatus === BookingStatus.IN_PROGRESS) {
     if (
-      videoConfig.enabled &&
+      recordingEffective &&
       videoConfig.consentRequired &&
       (booking.recordingConsentStatus === 'denied' ||
         (booking.recordingConsentStatus !== 'granted' && !booking.recordingConsentedAt))
@@ -780,7 +786,7 @@ export async function updateBookingStatusByDriver(
     return {
       ...updated,
       video: {
-        required: true,
+        required: recordingEffective,
         sessionId: session?.id ?? null,
         segmentDurationSeconds: videoConfig.segmentDurationSeconds,
         nextSegmentIndex: 0,

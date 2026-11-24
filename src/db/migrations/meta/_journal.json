@@ -288,6 +288,13 @@
       "when": 1790600000000,
       "tag": "0040_metered_post_trip_billing",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1790700000000,
+      "tag": "0041_platform_settings_video_recording",
+      "breakpoints": true
     }
   ]
 }
