@@ -13,12 +13,14 @@ import {
   forceEndDutySchema,
   listAdminFleetVehiclesQuerySchema,
   patchAdminFleetVehicleSchema,
+  createVehicleSchema,
 } from '../../../validators';
 import {
   listOrganizationsHandler,
   listFleetsHandler,
   listAdminFleetVehiclesHandler,
   listFleetVehiclesHandler,
+  createAdminFleetVehicleHandler,
   updateAdminFleetVehicleHandler,
   issueVehicleQrHandler,
   revokeVehicleQrHandler,
@@ -53,6 +55,13 @@ router.get(
   ...fleetVehicleListAuth,
   validate(listAdminFleetVehiclesQuerySchema, 'query'),
   asyncHandler(listAdminFleetVehiclesHandler)
+);
+
+router.post(
+  '/vehicles',
+  ...adminAuth,
+  validate(createVehicleSchema),
+  asyncHandler(createAdminFleetVehicleHandler)
 );
 
 router.patch(

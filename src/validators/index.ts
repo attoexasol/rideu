@@ -195,18 +195,60 @@ export const companyCheckInQrQuerySchema = z.object({
   format: z.enum(['png', 'base64']).optional().default('png'),
 });
 
-export const createVehicleSchema = z.object({
-  make: z.preprocess((v) => (v === '' ? undefined : v), z.string().optional()),
-  model: z.preprocess((v) => (v === '' ? undefined : v), z.string().optional()),
-  year: z.preprocess(
-    (v) => (v === '' || v === null || v === undefined ? undefined : Number(v)),
-    z.number().int().min(1900).max(2100).optional()
-  ),
-  plateNumber: z.preprocess((v) => (v === '' ? undefined : v), z.string().max(50).optional()),
-  vin: z.preprocess((v) => (v === '' ? undefined : v), z.string().max(17).optional()),
-  bodyNumber: z.preprocess((v) => (v === '' ? undefined : v), z.string().max(100).optional()),
-  status: z.enum(['active', 'inactive', 'maintenance']).optional().default('active'),
-});
+const blankToUndefined = (v: unknown) =>
+  typeof v === 'string' && v.trim() === '' ? undefined : v === null ? undefined : v;
+
+const requiredVehicleText = (label: string, max: number) =>
+  z.preprocess(
+    blankToUndefined,
+    z
+      .string({ required_error: `${label} is required`, invalid_type_error: `${label} must be text` })
+      .trim()
+      .min(1, `${label} is required`)
+      .max(max, `${label} must be ${max} characters or less`)
+  );
+
+export const VEHICLE_STATUSES = [
+  'active',
+  'inactive',
+  'maintenance',
+  'approved',
+  'pending',
+  'rejected',
+] as const;
+
+export const createVehicleSchema = z
+  .object({
+    make: requiredVehicleText('Make', 100),
+    model: requiredVehicleText('Model', 100),
+    year: z.preprocess(
+      (v) => (blankToUndefined(v) === undefined ? undefined : Number(v)),
+      z
+        .number({ required_error: 'Year is required', invalid_type_error: 'Year must be a number' })
+        .int('Year must be a whole number')
+        .min(1900, 'Year must be 1900 or later')
+        .max(new Date().getFullYear() + 1, 'Year cannot be more than one year in the future')
+    ),
+    color: requiredVehicleText('Color', 50),
+    plateNumber: requiredVehicleText('Plate number', 50),
+    vin: z.preprocess(
+      (v) => {
+        const value = blankToUndefined(v);
+        return typeof value === 'string' ? value.trim().toUpperCase() : value;
+      },
+      z
+        .string()
+        .regex(/^[A-HJ-NPR-Z0-9]{17}$/, 'VIN must be 17 characters (letters except I, O, Q, and digits)')
+        .optional()
+    ),
+    bodyNumber: z.preprocess(
+      blankToUndefined,
+      z.string().trim().max(100, 'Body number must be 100 characters or less').optional()
+    ),
+    fleetId: z.string({ required_error: 'Fleet is required' }).uuid('Invalid fleet ID'),
+    status: z.enum(VEHICLE_STATUSES).optional().default('active'),
+  })
+  .strict();
 
 export const scanVehicleSchema = z.object({
   driverId: z.string().uuid('Invalid driver ID'),

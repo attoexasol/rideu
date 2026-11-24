@@ -32,6 +32,10 @@ import {
   AdminFleetVehicleUpdateError,
 } from '../services/adminFleetVehicleUpdate.service';
 import {
+  createAdminFleetVehicle,
+  AdminFleetVehicleCreateError,
+} from '../services/adminFleetVehicleCreate.service';
+import {
   resolveVehicleProfile,
   validateVehicleProfileForQr,
 } from '../services/adminVehicleProfile.service';
@@ -97,6 +101,30 @@ export async function listFleetVehiclesHandler(req: Request, res: Response) {
   const { fleetId } = req.params;
   const rows = await db.select().from(vehicles).where(eq(vehicles.fleetId, fleetId));
   return sendSuccess(res, rows);
+}
+
+export async function createAdminFleetVehicleHandler(req: Request, res: Response) {
+  const user = (req as Request & {
+    user?: { role?: string; permissions?: string[]; fleetIds?: string[]; userId?: string };
+  }).user;
+
+  if (!user?.role) {
+    return sendError(res, 'AUTH_FAILED', 'Authentication required', 401);
+  }
+
+  try {
+    const scope = resolveAdminFleetScope(user);
+    const data = await createAdminFleetVehicle(scope, req.body, user.userId ?? null);
+    return sendSuccess(res, data, 201);
+  } catch (err) {
+    if (err instanceof AdminFleetAccessError) {
+      return sendError(res, err.code, err.message, err.statusCode);
+    }
+    if (err instanceof AdminFleetVehicleCreateError) {
+      return sendError(res, err.code, err.message, err.statusCode);
+    }
+    throw err;
+  }
 }
 
 export async function updateAdminFleetVehicleHandler(req: Request, res: Response) {
