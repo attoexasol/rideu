@@ -246,7 +246,7 @@ export const createVehicleSchema = z
       z.string().trim().max(100, 'Body number must be 100 characters or less').optional()
     ),
     fleetId: z.string({ required_error: 'Fleet is required' }).uuid('Invalid fleet ID'),
-    status: z.enum(VEHICLE_STATUSES).optional().default('active'),
+    status: z.enum(VEHICLE_STATUSES).optional().default('pending'),
   })
   .strict();
 

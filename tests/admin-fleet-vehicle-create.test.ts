@@ -71,6 +71,14 @@ describe('POST /api/v1/admin/fleet/vehicles — authorization and validation', (
     mockUser = { role: 'admin', permissions: [], fleetIds: [] };
   });
 
+  it('defaults an omitted status to pending and keeps explicit statuses', async () => {
+    const { createVehicleSchema, VEHICLE_STATUSES } = await import('../src/validators');
+    expect(createVehicleSchema.parse(validBody(fleetId)).status).toBe('pending');
+    for (const status of VEHICLE_STATUSES) {
+      expect(createVehicleSchema.parse(validBody(fleetId, { status })).status).toBe(status);
+    }
+  });
+
   it('rejects unauthenticated requests with 401', async () => {
     const res = await request(app).post('/api/v1/admin/fleet/vehicles').send(validBody(fleetId));
     expect(res.status).toBe(401);
@@ -187,7 +195,7 @@ describe('POST /api/v1/admin/fleet/vehicles — authorization and validation', (
     return res;
   }
 
-  it('admin creates a vehicle (201) with audit and no QR token', async () => {
+  it('admin creates a vehicle (201) defaulting to pending, with audit and no QR token', async () => {
     const body = validBody(fleetId, {
       vin: '1hgcm82633a004352',
       bodyNumber: 'B-77',
@@ -207,8 +215,8 @@ describe('POST /api/v1/admin/fleet/vehicles — authorization and validation', (
       vin: '1HGCM82633A004352',
       bodyNumber: 'B-77',
       fleetId,
-      status: 'active',
-      approvalStatus: 'approved',
+      status: 'pending',
+      approvalStatus: 'pending',
       fleet: { id: fleetId },
       organization: { id: orgId },
       serviceCategories: [],
@@ -239,9 +247,15 @@ describe('POST /api/v1/admin/fleet/vehicles — authorization and validation', (
   });
 
   it('super_admin creates a vehicle with an explicit supported status', async () => {
-    const res = await create('super_admin', validBody(fleetId, { status: 'pending' }));
+    const res = await create('super_admin', validBody(fleetId, { status: 'maintenance' }));
     expect(res.status).toBe(201);
-    expect(res.body.data).toMatchObject({ status: 'pending', approvalStatus: 'pending' });
+    expect(res.body.data).toMatchObject({ status: 'maintenance', approvalStatus: 'maintenance' });
+  });
+
+  it('admin can still explicitly create an active vehicle', async () => {
+    const res = await create('admin', validBody(fleetId, { status: 'active' }));
+    expect(res.status).toBe(201);
+    expect(res.body.data).toMatchObject({ status: 'active', approvalStatus: 'approved' });
   });
 
   it('rejects a duplicate plate number (case-insensitive) with 409', async () => {
