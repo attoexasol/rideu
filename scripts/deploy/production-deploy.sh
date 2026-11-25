@@ -60,8 +60,20 @@ pre_migration_backup() {
 
   echo "==> Ensuring postgres is up for backup"
   "${COMPOSE[@]}" up -d postgres
-  "${COMPOSE[@]}" exec -T postgres \
-    pg_isready -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" >/dev/null
+  # A recreated container accepts exec before the server accepts connections.
+  local i
+  for i in $(seq 1 30); do
+    if "${COMPOSE[@]}" exec -T postgres \
+      pg_isready -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" >/dev/null 2>&1; then
+      break
+    fi
+    if [[ "$i" -eq 30 ]]; then
+      echo "ERROR: postgres did not become ready within 60s"
+      "${COMPOSE[@]}" logs --tail=50 postgres || true
+      exit 1
+    fi
+    sleep 2
+  done
 
   local table_count
   table_count="$("${COMPOSE[@]}" exec -T postgres \
