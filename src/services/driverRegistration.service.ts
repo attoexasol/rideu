@@ -6,6 +6,7 @@ import { drivers } from '../db/schema/drivers';
 import { auth0Management } from './auth0Management';
 import { generateUniqueDriverQrCode } from './driverQrCode.service';
 import { ensureDriverVehicleQrCode } from './vehicleQrCode.service';
+import { insertDriverWithFleetMembership, resolvePlatformFleetId } from './defaultFleet.service';
 
 export class DriverRegistrationError extends Error {
   constructor(
@@ -179,6 +180,16 @@ export async function registerDriver(input: {
     );
   }
 
+  let fleetId: string;
+  try {
+    fleetId = await resolvePlatformFleetId();
+  } catch (error) {
+    console.error('[driver-register] Platform fleet resolution failed', {
+      message: error instanceof Error ? error.message : 'unknown',
+    });
+    throw new DriverRegistrationError('REGISTRATION_FAILED', 'Unable to create the driver account', 500);
+  }
+
   let auth0User: { user_id: string };
   try {
     auth0User = await auth0Management.createUser({
@@ -218,9 +229,8 @@ export async function registerDriver(input: {
 
   let driver: typeof drivers.$inferSelect;
   try {
-    const [row] = await db
-      .insert(drivers)
-      .values({
+    driver = await insertDriverWithFleetMembership(
+      {
         auth0Id: auth0User.user_id,
         email,
         name,
@@ -228,12 +238,9 @@ export async function registerDriver(input: {
         status: 'offline',
         accountStatus: 'active',
         qrCode,
-      })
-      .returning();
-    if (!row) {
-      throw new Error('Driver insert returned no row');
-    }
-    driver = row;
+      },
+      fleetId
+    );
   } catch (error) {
     const removed = await deleteAuth0User(auth0User.user_id);
     if (!removed) {

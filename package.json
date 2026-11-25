@@ -22,6 +22,7 @@
     "db:backfill-qr": "tsx src/scripts/backfill-driver-qr-codes.ts",
     "db:backfill-vehicle-qr": "tsx src/scripts/backfill-vehicle-qr-codes.ts",
     "db:multi-fleet-backfill": "tsx src/scripts/multi-fleet-backfill.ts",
+    "db:backfill-platform-fleet-memberships": "tsx src/scripts/backfill-driver-platform-fleet-memberships.ts",
     "db:seed": "tsx src/db/seed.ts",
     "db:studio": "drizzle-kit studio"
   },

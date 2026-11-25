@@ -67,6 +67,12 @@ import { generateUniqueDriverQrCode } from '../services/driverQrCode.service';
 import { ensureDriverVehicleQrCode } from '../services/vehicleQrCode.service';
 import { isDeactivatedAccount } from '../services/accountStatus.service';
 import { listDocumentsForDriver } from '../services/driverDocument.service';
+import {
+  insertDriverWithFleetMembership,
+  isFleetSelectionError,
+  resolveFleetForNewRecord,
+} from '../services/defaultFleet.service';
+import { resolveAdminFleetScope, type AdminFleetUser } from '../services/adminFleetAccess.service';
 
 const router = express.Router();
 
@@ -369,6 +375,7 @@ router.post(
       vehicleModel,
       vehicleYear,
       vehicleColor,
+      fleetId: requestedFleetId,
     } = req.body;
 
     const { cabNumber: resolvedCabNumber, cabLicence } = resolveCabFieldsForInsert(req.body);
@@ -403,6 +410,17 @@ router.post(
       return sendError(res, 'DUPLICATE_ERROR', 'Driver with this email already exists', 409);
     }
 
+    let fleetId: string;
+    try {
+      const user = (req as express.Request & { user?: AdminFleetUser }).user;
+      fleetId = await resolveFleetForNewRecord(requestedFleetId, resolveAdminFleetScope(user ?? {}));
+    } catch (error) {
+      if (isFleetSelectionError(error)) {
+        return sendError(res, error.code, error.message, error.statusCode);
+      }
+      throw error;
+    }
+
     try {
       const qrCode = await generateUniqueDriverQrCode();
 
@@ -417,14 +435,14 @@ router.post(
       console.log('✅ Auth0 user created:', auth0User.user_id);
 
       // Create driver in database with Auth0 ID
-      const [newDriver] = await db
-        .insert(drivers)
-        .values({
+      const newDriver = await insertDriverWithFleetMembership(
+        {
           ...insertValues,
           auth0Id: auth0User.user_id,
           qrCode,
-        })
-        .returning();
+        },
+        fleetId
+      );
 
       await ensureDriverVehicleQrCode(newDriver.id);
 

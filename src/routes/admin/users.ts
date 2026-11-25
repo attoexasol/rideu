@@ -23,6 +23,18 @@ import {
 } from '../../utils/cabIdentifier';
 import { generateUniqueDriverQrCode } from '../../services/driverQrCode.service';
 import { ensureDriverVehicleQrCode } from '../../services/vehicleQrCode.service';
+import {
+  insertDriverWithFleetMembership,
+  isFleetSelectionError,
+  resolveFleetForNewRecord,
+} from '../../services/defaultFleet.service';
+import { resolveAdminFleetScope } from '../../services/adminFleetAccess.service';
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isUuid(value: unknown): value is string {
+  return typeof value === 'string' && UUID_PATTERN.test(value);
+}
 
 const router = express.Router();
 
@@ -227,6 +239,7 @@ router.post(
       vehicleModel,
       vehicleYear,
       vehicleColor,
+      fleetId: rawFleetId,
     } = req.body;
     const userRole = (req as any).user?.role;
 
@@ -299,6 +312,26 @@ router.post(
       });
     }
 
+    let driverFleetId: string | null = null;
+    if (role === 'driver') {
+      const requestedFleetId =
+        rawFleetId === undefined || rawFleetId === null || rawFleetId === '' ? undefined : rawFleetId;
+      if (requestedFleetId !== undefined && !isUuid(requestedFleetId)) {
+        return res.status(400).json({ status: 'error', message: 'Invalid fleet ID' });
+      }
+      try {
+        driverFleetId = await resolveFleetForNewRecord(
+          requestedFleetId,
+          resolveAdminFleetScope((req as any).user ?? {})
+        );
+      } catch (error) {
+        if (isFleetSelectionError(error)) {
+          return res.status(error.statusCode).json({ status: 'error', message: error.message });
+        }
+        throw error;
+      }
+    }
+
     try {
       // Create user in Auth0
       let auth0UserId: string;
@@ -366,10 +399,10 @@ router.post(
 
         const qrCode = await generateUniqueDriverQrCode();
 
-        const [newDriver] = await db
-          .insert(drivers)
-          .values({ ...insertValues, qrCode })
-          .returning();
+        const newDriver = await insertDriverWithFleetMembership(
+          { ...insertValues, qrCode },
+          driverFleetId as string
+        );
 
         await ensureDriverVehicleQrCode(newDriver.id);
 

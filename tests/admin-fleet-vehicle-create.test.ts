@@ -113,14 +113,24 @@ describe('POST /api/v1/admin/fleet/vehicles — authorization and validation', (
     expect(res.status).toBe(401);
   });
 
-  it('requires make, model, year, color, plate number and fleet', async () => {
+  it('requires make, model, year, color and plate number, but not fleet', async () => {
     const res = await request(app).post('/api/v1/admin/fleet/vehicles').set(AUTH).send({});
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe('VALIDATION_ERROR');
     const fields = (res.body.error.details as { path: string[] }[]).map((d) => d.path.join('.'));
     expect(fields).toEqual(
-      expect.arrayContaining(['make', 'model', 'year', 'color', 'plateNumber', 'fleetId'])
+      expect.arrayContaining(['make', 'model', 'year', 'color', 'plateNumber'])
     );
+    expect(fields).not.toContain('fleetId');
+  });
+
+  it('treats an omitted, empty or null fleetId as unset in validation', async () => {
+    const { createVehicleSchema } = await import('../src/validators');
+    const { fleetId: _omit, ...withoutFleet } = validBody(fleetId);
+    expect(createVehicleSchema.parse(withoutFleet).fleetId).toBeUndefined();
+    expect(createVehicleSchema.parse(validBody('')).fleetId).toBeUndefined();
+    expect(createVehicleSchema.parse({ ...withoutFleet, fleetId: null }).fleetId).toBeUndefined();
+    expect(createVehicleSchema.parse(validBody(fleetId)).fleetId).toBe(fleetId);
   });
 
   it.each([
@@ -288,6 +298,48 @@ describe('POST /api/v1/admin/fleet/vehicles — authorization and validation', (
       .from(schema.vehicles)
       .where(eq(schema.vehicles.plateNumber, plate));
     expect(rows).toHaveLength(0);
+  });
+
+  it('assigns Platform Fleet when fleetId is omitted, still defaulting to pending', async () => {
+    const { PLATFORM_FLEET_NAME } = await import('../src/config/duty');
+    const { fleetId: _omit, ...body } = validBody(fleetId);
+    const res = await create('admin', body);
+
+    expect(res.status).toBe(201);
+    const { eq } = orm;
+    const [platformFleet] = await conn.db
+      .select()
+      .from(schema.fleets)
+      .where(eq(schema.fleets.name, PLATFORM_FLEET_NAME));
+    expect(platformFleet).toBeDefined();
+    expect(res.body.data).toMatchObject({
+      fleetId: platformFleet.id,
+      fleet: { id: platformFleet.id },
+      status: 'pending',
+    });
+    const [row] = await conn.db
+      .select()
+      .from(schema.vehicles)
+      .where(eq(schema.vehicles.id, res.body.data.id));
+    expect(row.fleetId).toBe(platformFleet.id);
+
+    const platformRows = await conn.db
+      .select()
+      .from(schema.fleets)
+      .where(eq(schema.fleets.name, PLATFORM_FLEET_NAME));
+    expect(platformRows).toHaveLength(1);
+  });
+
+  it('super_admin sending an empty fleetId also lands in Platform Fleet', async () => {
+    const res = await create('super_admin', validBody(fleetId, { fleetId: '' }));
+    expect(res.status).toBe(201);
+    expect(res.body.data.fleet.name).toBe('Platform Fleet');
+  });
+
+  it('keeps an explicitly selected fleet instead of Platform Fleet', async () => {
+    const res = await create('admin', validBody(fleetId));
+    expect(res.status).toBe(201);
+    expect(res.body.data.fleetId).toBe(fleetId);
   });
 
   it('new vehicle appears immediately in GET /vehicles', async () => {

@@ -7,6 +7,7 @@ import { APPROVED_VEHICLE_STATUSES } from '../config/duty';
 import { findFleetById } from '../repositories/organization.repository';
 import { assertFleetAccess, type AdminFleetScope } from './adminFleetAccess.service';
 import { resolveVehicleProfile } from './adminVehicleProfile.service';
+import { resolvePlatformFleetId } from './defaultFleet.service';
 
 export interface CreateAdminFleetVehicleInput {
   make: string;
@@ -16,7 +17,7 @@ export interface CreateAdminFleetVehicleInput {
   plateNumber: string;
   vin?: string;
   bodyNumber?: string;
-  fleetId: string;
+  fleetId?: string;
   status: string;
 }
 
@@ -67,7 +68,8 @@ export async function createAdminFleetVehicle(
   input: CreateAdminFleetVehicleInput,
   actorId?: string | null
 ) {
-  const fleet = await findFleetById(input.fleetId);
+  const fleetId = input.fleetId ?? (await resolvePlatformFleetId());
+  const fleet = await findFleetById(fleetId);
   if (!fleet) {
     throw new AdminFleetVehicleCreateError('FLEET_NOT_FOUND', 'Selected fleet does not exist', 400);
   }

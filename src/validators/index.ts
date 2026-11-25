@@ -91,6 +91,10 @@ export const createDriverSchema = z
         .optional()
     ),
     vehicleColor: z.preprocess((val) => (val === '' ? undefined : val), z.string().optional()),
+    fleetId: z.preprocess(
+      (val) => (val === '' || val === null ? undefined : val),
+      z.string().uuid('Invalid fleet ID').optional()
+    ),
   })
   .transform((data) => {
     const normalized = normalizeCabIdentifierInput(data);
@@ -245,7 +249,10 @@ export const createVehicleSchema = z
       blankToUndefined,
       z.string().trim().max(100, 'Body number must be 100 characters or less').optional()
     ),
-    fleetId: z.string({ required_error: 'Fleet is required' }).uuid('Invalid fleet ID'),
+    fleetId: z.preprocess(
+      (val) => (val === '' || val === null ? undefined : val),
+      z.string().uuid('Invalid fleet ID').optional()
+    ),
     status: z.enum(VEHICLE_STATUSES).optional().default('pending'),
   })
   .strict();

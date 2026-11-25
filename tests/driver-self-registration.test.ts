@@ -32,8 +32,40 @@ function describeSql(condition: unknown): string {
     .join('');
 }
 
-jest.mock('../src/db/connection', () => ({
-  db: {
+const PLATFORM_FLEET_ID = '44444444-4444-4444-8444-444444444444';
+const mockFindFleetByName = jest.fn();
+
+jest.mock('../src/repositories/organization.repository', () => ({
+  ...jest.requireActual('../src/repositories/organization.repository'),
+  findFleetByName: (...args: unknown[]) => mockFindFleetByName(...args),
+}));
+
+jest.mock('../src/db/connection', () => {
+  const insert = (table: unknown) => ({
+    values: (values: Record<string, unknown>) => {
+      const record = () => {
+        inserted.push({ table: nameOf(table), values });
+        if (insertError) throw insertError;
+      };
+      return {
+        returning: async () => {
+          record();
+          return [
+            {
+              id: '11111111-1111-4111-8111-111111111111',
+              ...values,
+            },
+          ];
+        },
+        onConflictDoNothing: async () => {
+          record();
+        },
+      };
+    },
+  });
+  const db = {
+    transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn({ insert }),
+    insert,
     select: () => ({
       from: () => ({
         where: (condition: unknown) => {
@@ -47,28 +79,15 @@ jest.mock('../src/db/connection', () => ({
         },
       }),
     }),
-    insert: (table: unknown) => ({
-      values: (values: Record<string, unknown>) => ({
-        returning: async () => {
-          inserted.push({ table: nameOf(table), values });
-          if (insertError) throw insertError;
-          return [
-            {
-              id: '11111111-1111-4111-8111-111111111111',
-              ...values,
-            },
-          ];
-        },
-      }),
-    }),
     delete: (table: unknown) => ({
       where: async () => {
         const tableName = nameOf(table);
         deleted.push(tableName);
       },
     }),
-  },
-}));
+  };
+  return { db };
+});
 
 jest.mock('../src/services/auth0Management', () => ({
   auth0Management: {
@@ -138,6 +157,7 @@ describe('POST /api/v1/driver/auth/register', () => {
     mockDeleteUser.mockResolvedValue(undefined);
     mockQr.mockResolvedValue('QR-DRIVER-1');
     mockVehicleQr.mockResolvedValue('VQR-DRIVER-1');
+    mockFindFleetByName.mockResolvedValue({ id: PLATFORM_FLEET_ID, name: 'Platform Fleet' });
   });
 
   it('registers with name, email, phone, and password, then asks the driver to log in', async () => {
@@ -182,7 +202,16 @@ describe('POST /api/v1/driver/auth/register', () => {
     expect(mockDeleteUser).not.toHaveBeenCalled();
     expect(mockVehicleQr).toHaveBeenCalledWith('11111111-1111-4111-8111-111111111111');
 
-    expect(inserted).toHaveLength(1);
+    expect(inserted).toHaveLength(2);
+    expect(inserted[1]).toEqual({
+      table: 'driver_fleet_memberships',
+      values: {
+        driverId: '11111111-1111-4111-8111-111111111111',
+        fleetId: PLATFORM_FLEET_ID,
+        status: 'active',
+      },
+    });
+    expect(mockFindFleetByName).toHaveBeenCalledWith('Platform Fleet');
     expect(inserted[0].table).toBe('drivers');
     expect(inserted[0].values).toMatchObject({
       auth0Id: 'auth0|new-driver',
@@ -324,6 +353,17 @@ describe('POST /api/v1/driver/auth/register', () => {
     expect(mockCreateUser).not.toHaveBeenCalled();
   });
 
+  it('fails before creating an Auth0 user when Platform Fleet cannot be resolved', async () => {
+    const err = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    mockFindFleetByName.mockRejectedValue(new Error('db down'));
+    const res = await request(app).post('/api/v1/driver/auth/register').send(validBody);
+    expect(res.status).toBe(500);
+    expect(res.body.error.code).toBe('REGISTRATION_FAILED');
+    expect(mockCreateUser).not.toHaveBeenCalled();
+    expect(inserted).toHaveLength(0);
+    err.mockRestore();
+  });
+
   it('rolls back the Auth0 user when driver insert fails', async () => {
     insertError = new Error('insert failed');
     const res = await request(app).post('/api/v1/driver/auth/register').send(validBody);
@@ -352,8 +392,9 @@ describe('registration does not change login or duty gates', () => {
     expect(authSrc).not.toContain('registerDriver');
   });
 
-  it('does not write fleet, assignment, or category tables', () => {
-    expect(registrationSrc).not.toContain('driverFleetMemberships');
+  it('writes only the Platform Fleet membership, not assignment or category tables', () => {
+    expect(registrationSrc).toContain('insertDriverWithFleetMembership');
+    expect(registrationSrc).toContain('resolvePlatformFleetId');
     expect(registrationSrc).not.toContain('driverVehicleAssignments');
     expect(registrationSrc).not.toContain('driverServiceCategories');
     expect(registrationSrc).not.toContain('vehicleServiceCategories');
